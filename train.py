@@ -4,7 +4,7 @@ import numpy as np
 from keras.datasets import cifar10
 from keras.optimizers import Adam, Optimizer
 from keras.models import Model, Sequential
-from keras.layers import Input, Conv2D, Reshape, Dense, Flatten, BatchNormalization, Activation, Conv2DTranspose, Dropout
+from keras.layers import Input, Conv2D, Reshape, Dense, Flatten, BatchNormalization, Activation, Conv2DTranspose
 from keras.layers.advanced_activations import LeakyReLU
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
@@ -34,6 +34,9 @@ class BIGAN:
 		else:
 			self.train_data = train_images
 
+		# Scale -1 to 1
+		self.train_data = self.train_data / 127.5 - 1.0
+
 		self.image_shape = self.train_data[0].shape
 		self.image_rows = self.image_shape[0]
 		self.image_cols = self.image_shape[1]
@@ -44,7 +47,7 @@ class BIGAN:
 
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_v)
-		self.discriminator.compile(loss="binary_crossentropy", optimizer=self.optimizer, metrics=["binary_accuracy"])
+		self.discriminator.compile(loss="binary_crossentropy", optimizer=self.optimizer,  metrics=['accuracy'])
 
 		# Build generator
 		self.generator = self.build_generator(gen_v)
@@ -62,7 +65,7 @@ class BIGAN:
 		# Combine models
 		# Train generator to fool discriminator
 		self.combined_model = Model(z, valid)
-		self.combined_model.compile(loss="binary_crossentropy", optimizer=self.optimizer, metrics=['binary_accuracy'])
+		self.combined_model.compile(loss="binary_crossentropy", optimizer=self.optimizer)
 
 		# Statistics
 		self.gen_losses = []
@@ -91,30 +94,32 @@ class BIGAN:
 			# (16, 16, 128) -> (32, 32, num_ch)
 			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
 			model.add(Activation("tanh"))
-		else:
-			# (2048,) -> (2, 2, 512)
-			model.add(Dense(2 * 2 * 512, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
-			model.add(Reshape((2, 2, 512)))
+		elif version == 2:
+			# (1024,) -> (2, 2, 256)
+			model.add(Dense(2 * 2 * 256, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
+			model.add(Reshape((2, 2, 256)))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
 
-			# (2, 2, 512) -> (4, 4, 256)
-			model.add(Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same"))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
-
-			# (4, 4, 256) -> (8, 8, 128)
+			# (2, 2, 256) -> (4, 4, 128)
 			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same"))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
 
-			# (8, 8, 128) -> (16, 16, 64)
+			# (4, 4, 128) -> (8, 8, 64)
 			model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same"))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
 
-			# (16, 16, 64) -> (32, 32, num_ch)
+			# (8, 8, 64) -> (16, 16, 32)
+			model.add(Conv2DTranspose(32, (5, 5), strides=(2, 2), padding="same"))
+			model.add(BatchNormalization())
+			model.add(LeakyReLU(0.2))
+
+			# (16, 16, 32) -> (32, 32, num_ch)
 			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", activation="tanh"))
+		else:
+			raise Exception("Generator invalid version")
 
 		print("\nGenerator Sumary:")
 		model.summary()
@@ -144,24 +149,25 @@ class BIGAN:
 			model.add(LeakyReLU(0.2))
 
 			model.add(Flatten())
-		else:
-			model.add(Conv2D(32, 3, padding='same', strides=2, input_shape=self.image_shape, kernel_initializer=self.conv_kerner_initializer))
+		elif version == 2:
+			model.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2), input_shape=self.image_shape, kernel_initializer=self.conv_kerner_initializer))
 			model.add(LeakyReLU(0.2))
-			model.add(Dropout(0.3))
 
-			model.add(Conv2D(64, 3, padding='same', strides=1))
+			model.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
+			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
-			model.add(Dropout(0.3))
 
-			model.add(Conv2D(128, 3, padding='same', strides=2))
+			model.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
+			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
-			model.add(Dropout(0.3))
 
-			model.add(Conv2D(256, 3, padding='same', strides=1))
+			model.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
+			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
-			model.add(Dropout(0.3))
 
 			model.add(Flatten())
+		else:
+			raise Exception("Discriminator invalid version")
 
 		model.add(Dense(1, activation="sigmoid"))
 
@@ -173,13 +179,10 @@ class BIGAN:
 
 		return Model(img, validity)
 
-	def train(self, epochs:int=800, batch_size:int=64, save_interval:int=50, smooth:float=0.1):
+	def train(self, epochs:int=800, batch_size:int=64, save_interval:int=50, smooth:float=0.1, trick_fake:bool=False):
 		# Clear statistics
 		self.gen_losses = []
 		self.disc_losses = []
-
-		# Scale -1 to 1
-		self.train_data = self.train_data / 127.5 - 1.0
 
 		# Validity arrays
 		valid = np.ones((batch_size, 1))
@@ -204,14 +207,18 @@ class BIGAN:
 
 				# Train discriminator (real as ones and fake as zeros)
 				self.discriminator.trainable = True
-				d_loss_real = self.discriminator.train_on_batch(imgs, valid * (1 - smooth))
+				d_loss_real = self.discriminator.train_on_batch(imgs, valid * (1.0 - smooth))
 				d_loss_fake = self.discriminator.train_on_batch(gen_imgs, fake)
 				self.discriminator.trainable = False
-				d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+				d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
 
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
-				g_loss = self.combined_model.train_on_batch(noise, valid)
+				if not trick_fake:
+					g_loss = self.combined_model.train_on_batch(noise, valid)
+				else:
+					trick = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
+					g_loss = self.combined_model.train_on_batch(noise, trick)
 
 			# Save statistics
 			self.gen_losses.append(g_loss)
@@ -219,7 +226,7 @@ class BIGAN:
 
 			# Save progress
 			if (epoch + 1) % save_interval == 0:
-				print(f"{epoch + 1} - [D loss: {d_loss[0]}, acc.: {100 * d_loss[1]}] [G loss: {g_loss[0]}, acc.: {100 * g_loss[1]}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
+				print(f"{epoch + 1} - [D loss: {d_loss[0]}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
 				self.__save_imgs(epoch)
 
 	def __save_imgs(self, epoch):
@@ -242,9 +249,27 @@ class BIGAN:
 		fig.savefig(f"prog_images/{epoch + 1}.png")
 		plt.close()
 
-	def show_sample_of_dataset(self):
-		if self.train_data is None: return
+	def show_current_state(self, num_of_states:int=1, ex:int=3):
+		for _ in range(num_of_states):
+			gen_imgs = self.generator.predict(np.random.normal(size=(ex * ex, self.latent_dim)))
 
+			# Rescale images 0 to 1
+			gen_imgs = 0.5 * gen_imgs + 0.5
+
+			fig, axs = plt.subplots(ex, ex)
+			cnt = 0
+			for i in range(ex):
+				for j in range(ex):
+					if self.image_channels == 3:
+						axs[i, j].imshow(gen_imgs[cnt])
+					else:
+						axs[i, j].imshow(gen_imgs[cnt, :, :, 0], cmap="gray")
+					axs[i, j].axis('off')
+					cnt += 1
+			plt.show()
+			plt.close()
+
+	def show_sample_of_dataset(self):
 		fig, axs = plt.subplots(self.ex, self.ex)
 		cnt = 0
 		for i in range(self.ex):
@@ -259,13 +284,9 @@ class BIGAN:
 		plt.close()
 
 	def show_training_stats(self):
-		disc_losses = np.array(self.disc_losses)
-		gen_losses = np.array(self.gen_losses)
-
-		plt.plot(disc_losses[:, 0])
-		plt.plot(gen_losses[:, 0])
-		plt.plot(gen_losses[:, 1])
-		plt.legend(["Disc Loss", "Gen Loss", "Gen Acc"])
+		plt.plot(self.disc_losses)
+		plt.plot(self.gen_losses)
+		plt.legend(["Disc Loss", "Gen Loss"])
 		plt.show()
 		plt.close()
 
@@ -295,7 +316,7 @@ class BIGAN:
 			elif ans == "n":
 				break
 
-	def make_gif(self):
+	def make_gif(self, path:str="prog_images/progress_gif.gif"):
 		frames = []
 		img_file_names = os.listdir("prog_images")
 
@@ -305,14 +326,15 @@ class BIGAN:
 				frames.append(im)
 
 		if len(frames) > 2:
-			frames[0].save("prog_images/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, duration=120, loop=0)
+			frames[0].save(path, format="GIF", append_images=frames[1:], save_all=True, duration=120, loop=0)
 
 if __name__ == '__main__':
 	gan = BIGAN(None, latent_dim=100, gen_v=2, disc_v=2)
 	# gan.plot_models()
 	# gan.show_sample_of_dataset()
 	gan.clear_output_folder()
-	gan.train(500, 16, 10)
-	gan.make_gif()
+	gan.train(100, 16, 10, smooth=0.0)
+	# gan.make_gif()
+	gan.show_current_state(5)
 	gan.show_training_stats()
 	gan.save_models_prompt()
