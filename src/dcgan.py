@@ -17,10 +17,12 @@ import time
 from tqdm import tqdm
 from typing import Union
 
+from src.batch_maker import BatchMaker
+
 tf.get_logger().setLevel('ERROR')
 
 class DCGAN:
-	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, ex:int=5, gen_v:int=1, disc_v:int=1, progres_image_path:str="prog_images"):
+	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, ex:int=5, gen_v:int=1, disc_v:int=1, progres_image_path:str="prog_images", disc_model:str=None, gen_model:str=None):
 		self.optimizer = optimizer
 		self.latent_dim = latent_dim
 		self.ex = ex
@@ -246,6 +248,9 @@ class DCGAN:
 	def train(self, epochs:int=200, batch_size:int=64, save_interval:int=50, smooth:float=0.1, trick_fake:bool=False):
 		if epochs%save_interval != 0: raise Exception("Invalid save interval")
 
+		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size)
+		batch_maker.start()
+
 		# Validity arrays
 		valid = np.ones((batch_size, 1))
 		fake = np.zeros((batch_size, 1))
@@ -260,12 +265,13 @@ class DCGAN:
 			for batch in range(self.data_length // batch_size):
 				### Train Discriminator ###
 				# Select batch of valid images
-				if type(self.train_data) == list:
-					# Load and normalize images if train_data is list of paths
-					imgs = np.array(self.train_data)[np.random.randint(0, self.data_length, batch_size)]
-					imgs = np.array([cv.imread(im_p) / 127.5 - 1.0 for im_p in imgs])
-				else:
-					imgs = self.train_data[np.random.randint(0, self.data_length, batch_size)]
+				# if type(self.train_data) == list:
+				# 	# Load and normalize images if train_data is list of paths
+				# 	imgs = np.array(self.train_data)[np.random.randint(0, self.data_length, batch_size)]
+				# 	imgs = np.array([cv.imread(im_p) / 127.5 - 1.0 for im_p in imgs])
+				# else:
+				# 	imgs = self.train_data[np.random.randint(0, self.data_length, batch_size)]
+				imgs = batch_maker.get_batch()
 
 				# Sample noise and generate new images
 				noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
@@ -299,6 +305,7 @@ class DCGAN:
 				print(f"[D loss: {d_loss}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
 				self.__save_imgs(self.epoch_counter)
 			self.epoch_counter += 1
+		batch_maker.terminate()
 
 	def __save_imgs(self, epoch):
 		gen_imgs = self.generator.predict(self.static_noise)
@@ -380,15 +387,15 @@ class DCGAN:
 			if os.path.isfile(self.progres_image_path + "/" + im_file):
 				os.remove(self.progres_image_path + "/" + im_file)
 
-	def save_models(self):
-		self.generator.save("generator.h5")
-		self.discriminator.save("discriminator.h5")
+	def save_weights(self, save_directory:str= "."):
+		self.generator.save_weights(f"{save_directory}/generator_{self.epoch_counter}.h5")
+		self.discriminator.save_weights(f"{save_directory}/discriminator_{self.epoch_counter}.h5")
 
-	def save_models_prompt(self):
+	def save_weights_prompt(self, save_directory:str= "."):
 		while True:
 			ans = input("Do you want to save models? (y/n)\n")
 			if ans == "y":
-				self.save_models()
+				self.save_weights(save_directory)
 				break
 			elif ans == "n":
 				break
