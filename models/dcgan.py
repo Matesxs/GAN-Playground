@@ -19,10 +19,11 @@ from typing import Union
 tf.get_logger().setLevel('ERROR')
 
 class DCGAN:
-	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, ex:int=5, gen_v:int=1, disc_v:int=1):
+	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, ex:int=5, gen_v:int=1, disc_v:int=1, progres_image_path:str="prog_images"):
 		self.optimizer = optimizer
 		self.latent_dim = latent_dim
 		self.ex = ex
+		self.progres_image_path = progres_image_path
 
 		if type(train_images) == list:
 			self.train_data = np.array(train_images)
@@ -251,8 +252,8 @@ class DCGAN:
 		valid = np.ones((batch_size, 1))
 		fake = np.zeros((batch_size, 1))
 
-		if not os.path.isdir("prog_images"):
-			os.mkdir("prog_images")
+		if not os.path.isdir(self.progres_image_path):
+			os.mkdir(self.progres_image_path)
 
 		g_loss, d_loss = None, None
 
@@ -317,7 +318,7 @@ class DCGAN:
 				axs[i, j].axis('off')
 				cnt += 1
 
-		fig.savefig(f"prog_images/{epoch + 1}.png")
+		fig.savefig(f"{self.progres_image_path}/{epoch + 1}.png")
 		plt.close()
 
 	def show_current_state(self, num_of_states:int=1, ex:int=3):
@@ -373,12 +374,12 @@ class DCGAN:
 		plot_model(self.discriminator, "discriminator.png", expand_nested=True)
 
 	def clear_output_folder(self):
-		if not os.path.isdir("prog_images"): return
+		if not os.path.isdir(self.progres_image_path): return
 
-		img_file_names = os.listdir("prog_images")
+		img_file_names = os.listdir(self.progres_image_path)
 		for im_file in img_file_names:
-			if os.path.isfile("prog_images/" + im_file):
-				os.remove("prog_images/" + im_file)
+			if os.path.isfile(self.progres_image_path + "/" + im_file):
+				os.remove(self.progres_image_path + "/" + im_file)
 
 	def save_models(self):
 		self.generator.save("generator.h5")
@@ -393,14 +394,16 @@ class DCGAN:
 			elif ans == "n":
 				break
 
-	def make_gif(self, path:str="prog_images/progress_gif.gif"):
+	def make_gif(self, path:str=None):
+		if not os.path.isdir(self.progres_image_path): return
+		if not path: path = f"{self.progres_image_path}/progress_gif.gif"
+
 		frames = []
-		img_file_names = os.listdir("prog_images")
+		img_file_names = os.listdir(self.progres_image_path)
 
 		for im_file in img_file_names:
-			if os.path.isfile("prog_images/" + im_file):
-				im = Image.open("prog_images/" + im_file)
-				frames.append(im)
+			if os.path.isfile(self.progres_image_path + "/" + im_file):
+				frames.append(Image.open(self.progres_image_path + "/" + im_file))
 
 		if len(frames) > 2:
 			frames[0].save(path, format="GIF", append_images=frames[1:], save_all=True, duration=120, loop=0)
