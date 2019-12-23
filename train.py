@@ -8,7 +8,7 @@ if __name__ == '__main__':
 	gan.plot_models()
 	# gan.show_sample_of_dataset()
 	gan.clear_output_folder()
-	gan.train(40, 64, 10, smooth=0.1, trick_fake=True)
+	gan.train(40, 32, 10, smooth=0.1, trick_fake=False)
 	# gan.make_gif()
 	gan.show_current_state(5)
 	gan.show_training_stats()

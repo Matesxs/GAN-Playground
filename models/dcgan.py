@@ -241,7 +241,7 @@ class DCGAN:
 		return Model(img, validity)
 
 	def train(self, epochs:int=200, batch_size:int=64, save_interval:int=50, smooth:float=0.1, trick_fake:bool=False):
-		if epochs%save_interval == 0: raise Exception("Invalid save interval")
+		if epochs%save_interval != 0: raise Exception("Invalid save interval")
 
 		# Clear statistics
 		self.gen_losses = []
