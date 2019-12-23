@@ -22,7 +22,7 @@ from src.batch_maker import BatchMaker
 tf.get_logger().setLevel('ERROR')
 
 class DCGAN:
-	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, ex:int=5, gen_v:int=1, disc_v:int=1, progres_image_path:str="prog_images", disc_model:str=None, gen_model:str=None):
+	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, ex:int=5, gen_v:int=1, disc_v:int=1, progres_image_path:str="prog_images", disc_weights:str=None, gen_weights:str=None):
 		self.optimizer = optimizer
 		self.latent_dim = latent_dim
 		self.ex = ex
@@ -71,9 +71,11 @@ class DCGAN:
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_v)
 		self.discriminator.compile(loss="binary_crossentropy", optimizer=self.optimizer,  metrics=['accuracy'])
+		if disc_weights: self.discriminator.load_weights(disc_weights)
 
 		# Build generator
 		self.generator = self.build_generator(gen_v)
+		if gen_weights: self.generator.load_weights(gen_weights)
 
 		# Generator takes noise and generates images
 		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
