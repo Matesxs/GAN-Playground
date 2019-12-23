@@ -307,7 +307,10 @@ class DCGAN:
 				print(f"[D loss: {d_loss}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
 				self.__save_imgs(self.epoch_counter)
 			self.epoch_counter += 1
-		batch_maker.terminate()
+
+		# Shutdown batchmaker and wait for its exit
+		batch_maker.terminate = True
+		batch_maker.join()
 
 	def __save_imgs(self, epoch):
 		gen_imgs = self.generator.predict(self.static_noise)

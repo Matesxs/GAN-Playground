@@ -10,7 +10,7 @@ class BatchMaker(Thread):
 		super().__init__()
 		self.daemon = True
 
-		self.__terminate = False
+		self.terminate = False
 		self.batch_ready = False
 		self.batch = None
 
@@ -19,7 +19,7 @@ class BatchMaker(Thread):
 		self.batch_size = batch_size
 
 	def run(self):
-		while not self.__terminate:
+		while not self.terminate:
 			if not self.batch_ready:
 				if type(self.train_data) == list:
 					# Load and normalize images if train_data is list of paths
@@ -28,10 +28,6 @@ class BatchMaker(Thread):
 					self.batch = self.train_data[np.random.randint(0, self.data_length, self.batch_size)]
 				self.batch_ready = True
 			time.sleep(0.02)
-			
-	def terminate(self):
-		self.__terminate = True
-		self.join()
 
 	def get_batch(self):
 		while not self.batch_ready: time.sleep(0.02)
