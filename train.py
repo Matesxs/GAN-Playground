@@ -10,6 +10,8 @@ from keras.initializers import RandomNormal
 from keras.utils import plot_model
 import tensorflow as tf
 from PIL import Image
+import math
+import cv2 as cv
 import time
 from tqdm import tqdm
 from typing import Union
@@ -17,13 +19,14 @@ from typing import Union
 tf.get_logger().setLevel('ERROR')
 
 class BIGAN:
-	def __init__(self, train_images:Union[np.ndarray, list, None], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, ex:int=5, gen_v:int=1, disc_v:int=1):
+	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, ex:int=5, gen_v:int=1, disc_v:int=1):
 		self.optimizer = optimizer
 		self.latent_dim = latent_dim
 		self.ex = ex
 
 		if type(train_images) == list:
 			self.train_data = np.array(train_images)
+			self.data_length = self.train_data.shape[0]
 		elif train_images is None:
 			(x_train, y_train), (x_test, y_test) = cifar10.load_data()
 			# Selecting cats :)
@@ -31,17 +34,32 @@ class BIGAN:
 			x_test = x_test[np.where(y_test == 3)[0]]
 			x_train = np.concatenate((x_train, x_test))
 			self.train_data = x_train
+			self.data_length = self.train_data.shape[0]
+		elif type(train_images) == str:
+			self.train_data = [os.path.join(train_images, file) for file in os.listdir(train_images)]
+			self.data_length = len(self.train_data)
 		else:
 			self.train_data = train_images
+			self.data_length = self.train_data.shape[0]
 
-		# Scale -1 to 1
-		self.train_data = self.train_data / 127.5 - 1.0
-
-		self.image_shape = self.train_data[0].shape
-		self.image_rows = self.image_shape[0]
-		self.image_cols = self.image_shape[1]
+		if type(train_images) != str:
+			# Scale -1 to 1
+			self.train_data = self.train_data / 127.5 - 1.0
+			self.image_shape = self.train_data[0].shape
+		else:
+			tmp_image = cv.imread(self.train_data[0])
+			self.image_shape = tmp_image.shape
 		self.image_channels = self.image_shape[2]
 
+		# Check image size validity
+		if self.image_shape[0] != self.image_shape[1]: raise Exception("Images must be squared")
+		if self.image_shape[0] < 4: raise Exception("Images too small")
+		if not math.log2(self.image_shape[0]).is_integer(): raise Exception("Invalid size, size have to be power of 2")
+
+		# Check validity of dataset
+		self.validate_dataset()
+
+		# Define static vars
 		self.static_noise = np.random.normal(size=(self.ex*self.ex, self.latent_dim))
 		self.conv_kerner_initializer = RandomNormal(stddev=0.02)
 
@@ -71,53 +89,91 @@ class BIGAN:
 		self.gen_losses = []
 		self.disc_losses = []
 
+	def validate_dataset(self):
+		if type(self.train_data) == list:
+			for im_path in self.train_data:
+				im_shape = cv.imread(im_path).shape
+				if im_shape != self.image_shape:
+					raise Exception("Inconsistent dataset")
+		else:
+			for image in self.train_data:
+				if image.shape != self.image_shape:
+					raise Exception("Inconsistent dataset")
+		print("Dataset valid")
+
+	def count_upscaling_start_size(self, num_of_upscales:int):
+		upsc = self.image_shape[0] / (2**num_of_upscales)
+		if upsc < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
+		return int(upsc)
+
 	def build_generator(self, version:int=1):
 		model = Sequential()
 
 		if version == 1:
-			# (16384,) -> (8, 8, 256)
-			model.add(Dense(256 * 8 * 8, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
+			st_s = self.count_upscaling_start_size(2)
+
+			# (256 * st_s^2,) -> (st_s, st_s, 256)
+			model.add(Dense(256 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU())
-			model.add(Reshape((8, 8, 256)))
+			model.add(Reshape((st_s, st_s, 256)))
 
-			# (8, 8, 256) -> (8, 8, 256)
+			# (st_s, st_s, 256) -> (st_s, st_s, 256)
 			model.add(Conv2DTranspose(256, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.conv_kerner_initializer))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU())
 
-			# (8, 8, 256) -> (16, 16, 128)
+			# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
 			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU())
 
-			# (16, 16, 128) -> (32, 32, num_ch)
+			# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, num_ch)
 			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
 			model.add(Activation("tanh"))
 		elif version == 2:
-			# (1024,) -> (2, 2, 256)
-			model.add(Dense(2 * 2 * 256, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
-			model.add(Reshape((2, 2, 256)))
+			st_s = self.count_upscaling_start_size(4)
+
+			# (256*st_s^2,) -> (st_s, st_s, 256)
+			model.add(Dense(st_s * st_s * 256, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
+			model.add(Reshape((st_s, st_s, 256)))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
 
-			# (2, 2, 256) -> (4, 4, 128)
+			# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
 			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same"))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
 
-			# (4, 4, 128) -> (8, 8, 64)
+			# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, 64)
 			model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same"))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
 
-			# (8, 8, 64) -> (16, 16, 32)
+			# (4*st_s, 4*st_s, 64) -> (8*st_s, 8*st_s, 32)
 			model.add(Conv2DTranspose(32, (5, 5), strides=(2, 2), padding="same"))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
 
-			# (16, 16, 32) -> (32, 32, num_ch)
+			# (8*st_s, 8*st_s, 32) -> (16*st_s, 16*st_s, num_ch)
 			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", activation="tanh"))
+		elif version == 3:
+			st_s = self.count_upscaling_start_size(2)
+
+			# (128 * st_s^2,) -> (st_s, st_s, 128)
+			model.add(Dense(128 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
+			model.add(BatchNormalization())
+			model.add(LeakyReLU())
+			model.add(Reshape((st_s, st_s, 128)))
+
+			# (st_s, st_s, 128) -> (2*st_s, 2*st_s, 64)
+			model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
+			model.add(BatchNormalization())
+			model.add(LeakyReLU())
+
+			# (2*st_s, 2*st_s, 64) -> (4*st_s, 4*st_s, num_ch)
+			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
+			model.add(Activation("tanh"))
 		else:
 			raise Exception("Generator invalid version")
 
@@ -195,11 +251,15 @@ class BIGAN:
 
 		s_time = time.time()
 		for epoch in range(epochs):
-			for batch in tqdm(range(self.train_data.shape[0] // batch_size), unit="batch"):
+			for batch in tqdm(range(self.data_length // batch_size), unit="batch"):
 				### Train Discriminator ###
 				# Select batch of valid images
-				idx = np.random.randint(0, self.train_data.shape[0], batch_size)
-				imgs = self.train_data[idx]
+				if type(self.train_data) == list:
+					# Load and normalize images if train_data is list of paths
+					imgs = np.array(self.train_data)[np.random.randint(0, self.data_length, batch_size)]
+					imgs = np.array([cv.imread(im_p) / 127.5 - 1.0 for im_p in imgs])
+				else:
+					imgs = self.train_data[np.random.randint(0, self.data_length, batch_size)]
 
 				# Sample noise and generate new images
 				noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
@@ -212,12 +272,16 @@ class BIGAN:
 				self.discriminator.trainable = False
 				d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
 
+				# Calling destructor of loaded images
+				del imgs
+				del gen_imgs
+
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
 				if not trick_fake:
 					g_loss = self.combined_model.train_on_batch(noise, valid)
 				else:
-					trick = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
+					trick = np.random.uniform(0.75, 1.2, size=(batch_size, 1))
 					g_loss = self.combined_model.train_on_batch(noise, trick)
 
 			# Save statistics
@@ -226,7 +290,7 @@ class BIGAN:
 
 			# Save progress
 			if (epoch + 1) % save_interval == 0:
-				print(f"{epoch + 1} - [D loss: {d_loss[0]}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
+				print(f"{epoch + 1} - [D loss: {d_loss}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
 				self.__save_imgs(epoch)
 
 	def __save_imgs(self, epoch):
@@ -274,10 +338,16 @@ class BIGAN:
 		cnt = 0
 		for i in range(self.ex):
 			for j in range(self.ex):
-				if self.image_channels == 3:
-					axs[i, j].imshow(self.train_data[np.random.randint(0, self.train_data.shape[0], size=1)][0])
+				if type(self.train_data) != list:
+					if self.image_channels == 3:
+						axs[i, j].imshow(self.train_data[np.random.randint(0, self.data_length, size=1)][0])
+					else:
+						axs[i, j].imshow(self.train_data[np.random.randint(0, self.data_length, size=1), :, :, 0][0], cmap="gray")
 				else:
-					axs[i, j].imshow(self.train_data[np.random.randint(0, self.train_data.shape[0], size=1), :, :, 0][0], cmap="gray")
+					if self.image_channels == 3:
+						axs[i, j].imshow(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]]))
+					else:
+						axs[i, j].imshow(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]])[:, :, 0], cmap="gray")
 				axs[i, j].axis('off')
 				cnt += 1
 		plt.show()
@@ -329,11 +399,14 @@ class BIGAN:
 			frames[0].save(path, format="GIF", append_images=frames[1:], save_all=True, duration=120, loop=0)
 
 if __name__ == '__main__':
-	gan = BIGAN(None, latent_dim=100, gen_v=2, disc_v=2)
+	# (x_train, _), (x_test, _) = cifar10.load_data()
+	# x_train = np.concatenate((x_train, x_test))
+
+	gan = BIGAN("data/normalized", latent_dim=512, gen_v=3, disc_v=1)
 	# gan.plot_models()
 	# gan.show_sample_of_dataset()
 	gan.clear_output_folder()
-	gan.train(100, 16, 10, smooth=0.0)
+	gan.train(40, 64, 10, smooth=0.1, trick_fake=False)
 	# gan.make_gif()
 	gan.show_current_state(5)
 	gan.show_training_stats()
