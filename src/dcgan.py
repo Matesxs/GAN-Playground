@@ -285,6 +285,7 @@ class DCGAN:
 				d_loss_fake = self.discriminator.train_on_batch(gen_imgs, fake)
 				self.discriminator.trainable = False
 				d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
+				if d_loss < 0: d_loss = 0.0
 
 				# Calling destructor of loaded images
 				del imgs
@@ -297,6 +298,7 @@ class DCGAN:
 				else:
 					trick = np.random.uniform(0.7, 1.4, size=(batch_size, 1))
 					g_loss = self.combined_model.train_on_batch(noise, trick)
+				if g_loss < 0: g_loss = 0.0
 
 			# Save statistics
 			self.gen_losses.append(g_loss)
