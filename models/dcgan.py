@@ -10,6 +10,7 @@ from keras.initializers import RandomNormal
 from keras.utils import plot_model
 import tensorflow as tf
 from PIL import Image
+from collections import deque
 import math
 import cv2 as cv
 import time
@@ -24,6 +25,7 @@ class DCGAN:
 		self.latent_dim = latent_dim
 		self.ex = ex
 		self.progres_image_path = progres_image_path
+		self.epoch_counter = 0
 
 		if type(train_images) == list:
 			self.train_data = np.array(train_images)
@@ -72,23 +74,23 @@ class DCGAN:
 		self.generator = self.build_generator(gen_v)
 
 		# Generator takes noise and generates images
-		z = Input(shape=(self.latent_dim,))
-		img = self.generator(z)
+		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
+		gen_images = self.generator(noise_input)
 
 		# For combined model we will only train generator
 		self.discriminator.trainable = False
 
 		# Discriminator takes images and determinates validity
-		valid = self.discriminator(img)
+		valid = self.discriminator(gen_images)
 
 		# Combine models
 		# Train generator to fool discriminator
-		self.combined_model = Model(z, valid)
+		self.combined_model = Model(noise_input, valid)
 		self.combined_model.compile(loss="binary_crossentropy", optimizer=self.optimizer)
 
 		# Statistics
-		self.gen_losses = []
-		self.disc_losses = []
+		self.gen_losses = deque()
+		self.disc_losses = deque()
 
 	def validate_dataset(self):
 		if type(self.train_data) == list:
@@ -108,7 +110,7 @@ class DCGAN:
 		return int(upsc)
 
 	def build_generator(self, version:int=1):
-		model = Sequential()
+		model = Sequential(name="generator_submodel")
 
 		if version == 1:
 			st_s = self.count_upscaling_start_size(2)
@@ -192,7 +194,7 @@ class DCGAN:
 		return Model(noise, img)
 
 	def build_discriminator(self, version:int=1):
-		model = Sequential()
+		model = Sequential(name="discriminator_submodel")
 
 		if version == 1:
 			model.add(Conv2D(64, (5, 5), strides=(2, 2), padding="same", input_shape=self.image_shape, kernel_initializer=self.conv_kerner_initializer))
@@ -239,14 +241,10 @@ class DCGAN:
 		img = Input(shape=self.image_shape)
 		validity = model(img)
 
-		return Model(img, validity)
+		return Model(img, validity, name="discriminator_model")
 
 	def train(self, epochs:int=200, batch_size:int=64, save_interval:int=50, smooth:float=0.1, trick_fake:bool=False):
 		if epochs%save_interval != 0: raise Exception("Invalid save interval")
-
-		# Clear statistics
-		self.gen_losses = []
-		self.disc_losses = []
 
 		# Validity arrays
 		valid = np.ones((batch_size, 1))
@@ -258,8 +256,8 @@ class DCGAN:
 		g_loss, d_loss = None, None
 
 		s_time = time.time()
-		for epoch in range(epochs):
-			for batch in tqdm(range(self.data_length // batch_size), unit="batch"):
+		for _ in tqdm(range(epochs), unit="ep"):
+			for batch in range(self.data_length // batch_size):
 				### Train Discriminator ###
 				# Select batch of valid images
 				if type(self.train_data) == list:
@@ -289,7 +287,7 @@ class DCGAN:
 				if not trick_fake:
 					g_loss = self.combined_model.train_on_batch(noise, valid)
 				else:
-					trick = np.random.uniform(0.75, 1.2, size=(batch_size, 1))
+					trick = np.random.uniform(0.7, 1.4, size=(batch_size, 1))
 					g_loss = self.combined_model.train_on_batch(noise, trick)
 
 			# Save statistics
@@ -297,9 +295,10 @@ class DCGAN:
 			self.disc_losses.append(d_loss)
 
 			# Save progress
-			if (epoch + 1) % save_interval == 0:
-				print(f"{epoch + 1} - [D loss: {d_loss}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
-				self.__save_imgs(epoch)
+			if (self.epoch_counter + 1) % save_interval == 0:
+				print(f"[D loss: {d_loss}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
+				self.__save_imgs(self.epoch_counter)
+			self.epoch_counter += 1
 
 	def __save_imgs(self, epoch):
 		gen_imgs = self.generator.predict(self.static_noise)
