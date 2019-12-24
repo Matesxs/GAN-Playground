@@ -396,7 +396,7 @@ class DCGAN:
 
 	def save_weights_prompt(self, save_directory:str= "."):
 		while True:
-			ans = input("Do you want to save models? (y/n)\n")
+			ans = input("Do you want to save models weights? (y/n)\n")
 			if ans == "y":
 				self.save_weights(save_directory)
 				break
