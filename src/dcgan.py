@@ -245,9 +245,11 @@ class DCGAN:
 
 		return Model(img, validity, name="discriminator_model")
 
-	def train(self, epochs:int=200, batch_size:int=64, save_interval:int=None, smooth:float=0.1, trick_fake:bool=False):
-		if self.progress_image_path is not None and save_interval is not None:
-			if epochs%save_interval != 0: raise Exception("Invalid save interval")
+	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, smooth:float=0.1, trick_fake:bool=False, weights_save_interval:int=None, weights_save_path:str=None):
+		if self.progress_image_path is not None and progress_save_interval is not None:
+			if epochs%progress_save_interval != 0: raise Exception("Invalid progress save interval")
+		if weights_save_path is not None and weights_save_interval is not None:
+			if epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 
 		# Create batchmaker and start it
 		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size)
@@ -296,9 +298,13 @@ class DCGAN:
 			self.disc_losses.append(d_loss)
 
 			# Save progress
-			if self.progress_image_path is not None and save_interval is not None and (self.epoch_counter + 1) % save_interval == 0:
+			if self.progress_image_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
 				print(f"[D loss: {d_loss}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
 				self.__save_imgs(self.epoch_counter)
+
+			if weights_save_path is not None and weights_save_path is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
+				self.save_weights(weights_save_path)
+
 			self.epoch_counter += 1
 
 		# Shutdown batchmaker and wait for its exit
