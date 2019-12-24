@@ -398,6 +398,7 @@ class DCGAN:
 				os.remove(self.progress_image_path + "/" + im_file)
 
 	def save_weights(self, save_directory:str= "."):
+		if not os.path.isdir(save_directory): os.mkdir(save_directory)
 		save_dir = os.path.join(save_directory, str(self.epoch_counter))
 		if not os.path.isdir(save_dir): os.mkdir(save_dir)
 		self.generator.save_weights(f"{save_dir}/generator.h5")

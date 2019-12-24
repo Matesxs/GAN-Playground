@@ -1,7 +1,7 @@
 from src.dcgan import DCGAN
 
 if __name__ == '__main__':
-	gan = DCGAN("training_data/normalized", latent_dim=1024, progress_image_path="prog_images", gen_v=1, disc_v=1)
+	gan = DCGAN("training_data/normalized", latent_dim=1024, progress_image_path="prog_images", gen_v=3, disc_v=1)
 	gan.plot_models()
 	# gan.show_sample_of_dataset()
 	gan.clear_output_folder()
