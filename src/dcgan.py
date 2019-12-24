@@ -386,7 +386,8 @@ class DCGAN:
 		plt.show()
 		plt.close()
 
-	def plot_models(self):
+	def plot_models(self, save_path:str="."):
+		if not os.path.isdir(save_path): os.mkdir(save_path)
 		plot_model(self.combined_model, "combined.png", expand_nested=True)
 		plot_model(self.generator, "generator.png", expand_nested=True)
 		plot_model(self.discriminator, "discriminator.png", expand_nested=True)
