@@ -142,9 +142,9 @@ class DCGAN:
 
 			# (256*st_s^2,) -> (st_s, st_s, 256)
 			model.add(Dense(st_s * st_s * 256, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
-			model.add(Reshape((st_s, st_s, 256)))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU(0.2))
+			model.add(Reshape((st_s, st_s, 256)))
 
 			# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
 			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same"))
@@ -183,32 +183,6 @@ class DCGAN:
 			model.add(LeakyReLU(0.2))
 
 			# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, num_ch)
-			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh"))
-		elif version == 4:
-			st_s = self.count_upscaling_start_size(4)
-
-			# (256 * st_s^2,) -> (st_s, st_s, 256)
-			model.add(Dense(256 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
-			model.add(Reshape((st_s, st_s, 256)))
-
-			# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
-			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
-
-			# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, 64)
-			model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
-
-			# (4*st_s, 4*st_s, 64) -> (8*st_s, 8*st_s, 32)
-			model.add(Conv2DTranspose(32, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization(0.2))
-			model.add(LeakyReLU())
-
-			# (8*st_s, 8*st_s, 32) -> (16*st_s, 16*st_s, num_ch)
 			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh"))
 		else:
 			raise Exception("Generator invalid version")
