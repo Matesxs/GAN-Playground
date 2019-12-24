@@ -4,7 +4,7 @@ import numpy as np
 from keras.datasets import cifar10
 from keras.optimizers import Adam, Optimizer
 from keras.models import Model, Sequential
-from keras.layers import Input, Conv2D, Reshape, Dense, Flatten, BatchNormalization, Activation, Conv2DTranspose
+from keras.layers import Input, Conv2D, Reshape, Dense, Flatten, BatchNormalization, Conv2DTranspose
 from keras.layers.advanced_activations import LeakyReLU
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
@@ -169,18 +169,18 @@ class DCGAN:
 			# (512 * st_s^2,) -> (st_s, st_s, 512)
 			model.add(Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
 			model.add(BatchNormalization())
-			model.add(LeakyReLU())
+			model.add(LeakyReLU(0.2))
 			model.add(Reshape((st_s, st_s, 512)))
 
 			# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
 			model.add(Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
 			model.add(BatchNormalization())
-			model.add(LeakyReLU())
+			model.add(LeakyReLU(0.2))
 
 			# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
 			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
 			model.add(BatchNormalization())
-			model.add(LeakyReLU())
+			model.add(LeakyReLU(0.2))
 
 			# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, num_ch)
 			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh"))
