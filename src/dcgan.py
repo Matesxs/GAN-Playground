@@ -22,12 +22,12 @@ from src.batch_maker import BatchMaker
 tf.get_logger().setLevel('ERROR')
 
 class DCGAN:
-	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, ex:int=5, gen_v:int=1, disc_v:int=1, progres_image_path:str="prog_images", disc_weights:str=None, gen_weights:str=None):
+	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, progress_image_path:str=None, ex:int=5, gen_v:int=1, disc_v:int=1, disc_weights:str=None, gen_weights:str=None):
 		self.optimizer = optimizer
 		self.latent_dim = latent_dim
 		self.ex = ex
-		self.progres_image_path = progres_image_path
 		self.epoch_counter = 0
+		self.progress_image_path = progress_image_path
 
 		if type(train_images) == list:
 			self.train_data = np.array(train_images)
@@ -247,8 +247,9 @@ class DCGAN:
 
 		return Model(img, validity, name="discriminator_model")
 
-	def train(self, epochs:int=200, batch_size:int=64, save_interval:int=50, smooth:float=0.1, trick_fake:bool=False):
-		if epochs%save_interval != 0: raise Exception("Invalid save interval")
+	def train(self, epochs:int=200, batch_size:int=64, save_interval:int=None, smooth:float=0.1, trick_fake:bool=False):
+		if self.progress_image_path is not None and save_interval is not None:
+			if epochs%save_interval != 0: raise Exception("Invalid save interval")
 
 		# Create batchmaker and start it
 		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size)
@@ -257,9 +258,6 @@ class DCGAN:
 		# Validity arrays
 		valid = np.ones((batch_size, 1))
 		fake = np.zeros((batch_size, 1))
-
-		if not os.path.isdir(self.progres_image_path):
-			os.mkdir(self.progres_image_path)
 
 		g_loss, d_loss = None, None
 
@@ -300,7 +298,7 @@ class DCGAN:
 			self.disc_losses.append(d_loss)
 
 			# Save progress
-			if (self.epoch_counter + 1) % save_interval == 0:
+			if self.progress_image_path is not None and save_interval is not None and (self.epoch_counter + 1) % save_interval == 0:
 				print(f"[D loss: {d_loss}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
 				self.__save_imgs(self.epoch_counter)
 			self.epoch_counter += 1
@@ -310,6 +308,7 @@ class DCGAN:
 		batch_maker.join()
 
 	def __save_imgs(self, epoch):
+		if not os.path.isdir(self.progress_image_path): os.mkdir(self.progress_image_path)
 		gen_imgs = self.generator.predict(self.static_noise)
 
 		# Rescale images 0 to 1
@@ -326,7 +325,7 @@ class DCGAN:
 				axs[i, j].axis('off')
 				cnt += 1
 
-		fig.savefig(f"{self.progres_image_path}/{epoch + 1}.png")
+		fig.savefig(f"{self.progress_image_path}/{epoch + 1}.png")
 		plt.close()
 
 	def show_current_state(self, num_of_states:int=1, ex:int=3):
@@ -393,12 +392,12 @@ class DCGAN:
 		plot_model(self.discriminator, "discriminator.png", expand_nested=True)
 
 	def clear_output_folder(self):
-		if not os.path.isdir(self.progres_image_path): return
+		if not os.path.isdir(self.progress_image_path): return
 
-		img_file_names = os.listdir(self.progres_image_path)
+		img_file_names = os.listdir(self.progress_image_path)
 		for im_file in img_file_names:
-			if os.path.isfile(self.progres_image_path + "/" + im_file):
-				os.remove(self.progres_image_path + "/" + im_file)
+			if os.path.isfile(self.progress_image_path + "/" + im_file):
+				os.remove(self.progress_image_path + "/" + im_file)
 
 	def save_weights(self, save_directory:str= "."):
 		if not os.path.isdir(save_directory): os.mkdir(save_directory)
@@ -414,16 +413,17 @@ class DCGAN:
 			elif ans == "n":
 				break
 
-	def make_gif(self, path:str=None):
-		if not os.path.isdir(self.progres_image_path): return
-		if not path: path = f"{self.progres_image_path}/progress_gif.gif"
+	def make_gif(self, path:str=None, duration:int=120):
+		if not os.path.isdir(self.progress_image_path): return
+		if not path: path = f"{self.progress_image_path}"
+		if not os.path.isdir(path): os.mkdir(path)
 
 		frames = []
-		img_file_names = os.listdir(self.progres_image_path)
+		img_file_names = os.listdir(self.progress_image_path)
 
 		for im_file in img_file_names:
-			if os.path.isfile(self.progres_image_path + "/" + im_file):
-				frames.append(Image.open(self.progres_image_path + "/" + im_file))
+			if os.path.isfile(self.progress_image_path + "/" + im_file):
+				frames.append(Image.open(self.progress_image_path + "/" + im_file))
 
 		if len(frames) > 2:
-			frames[0].save(path, format="GIF", append_images=frames[1:], save_all=True, duration=120, loop=0)
+			frames[0].save(f"{path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, duration=duration, loop=0)
