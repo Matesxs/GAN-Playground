@@ -15,5 +15,5 @@ if __name__ == '__main__':
 
 		if input("Continue?\n") == "n": break
 
-	# gan.make_gif()
+	if input("Make progress gif?\n") == "y": gan.make_gif()
 	if input("Generate images?\n") == "y": gan.generate_random_images(100, "gen_images")
