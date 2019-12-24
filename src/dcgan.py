@@ -136,8 +136,7 @@ class DCGAN:
 			model.add(LeakyReLU())
 
 			# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, num_ch)
-			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(Activation("tanh"))
+			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh"))
 		elif version == 2:
 			st_s = self.count_upscaling_start_size(4)
 
@@ -165,27 +164,26 @@ class DCGAN:
 			# (8*st_s, 8*st_s, 32) -> (16*st_s, 16*st_s, num_ch)
 			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", activation="tanh"))
 		elif version == 3:
-			st_s = self.count_upscaling_start_size(2)
+			st_s = self.count_upscaling_start_size(3)
 
-			# (128 * st_s^2,) -> (st_s, st_s, 128)
-			model.add(Dense(128 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
+			# (512 * st_s^2,) -> (st_s, st_s, 512)
+			model.add(Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU())
-			model.add(Reshape((st_s, st_s, 128)))
+			model.add(Reshape((st_s, st_s, 512)))
 
-			# (st_s, st_s, 128) -> (st_s, st_s, 128)
-			model.add(Conv2DTranspose(128, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU())
-
-			# (st_s, st_s, 128) -> (2*st_s, 2*st_s, 64)
-			model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
+			# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
+			model.add(Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
 			model.add(BatchNormalization())
 			model.add(LeakyReLU())
 
-			# (2*st_s, 2*st_s, 64) -> (4*st_s, 4*st_s, num_ch)
-			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(Activation("tanh"))
+			# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
+			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
+			model.add(BatchNormalization())
+			model.add(LeakyReLU())
+
+			# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, num_ch)
+			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh"))
 		else:
 			raise Exception("Generator invalid version")
 
