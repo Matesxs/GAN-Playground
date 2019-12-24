@@ -250,6 +250,7 @@ class DCGAN:
 	def train(self, epochs:int=200, batch_size:int=64, save_interval:int=50, smooth:float=0.1, trick_fake:bool=False):
 		if epochs%save_interval != 0: raise Exception("Invalid save interval")
 
+		# Create batchmaker and start it
 		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size)
 		batch_maker.start()
 
@@ -267,12 +268,6 @@ class DCGAN:
 			for batch in range(self.data_length // batch_size):
 				### Train Discriminator ###
 				# Select batch of valid images
-				# if type(self.train_data) == list:
-				# 	# Load and normalize images if train_data is list of paths
-				# 	imgs = np.array(self.train_data)[np.random.randint(0, self.data_length, batch_size)]
-				# 	imgs = np.array([cv.imread(im_p) / 127.5 - 1.0 for im_p in imgs])
-				# else:
-				# 	imgs = self.train_data[np.random.randint(0, self.data_length, batch_size)]
 				imgs = batch_maker.get_batch()
 
 				# Sample noise and generate new images
@@ -395,6 +390,7 @@ class DCGAN:
 				os.remove(self.progres_image_path + "/" + im_file)
 
 	def save_weights(self, save_directory:str= "."):
+		if not os.path.isdir(save_directory): os.mkdir(save_directory)
 		self.generator.save_weights(f"{save_directory}/generator_{self.epoch_counter}.h5")
 		self.discriminator.save_weights(f"{save_directory}/discriminator_{self.epoch_counter}.h5")
 
