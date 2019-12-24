@@ -369,6 +369,16 @@ class DCGAN:
 		plt.show()
 		plt.close()
 
+	def generate_random_images(self, number_of_images:int=5, save_path:str="."):
+		if not os.path.isdir(save_path): os.mkdir(save_path)
+		gen_imgs = self.generator.predict(np.random.normal(size=(number_of_images, self.latent_dim)))
+
+		# Rescale images 0 to 1
+		gen_imgs = 0.5 * gen_imgs + 0.5
+
+		for idx, image in enumerate(gen_imgs):
+			cv.imwrite(f"{save_path}/gen_im_{idx}.png", image)
+
 	def show_training_stats(self):
 		plt.plot(self.disc_losses)
 		plt.plot(self.gen_losses)
