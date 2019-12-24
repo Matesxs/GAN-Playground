@@ -319,6 +319,8 @@ class DCGAN:
 		gen_imgs = 0.5 * gen_imgs + 0.5
 
 		fig, axs = plt.subplots(self.ex, self.ex)
+		fig.tight_layout()
+
 		cnt = 0
 		for i in range(self.ex):
 			for j in range(self.ex):
@@ -340,6 +342,8 @@ class DCGAN:
 			gen_imgs = 0.5 * gen_imgs + 0.5
 
 			fig, axs = plt.subplots(ex, ex)
+			fig.tight_layout()
+
 			cnt = 0
 			for i in range(ex):
 				for j in range(ex):
@@ -354,6 +358,8 @@ class DCGAN:
 
 	def show_sample_of_dataset(self):
 		fig, axs = plt.subplots(self.ex, self.ex)
+		fig.tight_layout()
+
 		cnt = 0
 		for i in range(self.ex):
 			for j in range(self.ex):
