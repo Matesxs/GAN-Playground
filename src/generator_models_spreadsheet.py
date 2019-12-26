@@ -1,4 +1,4 @@
-from keras.initializers import Initializer
+from keras.initializers import Initializer, RandomNormal
 from keras.layers import Layer, Dense, BatchNormalization, Reshape, Conv2DTranspose
 from keras.layers.advanced_activations import LeakyReLU
 
@@ -11,7 +11,7 @@ def count_upscaling_start_size(image_shape: tuple, num_of_upscales: int):
 Base version 1
 Kind of work with small gray images
 '''
-def mod_base_2upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer):
+def mod_base_2upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	st_s = count_upscaling_start_size(image_shape, 2)
 
 	# (256 * st_s^2,) -> (st_s, st_s, 256)
@@ -39,7 +39,7 @@ Base version 2
 Kind if works with larger color images
 Tested with 1024 latent dim
 '''
-def mod_base_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer):
+def mod_base_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	st_s = count_upscaling_start_size(image_shape, 3)
 
 	# (512 * st_s^2,) -> (st_s, st_s, 512)
@@ -67,7 +67,7 @@ Base version 3
 Meh results with color with medium size color images, maybe more training required or some tweaks
 After 300 epochs loss starts decaying - bad!!!!!
 '''
-def mod_base_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer):
+def mod_base_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	st_s = count_upscaling_start_size(image_shape, 4)
 
 	# (512 * st_s^2,) -> (st_s, st_s, 512)
@@ -104,7 +104,7 @@ def mod_base_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 Version 4 - Extended version 2
 Testing
 '''
-def mod_ext_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer):
+def mod_ext_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	st_s = count_upscaling_start_size(image_shape, 4)
 
 	# (1024 * st_s^2,) -> (st_s, st_s, 1024)

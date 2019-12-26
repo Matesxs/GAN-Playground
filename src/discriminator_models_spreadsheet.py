@@ -1,8 +1,8 @@
 from keras.layers import Layer, Conv2D, BatchNormalization, Flatten, Dropout
 from keras.layers.advanced_activations import LeakyReLU
-from keras.initializers import Initializer
+from keras.initializers import Initializer, RandomNormal
 
-def mod_base_4layers(inp:Layer, kernel_initializer:Initializer):
+def mod_base_4layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	m = Conv2D(64, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(inp)
 	m = LeakyReLU(0.2)(m)
 
@@ -21,7 +21,7 @@ def mod_base_4layers(inp:Layer, kernel_initializer:Initializer):
 	m = Flatten()(m)
 	return m
 
-def mod_base_5layers(inp:Layer, kernel_initializer:Initializer):
+def mod_base_5layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	m = Conv2D(32, (5, 5), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(inp)
 	m = LeakyReLU(0.2)(m)
 
@@ -44,7 +44,7 @@ def mod_base_5layers(inp:Layer, kernel_initializer:Initializer):
 	m = Flatten()(m)
 	return m
 
-def mod_min_4layers(inp:Layer, kernel_initializer:Initializer):
+def mod_min_4layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	m = Conv2D(32, (5, 5), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(inp)
 	m = LeakyReLU(0.2)(m)
 	m = Dropout(0.25)(m)
