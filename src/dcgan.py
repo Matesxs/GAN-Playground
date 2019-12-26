@@ -113,7 +113,7 @@ class DCGAN:
 		noise = Input(shape=(self.latent_dim,))
 
 		try:
-			m = getattr(generator_models_spreadsheet, model_name)(noise, self.latent_dim, self.image_shape, self.image_channels, self.kernel_initializer)
+			m = getattr(generator_models_spreadsheet, model_name)(noise, self.image_shape, self.image_channels, self.kernel_initializer)
 		except Exception as e:
 			raise Exception(f"Generator model not found!\n{e.__traceback__}")
 
@@ -128,7 +128,7 @@ class DCGAN:
 		img = Input(shape=self.image_shape)
 
 		try:
-			m = getattr(discriminator_models_spreadsheet, model_name)(img, self.image_shape, self.kernel_initializer)
+			m = getattr(discriminator_models_spreadsheet, model_name)(img, self.kernel_initializer)
 		except Exception as e:
 			raise Exception(f"Discriminator model not found!\n{e.__traceback__}")
 
