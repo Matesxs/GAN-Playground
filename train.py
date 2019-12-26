@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
 	# Training with showing progress
 	for _ in range(10):
-		gan.train(100, 32, 10, smooth=0.1, trick_fake=True, weights_save_path="trained_weights", weights_save_interval=20)
+		gan.train(200, 32, 10, smooth=0.1, trick_fake=True, weights_save_path="trained_weights", weights_save_interval=20)
 		gan.show_current_state(3)
 		gan.show_training_stats()
 
