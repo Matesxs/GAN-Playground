@@ -4,8 +4,7 @@ import numpy as np
 from keras.datasets import cifar10
 from keras.optimizers import Adam, Optimizer
 from keras.models import Model
-from keras.layers import Input, Conv2D, Reshape, Dense, Flatten, BatchNormalization, Conv2DTranspose, Dropout
-from keras.layers.advanced_activations import LeakyReLU
+from keras.layers import Input, Dense
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
 import tensorflow as tf
@@ -17,11 +16,13 @@ from tqdm import tqdm
 from typing import Union
 
 from src.batch_maker import BatchMaker
+from src import generator_models_spreadsheet
+from src import discriminator_models_spreadsheet
 
 tf.get_logger().setLevel('ERROR')
 
 class DCGAN:
-	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, progress_image_path:str=None, ex:int=5, gen_v:int=1, disc_v:int=1, disc_weights:str=None, gen_weights:str=None):
+	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, progress_image_path:str=None, ex:int=5, gen_mod_name:str="mod_base_2upscl", disc_mod_name:str="mod_base_4layers", disc_weights:str=None, gen_weights:str=None):
 		self.optimizer = optimizer
 		self.latent_dim = latent_dim
 		self.ex = ex
@@ -64,16 +65,16 @@ class DCGAN:
 		self.validate_dataset()
 
 		# Define static vars
-		self.static_noise = np.random.normal(size=(self.ex*self.ex, self.latent_dim))
+		self.static_noise = np.random.normal(0.0, 1.0, size=(self.ex*self.ex, self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
 		# Build discriminator
-		self.discriminator = self.build_discriminator(disc_v)
+		self.discriminator = self.build_discriminator(disc_mod_name)
 		self.discriminator.compile(loss="binary_crossentropy", optimizer=self.optimizer,  metrics=['accuracy'])
 		if disc_weights: self.discriminator.load_weights(disc_weights)
 
 		# Build generator
-		self.generator = self.build_generator(gen_v)
+		self.generator = self.build_generator(gen_mod_name)
 		if gen_weights: self.generator.load_weights(gen_weights)
 
 		# Generator takes noise and generates images
@@ -88,7 +89,7 @@ class DCGAN:
 
 		# Combine models
 		# Train generator to fool discriminator
-		self.combined_model = Model(noise_input, valid)
+		self.combined_model = Model(noise_input, valid, name="dcgan_model")
 		self.combined_model.compile(loss="binary_crossentropy", optimizer=self.optimizer)
 
 		# Statistics
@@ -108,115 +109,13 @@ class DCGAN:
 					raise Exception("Inconsistent dataset")
 		print("Dataset valid")
 
-	def count_upscaling_start_size(self, num_of_upscales:int):
-		upsc = self.image_shape[0] / (2**num_of_upscales)
-		if upsc < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
-		return int(upsc)
-
-	def build_generator(self, version:int=1):
+	def build_generator(self, model_name:str="mod_base_2upscl"):
 		noise = Input(shape=(self.latent_dim,))
 
-		if version == 1:
-			st_s = self.count_upscaling_start_size(2)
-
-			# (256 * st_s^2,) -> (st_s, st_s, 256)
-			m = Dense(256 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.kernel_initializer)(noise)
-			m = BatchNormalization()(m)
-			m = LeakyReLU()(m)
-			m = Reshape((st_s, st_s, 256))(m)
-
-			# (st_s, st_s, 256) -> (st_s, st_s, 256)
-			m = Conv2DTranspose(256, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU()(m)
-
-			# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
-			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU()(m)
-
-			# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, num_ch)
-			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer, activation="tanh")(m)
-		elif version == 2:
-			st_s = self.count_upscaling_start_size(3)
-
-			# (512 * st_s^2,) -> (st_s, st_s, 512)
-			m = Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.kernel_initializer)(noise)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-			m = Reshape((st_s, st_s, 512))(m)
-
-			# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
-			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
-			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, num_ch)
-			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer, activation="tanh")(m)
-		elif version == 3:
-			st_s = self.count_upscaling_start_size(4)
-
-			# (512 * st_s^2,) -> (st_s, st_s, 512)
-			m = Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.kernel_initializer)(noise)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-			m = Reshape((st_s, st_s, 512))(m)
-
-			# (st_s, st_s, 512) -> (st_s, st_s, 512)
-			m = Conv2DTranspose(512, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
-			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
-			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, 64)
-			m = Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (8*st_s, 8*st_s, 64) -> (16*st_s, 16*st_s, num_ch)
-			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer, activation="tanh")(m)
-		elif version == 4:
-			st_s = self.count_upscaling_start_size(4)
-
-			# (1024 * st_s^2,) -> (st_s, st_s, 1024)
-			m = Dense(1024 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.kernel_initializer)(noise)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-			m = Reshape((st_s, st_s, 1024))(m)
-
-			# (st_s, st_s, 1024) -> (2*st_s, 2*st_s, 512)
-			m = Conv2DTranspose(512, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (2*st_s, 2*st_s, 512) -> (4*st_s, 4*st_s, 256)
-			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (4*st_s, 4*st_s, 256) -> (8*st_s, 8*st_s, 128)
-			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (8*st_s, 8*st_s, 128) -> (16*st_s, 16*st_s, num_ch)
-			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer, activation="tanh")(m)
-		else:
-			raise Exception("Generator invalid version")
+		try:
+			m = getattr(generator_models_spreadsheet, model_name)(noise, self.latent_dim, self.image_shape, self.image_channels, self.kernel_initializer)
+		except Exception as e:
+			raise Exception(f"Generator model not found!\n{e.__traceback__}")
 
 		model = Model(noise, m, name="generator_model")
 
@@ -225,70 +124,13 @@ class DCGAN:
 
 		return model
 
-	def build_discriminator(self, version:int=1):
+	def build_discriminator(self, model_name:str="mod_base_4layers"):
 		img = Input(shape=self.image_shape)
 
-		if version == 1:
-			m = Conv2D(64, (5, 5), strides=(2, 2), padding="same", input_shape=self.image_shape, kernel_initializer=self.kernel_initializer)(img)
-			m = LeakyReLU(0.2)(m)
-
-			m = Conv2D(128, (5, 5), strides=(2, 2), padding="same")(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			m = Conv2D(256, (5, 5), strides=(2, 2), padding="same")(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			m = Conv2D(512, (5, 5), strides=(2, 2), padding="same")(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			m = Flatten()(m)
-		elif version == 2:
-			m = Conv2D(32, (5, 5), padding='same', strides=(2, 2), input_shape=self.image_shape, kernel_initializer=self.kernel_initializer)(img)
-			m = LeakyReLU(0.2)(m)
-
-			m = Conv2D(64, (5, 5), padding='same', strides=(2, 2))(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			m = Conv2D(128, (5, 5), padding='same', strides=(2, 2))(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			m = Conv2D(256, (5, 5), padding='same', strides=(2, 2))(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			m = Conv2D(512, (5, 5), padding='same', strides=(2, 2))(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			m = Flatten()(m)
-		elif version == 3:
-			m = Conv2D(32, (5, 5), padding='same', strides=(2, 2), input_shape=self.image_shape, kernel_initializer=self.kernel_initializer)(img)
-			m = LeakyReLU(0.2)(m)
-			m = Dropout(0.25)(m)
-
-			m = Conv2D(64, (5, 5), padding='same', strides=(2, 2))(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-			m = Dropout(0.25)(m)
-
-			m = Conv2D(128, (5, 5), padding='same', strides=(2, 2))(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-			m = Dropout(0.25)(m)
-
-			m = Conv2D(256, (5, 5), padding='same', strides=(2, 2))(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-			m = Dropout(0.25)(m)
-
-			m = Flatten()(m)
-		else:
-			raise Exception("Discriminator invalid version")
+		try:
+			m = getattr(discriminator_models_spreadsheet, model_name)(img, self.image_shape, self.kernel_initializer)
+		except Exception as e:
+			raise Exception(f"Discriminator model not found!\n{e.__traceback__}")
 
 		m = Dense(1, activation="sigmoid")(m)
 
@@ -322,7 +164,7 @@ class DCGAN:
 				imgs = batch_maker.get_batch()
 
 				# Sample noise and generate new images
-				noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+				noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
 				gen_imgs = self.generator.predict(noise)
 
 				# Train discriminator (real as ones and fake as zeros)
@@ -390,7 +232,7 @@ class DCGAN:
 
 	def show_current_state(self, num_of_states:int=1, ex:int=3):
 		for _ in range(num_of_states):
-			gen_imgs = self.generator.predict(np.random.normal(size=(ex * ex, self.latent_dim)))
+			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(ex * ex, self.latent_dim)))
 
 			# Rescale images 0 to 1
 			gen_imgs = 0.5 * gen_imgs + 0.5
@@ -434,7 +276,7 @@ class DCGAN:
 
 	def generate_random_images(self, number_of_images:int=5, save_path:str="."):
 		if not os.path.isdir(save_path): os.mkdir(save_path)
-		gen_imgs = self.generator.predict(np.random.normal(size=(number_of_images, self.latent_dim)))
+		gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(number_of_images, self.latent_dim)))
 
 		# Rescale images 0 to 255
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
