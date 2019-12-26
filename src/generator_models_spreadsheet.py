@@ -37,6 +37,7 @@ def mod_base_2upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 '''
 Base version 2
 Kind if works with larger color images
+Tested with 1024 latent dim
 '''
 def mod_base_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer):
 	st_s = count_upscaling_start_size(image_shape, 3)
