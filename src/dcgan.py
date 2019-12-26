@@ -194,6 +194,11 @@ class DCGAN:
 			m = LeakyReLU(0.2)(m)
 			m = Reshape((st_s, st_s, 512))(m)
 
+			# (st_s, st_s, 512) -> (st_s, st_s, 512)
+			m = Conv2DTranspose(512, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+
 			# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
 			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
 			m = BatchNormalization()(m)
