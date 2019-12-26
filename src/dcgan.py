@@ -141,7 +141,7 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, smooth:float=0.1, trick_fake:bool=False, weights_save_interval:int=None, weights_save_path:str=None):
+	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, smooth:float=0.1, trick_fake_variation:bool=False, weights_save_interval:int=None, weights_save_path:str=None):
 		if self.progress_image_path is not None and progress_save_interval is not None and progress_save_interval <= epochs:
 			if epochs%progress_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_path is not None and weights_save_interval is not None and weights_save_interval <= epochs:
@@ -181,7 +181,7 @@ class DCGAN:
 
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
-				if not trick_fake:
+				if not trick_fake_variation:
 					g_loss = self.combined_model.train_on_batch(noise, valid)
 				else:
 					trick = np.random.uniform(0.7, 1.4, size=(batch_size, 1))
