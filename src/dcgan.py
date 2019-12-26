@@ -4,7 +4,7 @@ import numpy as np
 from keras.datasets import cifar10
 from keras.optimizers import Adam, Optimizer
 from keras.models import Model
-from keras.layers import Input, Conv2D, Reshape, Dense, Flatten, BatchNormalization, Conv2DTranspose
+from keras.layers import Input, Conv2D, Reshape, Dense, Flatten, BatchNormalization, Conv2DTranspose, Dropout
 from keras.layers.advanced_activations import LeakyReLU
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
@@ -13,7 +13,6 @@ from PIL import Image
 from collections import deque
 import math
 import cv2 as cv
-import time
 from tqdm import tqdm
 from typing import Union
 
@@ -66,7 +65,7 @@ class DCGAN:
 
 		# Define static vars
 		self.static_noise = np.random.normal(size=(self.ex*self.ex, self.latent_dim))
-		self.conv_kerner_initializer = RandomNormal(stddev=0.02)
+		self.kernel_initializer = RandomNormal(stddev=0.02)
 
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_v)
@@ -121,101 +120,101 @@ class DCGAN:
 			st_s = self.count_upscaling_start_size(2)
 
 			# (256 * st_s^2,) -> (st_s, st_s, 256)
-			m = Dense(256 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer)(noise)
+			m = Dense(256 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.kernel_initializer)(noise)
 			m = BatchNormalization()(m)
 			m = LeakyReLU()(m)
 			m = Reshape((st_s, st_s, 256))(m)
 
 			# (st_s, st_s, 256) -> (st_s, st_s, 256)
-			m = Conv2DTranspose(256, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = Conv2DTranspose(256, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.kernel_initializer)(m)
 			m = BatchNormalization()(m)
 			m = LeakyReLU()(m)
 
 			# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
-			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
 			m = BatchNormalization()(m)
 			m = LeakyReLU()(m)
 
 			# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, num_ch)
-			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh")(m)
+			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer, activation="tanh")(m)
 		elif version == 2:
-			st_s = self.count_upscaling_start_size(4)
-
-			# (256*st_s^2,) -> (st_s, st_s, 256)
-			m = Dense(st_s * st_s * 256, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer)(noise)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-			m = Reshape((st_s, st_s, 256))(m)
-
-			# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
-			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same")(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, 64)
-			m = Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same")(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (4*st_s, 4*st_s, 64) -> (8*st_s, 8*st_s, 32)
-			m = Conv2DTranspose(32, (5, 5), strides=(2, 2), padding="same")(m)
-			m = BatchNormalization()(m)
-			m = LeakyReLU(0.2)(m)
-
-			# (8*st_s, 8*st_s, 32) -> (16*st_s, 16*st_s, num_ch)
-			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", activation="tanh")(m)
-		elif version == 3:
 			st_s = self.count_upscaling_start_size(3)
 
 			# (512 * st_s^2,) -> (st_s, st_s, 512)
-			m = Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer)(noise)
+			m = Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.kernel_initializer)(noise)
 			m = BatchNormalization()(m)
 			m = LeakyReLU(0.2)(m)
 			m = Reshape((st_s, st_s, 512))(m)
 
 			# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
-			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
 			m = BatchNormalization()(m)
 			m = LeakyReLU(0.2)(m)
 
 			# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
-			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
 			m = BatchNormalization()(m)
 			m = LeakyReLU(0.2)(m)
 
 			# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, num_ch)
-			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh")(m)
-		elif version == 4:
+			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer, activation="tanh")(m)
+		elif version == 3:
 			st_s = self.count_upscaling_start_size(4)
 
 			# (512 * st_s^2,) -> (st_s, st_s, 512)
-			m = Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer)(noise)
+			m = Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.kernel_initializer)(noise)
 			m = BatchNormalization()(m)
 			m = LeakyReLU(0.2)(m)
 			m = Reshape((st_s, st_s, 512))(m)
 
 			# (st_s, st_s, 512) -> (st_s, st_s, 512)
-			m = Conv2DTranspose(512, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = Conv2DTranspose(512, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.kernel_initializer)(m)
 			m = BatchNormalization()(m)
 			m = LeakyReLU(0.2)(m)
 
 			# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
-			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
 			m = BatchNormalization()(m)
 			m = LeakyReLU(0.2)(m)
 
 			# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
-			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
 			m = BatchNormalization()(m)
 			m = LeakyReLU(0.2)(m)
 
 			# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, 64)
-			m = Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
 			m = BatchNormalization()(m)
 			m = LeakyReLU(0.2)(m)
 
 			# (8*st_s, 8*st_s, 64) -> (16*st_s, 16*st_s, num_ch)
-			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh")(m)
+			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer, activation="tanh")(m)
+		elif version == 4:
+			st_s = self.count_upscaling_start_size(4)
+
+			# (1024 * st_s^2,) -> (st_s, st_s, 1024)
+			m = Dense(1024 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.kernel_initializer)(noise)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+			m = Reshape((st_s, st_s, 1024))(m)
+
+			# (st_s, st_s, 1024) -> (2*st_s, 2*st_s, 512)
+			m = Conv2DTranspose(512, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+
+			# (2*st_s, 2*st_s, 512) -> (4*st_s, 4*st_s, 256)
+			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+
+			# (4*st_s, 4*st_s, 256) -> (8*st_s, 8*st_s, 128)
+			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+
+			# (8*st_s, 8*st_s, 128) -> (16*st_s, 16*st_s, num_ch)
+			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.kernel_initializer, activation="tanh")(m)
 		else:
 			raise Exception("Generator invalid version")
 
@@ -230,7 +229,7 @@ class DCGAN:
 		img = Input(shape=self.image_shape)
 
 		if version == 1:
-			m = Conv2D(64, (5, 5), strides=(2, 2), padding="same", input_shape=self.image_shape, kernel_initializer=self.conv_kerner_initializer)(img)
+			m = Conv2D(64, (5, 5), strides=(2, 2), padding="same", input_shape=self.image_shape, kernel_initializer=self.kernel_initializer)(img)
 			m = LeakyReLU(0.2)(m)
 
 			m = Conv2D(128, (5, 5), strides=(2, 2), padding="same")(m)
@@ -247,7 +246,7 @@ class DCGAN:
 
 			m = Flatten()(m)
 		elif version == 2:
-			m = Conv2D(32, (5, 5), padding='same', strides=(2, 2), input_shape=self.image_shape, kernel_initializer=self.conv_kerner_initializer)(img)
+			m = Conv2D(32, (5, 5), padding='same', strides=(2, 2), input_shape=self.image_shape, kernel_initializer=self.kernel_initializer)(img)
 			m = LeakyReLU(0.2)(m)
 
 			m = Conv2D(64, (5, 5), padding='same', strides=(2, 2))(m)
@@ -267,6 +266,27 @@ class DCGAN:
 			m = LeakyReLU(0.2)(m)
 
 			m = Flatten()(m)
+		elif version == 3:
+			m = Conv2D(32, (5, 5), padding='same', strides=(2, 2), input_shape=self.image_shape, kernel_initializer=self.kernel_initializer)(img)
+			m = LeakyReLU(0.2)(m)
+			m = Dropout(0.25)(m)
+
+			m = Conv2D(64, (5, 5), padding='same', strides=(2, 2))(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+			m = Dropout(0.25)(m)
+
+			m = Conv2D(128, (5, 5), padding='same', strides=(2, 2))(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+			m = Dropout(0.25)(m)
+
+			m = Conv2D(256, (5, 5), padding='same', strides=(2, 2))(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+			m = Dropout(0.25)(m)
+
+			m = Flatten()(m)
 		else:
 			raise Exception("Discriminator invalid version")
 
@@ -280,9 +300,9 @@ class DCGAN:
 		return model
 
 	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, smooth:float=0.1, trick_fake:bool=False, weights_save_interval:int=None, weights_save_path:str=None):
-		if self.progress_image_path is not None and progress_save_interval is not None:
+		if self.progress_image_path is not None and progress_save_interval is not None and progress_save_interval <= epochs:
 			if epochs%progress_save_interval != 0: raise Exception("Invalid progress save interval")
-		if weights_save_path is not None and weights_save_interval is not None:
+		if weights_save_path is not None and weights_save_interval is not None and weights_save_interval <= epochs:
 			if epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 
 		# Create batchmaker and start it
@@ -295,7 +315,6 @@ class DCGAN:
 
 		g_loss, d_loss = None, None
 
-		s_time = time.time()
 		for _ in tqdm(range(epochs), unit="ep"):
 			for batch in range(self.data_length // batch_size):
 				### Train Discriminator ###
@@ -335,7 +354,7 @@ class DCGAN:
 
 			# Save progress
 			if self.progress_image_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
-				print(f"[D loss: {d_loss}] [G loss: {g_loss}, Mean G Loss: {mean_gen_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
+				print(f"[D loss: {d_loss}] [G loss: {g_loss}, Mean G Loss: {mean_gen_loss}]")
 				self.__save_imgs(self.epoch_counter)
 
 			if weights_save_path is not None and weights_save_path is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
@@ -355,7 +374,6 @@ class DCGAN:
 		gen_imgs = 0.5 * gen_imgs + 0.5
 
 		fig, axs = plt.subplots(self.ex, self.ex)
-		fig.tight_layout()
 
 		cnt = 0
 		for i in range(self.ex):
@@ -448,7 +466,7 @@ class DCGAN:
 
 	def save_weights(self, save_directory:str= "."):
 		if not os.path.isdir(save_directory): os.mkdir(save_directory)
-		save_dir = os.path.join(save_directory, str(self.epoch_counter + 1))
+		save_dir = os.path.join(save_directory, str(self.epoch_counter))
 		if not os.path.isdir(save_dir): os.mkdir(save_dir)
 		self.generator.save_weights(f"{save_dir}/generator.h5")
 		self.discriminator.save_weights(f"{save_dir}/discriminator.h5")

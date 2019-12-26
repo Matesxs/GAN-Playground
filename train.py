@@ -8,10 +8,9 @@ if __name__ == '__main__':
 
 	# Training with showing progress
 	while True:
-		gan.train(100, 32, 5, smooth=0.1, trick_fake=True, weights_save_path="trained_weights", weights_save_interval=10)
-		gan.show_current_state(5)
+		gan.train(100, 32, 10, smooth=0.1, trick_fake=True, weights_save_path="trained_weights", weights_save_interval=20)
+		gan.show_current_state(3)
 		gan.show_training_stats()
-		gan.save_weights("trained_weights")
 
 		if input("Continue?\n") == "n": break
 
