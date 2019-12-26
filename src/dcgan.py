@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from keras.datasets import cifar10
 from keras.optimizers import Adam, Optimizer
-from keras.models import Model, Sequential
+from keras.models import Model
 from keras.layers import Input, Conv2D, Reshape, Dense, Flatten, BatchNormalization, Conv2DTranspose
 from keras.layers.advanced_activations import LeakyReLU
 from keras.initializers import RandomNormal
@@ -94,6 +94,7 @@ class DCGAN:
 
 		# Statistics
 		self.gen_losses = deque()
+		self.gen_mean_losses = deque()
 		self.disc_losses = deque()
 
 	def validate_dataset(self):
@@ -114,136 +115,164 @@ class DCGAN:
 		return int(upsc)
 
 	def build_generator(self, version:int=1):
-		model = Sequential(name="generator_submodel")
+		noise = Input(shape=(self.latent_dim,))
 
 		if version == 1:
 			st_s = self.count_upscaling_start_size(2)
 
 			# (256 * st_s^2,) -> (st_s, st_s, 256)
-			model.add(Dense(256 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU())
-			model.add(Reshape((st_s, st_s, 256)))
+			m = Dense(256 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer)(noise)
+			m = BatchNormalization()(m)
+			m = LeakyReLU()(m)
+			m = Reshape((st_s, st_s, 256))(m)
 
 			# (st_s, st_s, 256) -> (st_s, st_s, 256)
-			model.add(Conv2DTranspose(256, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU())
+			m = Conv2DTranspose(256, (5, 5), strides=(1, 1), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU()(m)
 
 			# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
-			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU())
+			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU()(m)
 
 			# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, num_ch)
-			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh"))
+			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh")(m)
 		elif version == 2:
 			st_s = self.count_upscaling_start_size(4)
 
 			# (256*st_s^2,) -> (st_s, st_s, 256)
-			model.add(Dense(st_s * st_s * 256, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
-			model.add(Reshape((st_s, st_s, 256)))
+			m = Dense(st_s * st_s * 256, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer)(noise)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+			m = Reshape((st_s, st_s, 256))(m)
 
 			# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
-			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same"))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same")(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
 			# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, 64)
-			model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same"))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same")(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
 			# (4*st_s, 4*st_s, 64) -> (8*st_s, 8*st_s, 32)
-			model.add(Conv2DTranspose(32, (5, 5), strides=(2, 2), padding="same"))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2DTranspose(32, (5, 5), strides=(2, 2), padding="same")(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
 			# (8*st_s, 8*st_s, 32) -> (16*st_s, 16*st_s, num_ch)
-			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", activation="tanh"))
+			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", activation="tanh")(m)
 		elif version == 3:
 			st_s = self.count_upscaling_start_size(3)
 
 			# (512 * st_s^2,) -> (st_s, st_s, 512)
-			model.add(Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
-			model.add(Reshape((st_s, st_s, 512)))
+			m = Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer)(noise)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+			m = Reshape((st_s, st_s, 512))(m)
 
 			# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
-			model.add(Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
 			# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
-			model.add(Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
 			# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, num_ch)
-			model.add(Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh"))
+			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh")(m)
+		elif version == 4:
+			st_s = self.count_upscaling_start_size(4)
+
+			# (512 * st_s^2,) -> (st_s, st_s, 512)
+			m = Dense(512 * st_s * st_s, input_shape=(self.latent_dim,), kernel_initializer=self.conv_kerner_initializer)(noise)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+			m = Reshape((st_s, st_s, 512))(m)
+
+			# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
+			m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+
+			# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
+			m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+
+			# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, 64)
+			m = Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer)(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+
+			# (8*st_s, 8*st_s, 64) -> (16*st_s, 16*st_s, num_ch)
+			m = Conv2DTranspose(self.image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=self.conv_kerner_initializer, activation="tanh")(m)
 		else:
 			raise Exception("Generator invalid version")
+
+		model = Model(noise, m, name="generator_model")
 
 		print("\nGenerator Sumary:")
 		model.summary()
 
-		noise = Input(shape=(self.latent_dim,))
-		img = model(noise)
-
-		return Model(noise, img)
+		return model
 
 	def build_discriminator(self, version:int=1):
-		model = Sequential(name="discriminator_submodel")
+		img = Input(shape=self.image_shape)
 
 		if version == 1:
-			model.add(Conv2D(64, (5, 5), strides=(2, 2), padding="same", input_shape=self.image_shape, kernel_initializer=self.conv_kerner_initializer))
-			model.add(LeakyReLU(0.2))
+			m = Conv2D(64, (5, 5), strides=(2, 2), padding="same", input_shape=self.image_shape, kernel_initializer=self.conv_kerner_initializer)(img)
+			m = LeakyReLU(0.2)(m)
 
-			model.add(Conv2D(128, (5, 5), strides=(2, 2), padding="same"))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2D(128, (5, 5), strides=(2, 2), padding="same")(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
-			model.add(Conv2D(256, (5, 5), strides=(2, 2), padding="same"))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2D(256, (5, 5), strides=(2, 2), padding="same")(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
-			model.add(Conv2D(512, (5, 5), strides=(2, 2), padding="same"))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2D(512, (5, 5), strides=(2, 2), padding="same")(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
-			model.add(Flatten())
+			m = Flatten()(m)
 		elif version == 2:
-			model.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2), input_shape=self.image_shape, kernel_initializer=self.conv_kerner_initializer))
-			model.add(LeakyReLU(0.2))
+			m = Conv2D(32, (5, 5), padding='same', strides=(2, 2), input_shape=self.image_shape, kernel_initializer=self.conv_kerner_initializer)(img)
+			m = LeakyReLU(0.2)(m)
 
-			model.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2D(64, (5, 5), padding='same', strides=(2, 2))(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
-			model.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2D(128, (5, 5), padding='same', strides=(2, 2))(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
-			model.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
-			model.add(BatchNormalization())
-			model.add(LeakyReLU(0.2))
+			m = Conv2D(256, (5, 5), padding='same', strides=(2, 2))(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
 
-			model.add(Flatten())
+			m = Conv2D(512, (5, 5), padding='same', strides=(2, 2))(m)
+			m = BatchNormalization()(m)
+			m = LeakyReLU(0.2)(m)
+
+			m = Flatten()(m)
 		else:
 			raise Exception("Discriminator invalid version")
 
-		model.add(Dense(1, activation="sigmoid"))
+		m = Dense(1, activation="sigmoid")(m)
+
+		model = Model(img, m, name="discriminator_model")
 
 		print("\nDiscriminator Sumary:")
 		model.summary()
 
-		img = Input(shape=self.image_shape)
-		validity = model(img)
-
-		return Model(img, validity, name="discriminator_model")
+		return model
 
 	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, smooth:float=0.1, trick_fake:bool=False, weights_save_interval:int=None, weights_save_path:str=None):
 		if self.progress_image_path is not None and progress_save_interval is not None:
@@ -295,11 +324,13 @@ class DCGAN:
 
 			# Save statistics
 			self.gen_losses.append(g_loss)
+			mean_gen_loss = np.mean(np.array(self.gen_losses)[-100:])
+			self.gen_mean_losses.append(mean_gen_loss)
 			self.disc_losses.append(d_loss)
 
 			# Save progress
 			if self.progress_image_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
-				print(f"[D loss: {d_loss}] [G loss: {g_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
+				print(f"[D loss: {d_loss}] [G loss: {g_loss}, Mean G Loss: {mean_gen_loss}] - Elapsed: {round((time.time() - s_time) / 60, 1)}min")
 				self.__save_imgs(self.epoch_counter)
 
 			if weights_save_path is not None and weights_save_path is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
@@ -356,13 +387,13 @@ class DCGAN:
 			plt.show()
 			plt.close()
 
-	def show_sample_of_dataset(self):
-		fig, axs = plt.subplots(self.ex, self.ex)
+	def show_sample_of_dataset(self, ex:int=5):
+		fig, axs = plt.subplots(ex, ex)
 		fig.tight_layout()
 
 		cnt = 0
-		for i in range(self.ex):
-			for j in range(self.ex):
+		for i in range(ex):
+			for j in range(ex):
 				if type(self.train_data) != list:
 					if self.image_channels == 3:
 						axs[i, j].imshow(self.train_data[np.random.randint(0, self.data_length, size=1)][0])
@@ -382,8 +413,8 @@ class DCGAN:
 		if not os.path.isdir(save_path): os.mkdir(save_path)
 		gen_imgs = self.generator.predict(np.random.normal(size=(number_of_images, self.latent_dim)))
 
-		# Rescale images 0 to 1
-		gen_imgs = 0.5 * gen_imgs + 0.5
+		# Rescale images 0 to 255
+		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
 		for idx, image in enumerate(gen_imgs):
 			cv.imwrite(f"{save_path}/gen_im_{idx}.png", image)
@@ -391,17 +422,18 @@ class DCGAN:
 	def show_training_stats(self):
 		plt.plot(self.disc_losses)
 		plt.plot(self.gen_losses)
-		plt.legend(["Disc Loss", "Gen Loss"])
+		plt.plot(self.gen_mean_losses)
+		plt.legend(["Disc Loss", "Gen Loss", "Mean Gen Loss L100"])
 		plt.show()
 		plt.close()
 
 	def plot_models(self, save_path:str="."):
 		if not os.path.isdir(save_path): os.mkdir(save_path)
-		plot_model(self.combined_model, "combined.png", expand_nested=True)
-		plot_model(self.generator, "generator.png", expand_nested=True)
-		plot_model(self.discriminator, "discriminator.png", expand_nested=True)
+		plot_model(self.combined_model, "combined.png", expand_nested=True, show_shapes=True)
+		plot_model(self.generator, "generator.png", expand_nested=True, show_shapes=True)
+		plot_model(self.discriminator, "discriminator.png", expand_nested=True, show_shapes=True)
 
-	def clear_output_folder(self):
+	def clear_progress_images(self):
 		if not os.path.isdir(self.progress_image_path): return
 
 		img_file_names = os.listdir(self.progress_image_path)
