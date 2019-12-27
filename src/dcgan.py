@@ -141,7 +141,7 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, smooth:float=0.1, trick_fake_variation:bool=False, weights_save_interval:int=None, weights_save_path:str=None):
+	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, weights_save_interval:int=None, weights_save_path:str=None):
 		if self.progress_image_path is not None and progress_save_interval is not None and progress_save_interval <= epochs:
 			if epochs%progress_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_path is not None and weights_save_interval is not None and weights_save_interval <= epochs:
@@ -151,26 +151,24 @@ class DCGAN:
 		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size)
 		batch_maker.start()
 
-		# Validity arrays
-		valid = np.ones((batch_size, 1))
-		fake = np.zeros((batch_size, 1))
-
+		num_of_batches = self.data_length // batch_size
 		g_loss, d_loss = None, None
+		disc_batch_losses = deque(maxlen=num_of_batches)
+		gen_batch_losses = deque(maxlen=num_of_batches)
 
 		for _ in tqdm(range(epochs), unit="ep"):
-			for batch in range(self.data_length // batch_size):
+			for batch in range(num_of_batches):
 				### Train Discriminator ###
 				# Select batch of valid images
 				imgs = batch_maker.get_batch()
 
 				# Sample noise and generate new images
-				noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
-				gen_imgs = self.generator.predict(noise)
+				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
 
 				# Train discriminator (real as ones and fake as zeros)
 				self.discriminator.trainable = True
-				d_loss_real = self.discriminator.train_on_batch(imgs, valid * (1.0 - smooth))
-				d_loss_fake = self.discriminator.train_on_batch(gen_imgs, fake)
+				d_loss_real = self.discriminator.train_on_batch(imgs, np.random.uniform(0.7, 1.2, size=(batch_size, 1)))
+				d_loss_fake = self.discriminator.train_on_batch(gen_imgs, np.random.uniform(0.0, 0.3, size=(batch_size, 1)))
 				self.discriminator.trainable = False
 				d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
 				if d_loss < 0: d_loss = 0.0
@@ -181,18 +179,18 @@ class DCGAN:
 
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
-				if not trick_fake_variation:
-					g_loss = self.combined_model.train_on_batch(noise, valid)
-				else:
-					trick = np.random.uniform(0.7, 1.4, size=(batch_size, 1))
-					g_loss = self.combined_model.train_on_batch(noise, trick)
+				g_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.random.uniform(0.7, 1.2, size=(batch_size, 1)))
 				if g_loss < 0: g_loss = 0.0
 
+				# Save batch statistics
+				disc_batch_losses.append(d_loss)
+				gen_batch_losses.append(g_loss)
+
 			# Save statistics
-			self.gen_losses.append(g_loss)
+			self.gen_losses.append(np.mean(np.array(gen_batch_losses)))
 			mean_gen_loss = np.mean(np.array(self.gen_losses)[-100:])
 			self.gen_mean_losses.append(mean_gen_loss)
-			self.disc_losses.append(d_loss)
+			self.disc_losses.append(np.mean(np.array(disc_batch_losses)))
 
 			# Save progress
 			if self.progress_image_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
@@ -213,22 +211,22 @@ class DCGAN:
 		gen_imgs = self.generator.predict(self.static_noise)
 
 		# Rescale images 0 to 1
-		gen_imgs = 0.5 * gen_imgs + 0.5
+		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
-		fig, axs = plt.subplots(self.ex, self.ex)
+		if self.image_channels == 3:
+			final_img = Image.new("RGB", (self.image_shape[0] * self.ex, self.image_shape[0] * self.ex))
+		else:
+			final_img = Image.new("L", (self.image_shape[0] * self.ex, self.image_shape[0] * self.ex))
 
 		cnt = 0
 		for i in range(self.ex):
 			for j in range(self.ex):
+				cursor = (i * self.image_shape[0], j * self.image_shape[0])
 				if self.image_channels == 3:
-					axs[i, j].imshow(gen_imgs[cnt])
+					final_img.paste(Image.fromarray(gen_imgs[cnt], "RGB"), cursor)
 				else:
-					axs[i, j].imshow(gen_imgs[cnt, :, :, 0], cmap="gray")
-				axs[i, j].axis('off')
+					final_img.paste(Image.fromarray(gen_imgs[cnt, :, :, 0], "L"), cursor)
 				cnt += 1
-
-		fig.savefig(f"{self.progress_image_path}/{epoch + 1}.png")
-		plt.close()
 
 	def show_current_state(self, num_of_states:int=1, ex:int=3):
 		for _ in range(num_of_states):
@@ -272,7 +270,7 @@ class DCGAN:
 		plt.show()
 		plt.close()
 
-	def generate_random_images(self, number_of_images:int=5, save_path:str="."):
+	def generate_random_images(self, number_of_images:int=5, save_path:str=".", blur:bool=False):
 		if not os.path.isdir(save_path): os.mkdir(save_path)
 		gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(number_of_images, self.latent_dim)))
 
@@ -280,6 +278,7 @@ class DCGAN:
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
 		for idx, image in enumerate(gen_imgs):
+			if blur: image = cv.GaussianBlur(image, ksize=(3, 3), sigmaX=0)
 			cv.imwrite(f"{save_path}/gen_im_{idx}.png", image)
 
 	def show_training_stats(self):
@@ -306,7 +305,7 @@ class DCGAN:
 
 	def save_weights(self, save_directory:str= "."):
 		if not os.path.isdir(save_directory): os.mkdir(save_directory)
-		save_dir = os.path.join(save_directory, str(self.epoch_counter))
+		save_dir = os.path.join(save_directory, str(self.epoch_counter + 1))
 		if not os.path.isdir(save_dir): os.mkdir(save_dir)
 		self.generator.save_weights(f"{save_dir}/generator.h5")
 		self.discriminator.save_weights(f"{save_dir}/discriminator.h5")
