@@ -12,14 +12,14 @@ Discriminators:
 	mod_base_4layers - Works fine
 	mod_base_5layers - Maybe works but need more testing
 	mod_ext_5layers  - Not tested
-	mod_extD_5layers - Testing
+	mod_extD_5layers - Not tested
 	mod_base_6layers - Not tested
 	mod_extD_6layers - Not tested
 '''
 
 if __name__ == '__main__':
-	gan = DCGAN("training_data/normalized", progress_image_path="prog_images", progress_image_num=20,
-	            latent_dim=512, gen_mod_name="mod_ext_4upscl", disc_mod_name="mod_extD_5layers",
+	gan = DCGAN("training_data/normalized", progress_image_path="prog_images", progress_image_num=10,
+	            latent_dim=512, gen_mod_name="mod_ext_4upscl", disc_mod_name="mod_base_5layers",
 	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
 	            generator_weights=None, discriminator_weights=None)
 	gan.save_models_structure_images()
@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
 	# Training with showing progress
 	while True:
-		gan.train(200, 32, progress_save_interval=10,
+		gan.train(100, 32, progress_save_interval=10,
 		          weights_save_path="trained_weights", weights_save_interval=10)
 		gan.show_current_state(3)
 		gan.show_training_stats()

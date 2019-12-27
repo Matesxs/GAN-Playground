@@ -24,9 +24,9 @@ class BatchMaker(Thread):
 			if not self.batch_ready:
 				if type(self.train_data) == list:
 					# Load and normalize images if train_data is list of paths
-					self.batch = np.array([cv.imread(im_p) / 127.5 - 1.0 for im_p in np.array(self.train_data)[np.random.randint(0, self.data_length, self.batch_size)]])
+					self.batch = np.array([cv.cvtColor(cv.imread(im_p), cv.COLOR_BGR2RGB) / 127.5 - 1.0 for im_p in np.array(self.train_data)[np.random.randint(0, self.data_length, self.batch_size)]]).astype(np.float32)
 				else:
-					self.batch = self.train_data[np.random.randint(0, self.data_length, self.batch_size)]
+					self.batch = np.array(self.train_data[np.random.randint(0, self.data_length, self.batch_size)] / 127.5 - 1.0).astype(np.float32)
 				self.batch_ready = True
 			time.sleep(0.02)
 

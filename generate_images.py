@@ -9,7 +9,7 @@ from src import generator_models_spreadsheet
 latent_dim = 512
 img_shape = (64, 64, 3)
 model_name = "mod_ext_4upscl"
-model_weights_path = "D:/Projekty/Python/GANTest/trained_weights/40/generator.h5"
+model_weights_path = "D:/Projekty/Python/GANTest/trained_weights/100/generator_mod_ext_4upscl.h5"
 
 num_of_images = 300
 image_save_path = "generated_images"
@@ -33,4 +33,5 @@ else:
 			os.remove(path)
 
 for idx, image in enumerate(gen_images):
+	image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
 	cv.imwrite(f"{image_save_path}/img_{idx+1}.png", image)

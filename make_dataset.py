@@ -2,14 +2,14 @@ import os
 import cv2 as cv
 
 scaled_size = 64
+folder = "samples"
 
-raw_file_names = os.listdir("training_data")
-if not os.path.isdir("training_data/normalized"):
-	os.mkdir("training_data/normalized")
+raw_file_names = os.listdir(folder)
+if not os.path.isdir(f"{folder}/normalized"):
+	os.mkdir(f"{folder}/normalized")
 
 for file_name in raw_file_names:
-	if os.path.isfile("training_data/" + file_name):
-		image = cv.imread("training_data/" + file_name)
+	if os.path.isfile(f"{folder}/" + file_name):
+		image = cv.imread(f"{folder}/" + file_name)
 		image = cv.resize(image, (scaled_size, scaled_size), interpolation=cv.INTER_CUBIC)
-		image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-		cv.imwrite("training_data/normalized/" + file_name, image)
+		cv.imwrite(f"{folder}/normalized/" + file_name, image)

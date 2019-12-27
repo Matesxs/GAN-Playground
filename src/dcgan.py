@@ -53,8 +53,6 @@ class DCGAN:
 			self.data_length = self.train_data.shape[0]
 
 		if type(train_images) != str:
-			# Scale -1 to 1
-			self.train_data = self.train_data / 127.5 - 1.0
 			self.image_shape = self.train_data[0].shape
 		else:
 			tmp_image = cv.imread(self.train_data[0])
@@ -101,7 +99,6 @@ class DCGAN:
 		self.gen_losses = deque()
 		self.gen_mean_losses = deque()
 		self.disc_losses = deque()
-		self.disc_accs = deque()
 
 	def validate_dataset(self):
 		if type(self.train_data) == list:
@@ -153,6 +150,7 @@ class DCGAN:
 		if weights_save_path is not None and weights_save_interval is not None and weights_save_interval <= epochs:
 			if epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if disc_train_multip < 1: raise Exception("Invalid discriminator training multiplier")
+		if self.data_length < batch_size: raise Exception("Invalid batch size")
 
 		# Create batchmaker and start it
 		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size)
@@ -161,7 +159,6 @@ class DCGAN:
 		num_of_batches = self.data_length // batch_size
 		g_loss, d_stats = None, None
 		disc_batch_losses = deque(maxlen=num_of_batches)
-		disc_batch_accs = deque(maxlen=num_of_batches)
 		gen_batch_losses = deque(maxlen=num_of_batches)
 
 		for _ in tqdm(range(epochs), unit="ep"):
@@ -182,7 +179,6 @@ class DCGAN:
 					d_stats = 0.5 * np.add(d_stat_real, d_stat_fake)
 					if d_stats[0] < 0: d_stats[0] = 0.0
 					disc_batch_losses.append(d_stats[0])
-					disc_batch_accs.append(d_stats[1])
 
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
@@ -197,12 +193,10 @@ class DCGAN:
 			self.gen_mean_losses.append(mean_gen_loss)
 			disc_loss = np.mean(np.array(disc_batch_losses))
 			self.disc_losses.append(disc_loss)
-			disc_acc = np.mean(np.array(disc_batch_accs))
-			self.disc_accs.append(disc_acc)
 
 			# Save progress
 			if self.progress_image_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
-				print(f"[D loss: {disc_loss}, acc: {disc_acc * 100}%] [G loss: {gen_loss}, Mean G Loss: {mean_gen_loss}]")
+				print(f"[D loss: {disc_loss}] [G loss: {gen_loss}, Mean G Loss: {mean_gen_loss}]")
 				self.__save_imgs(self.epoch_counter)
 
 			if weights_save_path is not None and weights_save_path is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
@@ -221,7 +215,7 @@ class DCGAN:
 		# Rescale images 0 to 1
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
-		final_image = np.zeros(shape=(self.image_shape[0] * self.progress_image_num, self.image_shape[0] * self.progress_image_num, self.image_channels))
+		final_image = np.zeros(shape=(self.image_shape[0] * self.progress_image_num, self.image_shape[0] * self.progress_image_num, self.image_channels)).astype(np.float32)
 
 		cnt = 0
 		for i in range(self.progress_image_num):
@@ -232,6 +226,7 @@ class DCGAN:
 				else:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
 				cnt += 1
+		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
 		cv.imwrite(f"{self.progress_image_path}/{self.epoch_counter + 1}.png", final_image)
 
 	def show_current_state(self, num_of_states:int=1, progress_image_num:int=3):
@@ -268,9 +263,9 @@ class DCGAN:
 						axs[i, j].imshow(self.train_data[np.random.randint(0, self.data_length, size=1), :, :, 0][0], cmap="gray")
 				else:
 					if self.image_channels == 3:
-						axs[i, j].imshow(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]]))
+						axs[i, j].imshow(cv.cvtColor(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]]), cv.COLOR_BGR2RGB))
 					else:
-						axs[i, j].imshow(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]])[:, :, 0], cmap="gray")
+						axs[i, j].imshow(cv.cvtColor(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]]), cv.COLOR_BGR2RGB)[:, :, 0], cmap="gray")
 				axs[i, j].axis('off')
 				cnt += 1
 		plt.show()
@@ -285,14 +280,14 @@ class DCGAN:
 
 		for idx, image in enumerate(gen_imgs):
 			if blur: image = cv.GaussianBlur(image, ksize=(3, 3), sigmaX=0)
+			image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
 			cv.imwrite(f"{save_path}/gen_im_{idx}.png", image)
 
 	def show_training_stats(self):
 		plt.plot(self.disc_losses)
-		plt.plot(self.disc_accs)
 		plt.plot(self.gen_losses)
 		plt.plot(self.gen_mean_losses)
-		plt.legend(["Disc Loss", "Disc Acc", "Gen Loss", "Mean Gen Loss L100"])
+		plt.legend(["Disc Loss", "Gen Loss", "Mean Gen Loss L100"])
 		plt.show()
 		plt.close()
 
