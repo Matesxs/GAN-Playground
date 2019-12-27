@@ -141,7 +141,7 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, weights_save_interval:int=None, weights_save_path:str=None):
+	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, weights_save_interval:int=None, weights_save_path:str=None, disc_train_multip:int=1):
 		if self.progress_image_path is not None and progress_save_interval is not None and progress_save_interval <= epochs:
 			if epochs%progress_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_path is not None and weights_save_interval is not None and weights_save_interval <= epochs:
@@ -158,32 +158,27 @@ class DCGAN:
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			for batch in range(num_of_batches):
-				### Train Discriminator ###
-				# Select batch of valid images
-				imgs = batch_maker.get_batch()
+				for _ in range(disc_train_multip):
+					### Train Discriminator ###
+					# Select batch of valid images
+					imgs = batch_maker.get_batch()
 
-				# Sample noise and generate new images
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
+					# Sample noise and generate new images
+					gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
 
-				# Train discriminator (real as ones and fake as zeros)
-				self.discriminator.trainable = True
-				d_loss_real = self.discriminator.train_on_batch(imgs, np.random.uniform(0.7, 1.2, size=(batch_size, 1)))
-				d_loss_fake = self.discriminator.train_on_batch(gen_imgs, np.random.uniform(0.0, 0.2, size=(batch_size, 1)))
-				self.discriminator.trainable = False
-				d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
-				if d_loss < 0: d_loss = 0.0
-
-				# Calling destructor of loaded images
-				del imgs
-				del gen_imgs
+					# Train discriminator (real as ones and fake as zeros)
+					self.discriminator.trainable = True
+					d_loss_real = self.discriminator.train_on_batch(imgs, np.random.uniform(0.7, 1.2, size=(batch_size, 1)))
+					d_loss_fake = self.discriminator.train_on_batch(gen_imgs, np.random.uniform(0.0, 0.2, size=(batch_size, 1)))
+					self.discriminator.trainable = False
+					d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
+					if d_loss < 0: d_loss = 0.0
+					disc_batch_losses.append(d_loss)
 
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
 				g_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.random.uniform(0.7, 1.2, size=(batch_size, 1)))
 				if g_loss < 0: g_loss = 0.0
-
-				# Save batch statistics
-				disc_batch_losses.append(d_loss)
 				gen_batch_losses.append(g_loss)
 
 			# Save statistics

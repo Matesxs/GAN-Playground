@@ -11,6 +11,7 @@ class BatchMaker(Thread):
 		self.daemon = True
 
 		self.terminate = False
+
 		self.batch_ready = False
 		self.batch = None
 
