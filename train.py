@@ -1,3 +1,4 @@
+from keras.optimizers import Adam
 from src.dcgan import DCGAN
 
 '''
@@ -10,12 +11,16 @@ Generators:
 Discriminators:
 	mod_base_4layers - Works fine
 	mod_base_5layers - Maybe works but need more testing
-	mod_min_4layers - Not tested
+	mod_ext_5layers  - Not tested
+	mod_extD_5layers - Testing
+	mod_base_6layers - Not tested
+	mod_extD_6layers - Not tested
 '''
 
 if __name__ == '__main__':
 	gan = DCGAN("training_data/normalized", progress_image_path="prog_images",
-	            latent_dim=512, gen_mod_name="mod_ext_4upscl", disc_mod_name="mod_min_4layers")
+	            latent_dim=512, gen_mod_name="mod_ext_4upscl", disc_mod_name="mod_ext_5layers",
+	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5))
 	gan.save_models_structure_images()
 	# gan.show_sample_of_dataset()
 	gan.clear_progress_images()

@@ -22,10 +22,12 @@ from src import discriminator_models_spreadsheet
 tf.get_logger().setLevel('ERROR')
 
 class DCGAN:
-	def __init__(self, train_images:Union[np.ndarray, list, None, str], optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, progress_image_path:str=None, ex:int=5, gen_mod_name:str="mod_base_2upscl", disc_mod_name:str="mod_base_4layers", disc_weights:str=None, gen_weights:str=None):
-		self.optimizer = optimizer
+	def __init__(self, train_images:Union[np.ndarray, list, None, str], generator_optimizer:Optimizer=Adam(0.0002, 0.5), discriminator_optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, progress_image_path:str=None, progress_image_num:int=5, gen_mod_name:str= "mod_base_2upscl", disc_mod_name:str= "mod_base_4layers", disc_weights:str=None, gen_weights:str=None):
+		self.generator_optimizer = generator_optimizer
+		self.discriminator_optimizer = discriminator_optimizer
+
 		self.latent_dim = latent_dim
-		self.ex = ex
+		self.progress_image_num = progress_image_num
 		self.epoch_counter = 0
 		self.progress_image_path = progress_image_path
 
@@ -65,12 +67,12 @@ class DCGAN:
 		self.validate_dataset()
 
 		# Define static vars
-		self.static_noise = np.random.normal(0.0, 1.0, size=(self.ex*self.ex, self.latent_dim))
+		self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_num * self.progress_image_num, self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_mod_name)
-		self.discriminator.compile(loss="binary_crossentropy", optimizer=self.optimizer,  metrics=['accuracy'])
+		self.discriminator.compile(loss="binary_crossentropy", optimizer=self.discriminator_optimizer, metrics=['accuracy'])
 		if disc_weights: self.discriminator.load_weights(disc_weights)
 
 		# Build generator
@@ -90,7 +92,7 @@ class DCGAN:
 		# Combine models
 		# Train generator to fool discriminator
 		self.combined_model = Model(noise_input, valid, name="dcgan_model")
-		self.combined_model.compile(loss="binary_crossentropy", optimizer=self.optimizer)
+		self.combined_model.compile(loss="binary_crossentropy", optimizer=self.generator_optimizer)
 
 		# Statistics
 		self.gen_losses = deque()
@@ -209,11 +211,11 @@ class DCGAN:
 		# Rescale images 0 to 1
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
-		final_image = np.zeros(shape=(self.image_shape[0] * self.ex, self.image_shape[0] * self.ex, self.image_channels))
+		final_image = np.zeros(shape=(self.image_shape[0] * self.progress_image_num, self.image_shape[0] * self.progress_image_num, self.image_channels))
 
 		cnt = 0
-		for i in range(self.ex):
-			for j in range(self.ex):
+		for i in range(self.progress_image_num):
+			for j in range(self.progress_image_num):
 				cursor = (i * self.image_shape[0], j * self.image_shape[0])
 				if self.image_channels == 3:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), :] = gen_imgs[cnt]
@@ -222,18 +224,18 @@ class DCGAN:
 				cnt += 1
 		cv.imwrite(f"{self.progress_image_path}/{self.epoch_counter + 1}.png", final_image)
 
-	def show_current_state(self, num_of_states:int=1, ex:int=3):
+	def show_current_state(self, num_of_states:int=1, progress_image_num:int=3):
 		for _ in range(num_of_states):
-			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(ex * ex, self.latent_dim)))
+			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(progress_image_num * progress_image_num, self.latent_dim)))
 
 			# Rescale images 0 to 1
 			gen_imgs = 0.5 * gen_imgs + 0.5
 
-			fig, axs = plt.subplots(ex, ex)
+			fig, axs = plt.subplots(progress_image_num, progress_image_num)
 
 			cnt = 0
-			for i in range(ex):
-				for j in range(ex):
+			for i in range(progress_image_num):
+				for j in range(progress_image_num):
 					if self.image_channels == 3:
 						axs[i, j].imshow(gen_imgs[cnt])
 					else:
@@ -243,12 +245,12 @@ class DCGAN:
 			plt.show()
 			plt.close()
 
-	def show_sample_of_dataset(self, ex:int=5):
-		fig, axs = plt.subplots(ex, ex)
+	def show_sample_of_dataset(self, progress_image_num:int=5):
+		fig, axs = plt.subplots(progress_image_num, progress_image_num)
 
 		cnt = 0
-		for i in range(ex):
-			for j in range(ex):
+		for i in range(progress_image_num):
+			for j in range(progress_image_num):
 				if type(self.train_data) != list:
 					if self.image_channels == 3:
 						axs[i, j].imshow(self.train_data[np.random.randint(0, self.data_length, size=1)][0])
