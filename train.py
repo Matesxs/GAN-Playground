@@ -29,7 +29,8 @@ if __name__ == '__main__':
 	# Training with showing progress
 	while True:
 		gan.train(100, 32, progress_save_interval=10,
-		          weights_save_path="trained_weights", weights_save_interval=10)
+		          weights_save_path="trained_weights", weights_save_interval=10,
+		          discriminator_smooth_labels=True, generator_smooth_labels=True)
 		gan.show_current_state(3)
 		gan.show_training_stats()
 
