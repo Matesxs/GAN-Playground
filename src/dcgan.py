@@ -22,9 +22,12 @@ from src import discriminator_models_spreadsheet
 tf.get_logger().setLevel('ERROR')
 
 class DCGAN:
-	def __init__(self, train_images:Union[np.ndarray, list, None, str], generator_optimizer:Optimizer=Adam(0.0002, 0.5), discriminator_optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, progress_image_path:str=None, progress_image_num:int=5, gen_mod_name:str= "mod_base_2upscl", disc_mod_name:str= "mod_base_4layers", disc_weights:str=None, gen_weights:str=None):
+	def __init__(self, train_images:Union[np.ndarray, list, None, str], generator_optimizer:Optimizer=Adam(0.0002, 0.5), discriminator_optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, progress_image_path:str=None, progress_image_num:int=5, gen_mod_name:str= "mod_base_2upscl", disc_mod_name:str= "mod_base_4layers", discriminator_weights:str=None, generator_weights:str=None):
 		self.generator_optimizer = generator_optimizer
 		self.discriminator_optimizer = discriminator_optimizer
+
+		self.disc_mod_name = disc_mod_name
+		self.gen_mod_name = gen_mod_name
 
 		self.latent_dim = latent_dim
 		self.progress_image_num = progress_image_num
@@ -73,11 +76,11 @@ class DCGAN:
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_mod_name)
 		self.discriminator.compile(loss="binary_crossentropy", optimizer=self.discriminator_optimizer, metrics=['accuracy'])
-		if disc_weights: self.discriminator.load_weights(disc_weights)
+		if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
 
 		# Build generator
 		self.generator = self.build_generator(gen_mod_name)
-		if gen_weights: self.generator.load_weights(gen_weights)
+		if generator_weights: self.generator.load_weights(generator_weights)
 
 		# Generator takes noise and generates images
 		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
@@ -98,6 +101,7 @@ class DCGAN:
 		self.gen_losses = deque()
 		self.gen_mean_losses = deque()
 		self.disc_losses = deque()
+		self.disc_accs = deque()
 
 	def validate_dataset(self):
 		if type(self.train_data) == list:
@@ -155,8 +159,9 @@ class DCGAN:
 		batch_maker.start()
 
 		num_of_batches = self.data_length // batch_size
-		g_loss, d_loss = None, None
+		g_loss, d_stats = None, None
 		disc_batch_losses = deque(maxlen=num_of_batches)
+		disc_batch_accs = deque(maxlen=num_of_batches)
 		gen_batch_losses = deque(maxlen=num_of_batches)
 
 		for _ in tqdm(range(epochs), unit="ep"):
@@ -171,12 +176,13 @@ class DCGAN:
 
 					# Train discriminator (real as ones and fake as zeros)
 					self.discriminator.trainable = True
-					d_loss_real = self.discriminator.train_on_batch(imgs, np.random.uniform(0.7, 1.2, size=(batch_size, 1)))
-					d_loss_fake = self.discriminator.train_on_batch(gen_imgs, np.random.uniform(0.0, 0.2, size=(batch_size, 1)))
+					d_stat_real = self.discriminator.train_on_batch(imgs, np.random.uniform(0.7, 1.2, size=(batch_size, 1)))
+					d_stat_fake = self.discriminator.train_on_batch(gen_imgs, np.random.uniform(0.0, 0.2, size=(batch_size, 1)))
 					self.discriminator.trainable = False
-					d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
-					if d_loss < 0: d_loss = 0.0
-					disc_batch_losses.append(d_loss)
+					d_stats = 0.5 * np.add(d_stat_real, d_stat_fake)
+					if d_stats[0] < 0: d_stats[0] = 0.0
+					disc_batch_losses.append(d_stats[0])
+					disc_batch_accs.append(d_stats[1])
 
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
@@ -185,14 +191,18 @@ class DCGAN:
 				gen_batch_losses.append(g_loss)
 
 			# Save statistics
-			self.gen_losses.append(np.mean(np.array(gen_batch_losses)))
+			gen_loss = np.mean(np.array(gen_batch_losses))
+			self.gen_losses.append(gen_loss)
 			mean_gen_loss = np.mean(np.array(self.gen_losses)[-100:])
 			self.gen_mean_losses.append(mean_gen_loss)
-			self.disc_losses.append(np.mean(np.array(disc_batch_losses)))
+			disc_loss = np.mean(np.array(disc_batch_losses))
+			self.disc_losses.append(disc_loss)
+			disc_acc = np.mean(np.array(disc_batch_accs))
+			self.disc_accs.append(disc_acc)
 
 			# Save progress
 			if self.progress_image_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
-				print(f"[D loss: {d_loss}] [G loss: {g_loss}, Mean G Loss: {mean_gen_loss}]")
+				print(f"[D loss: {disc_loss}, acc: {disc_acc * 100}%] [G loss: {gen_loss}, Mean G Loss: {mean_gen_loss}]")
 				self.__save_imgs(self.epoch_counter)
 
 			if weights_save_path is not None and weights_save_path is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
@@ -279,9 +289,10 @@ class DCGAN:
 
 	def show_training_stats(self):
 		plt.plot(self.disc_losses)
+		plt.plot(self.disc_accs)
 		plt.plot(self.gen_losses)
 		plt.plot(self.gen_mean_losses)
-		plt.legend(["Disc Loss", "Gen Loss", "Mean Gen Loss L100"])
+		plt.legend(["Disc Loss", "Disc Acc", "Gen Loss", "Mean Gen Loss L100"])
 		plt.show()
 		plt.close()
 
@@ -303,8 +314,8 @@ class DCGAN:
 		if not os.path.isdir(save_directory): os.mkdir(save_directory)
 		save_dir = os.path.join(save_directory, str(self.epoch_counter + 1))
 		if not os.path.isdir(save_dir): os.mkdir(save_dir)
-		self.generator.save_weights(f"{save_dir}/generator.h5")
-		self.discriminator.save_weights(f"{save_dir}/discriminator.h5")
+		self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
+		self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
 
 	def save_weights_prompt(self, save_directory:str= "."):
 		while True:
