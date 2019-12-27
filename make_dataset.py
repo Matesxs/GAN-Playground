@@ -2,7 +2,7 @@ import os
 import cv2 as cv
 
 scaled_size = 64
-folder = "samples"
+folder = "training_data"
 
 raw_file_names = os.listdir(folder)
 if not os.path.isdir(f"{folder}/normalized"):
