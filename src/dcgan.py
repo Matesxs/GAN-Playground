@@ -146,6 +146,7 @@ class DCGAN:
 			if epochs%progress_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_path is not None and weights_save_interval is not None and weights_save_interval <= epochs:
 			if epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
+		if disc_train_multip < 1: raise Exception("Invalid discriminator training multiplier")
 
 		# Create batchmaker and start it
 		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size)
@@ -208,21 +209,18 @@ class DCGAN:
 		# Rescale images 0 to 1
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
-		if self.image_channels == 3:
-			final_img = Image.new("RGB", (self.image_shape[0] * self.ex, self.image_shape[0] * self.ex))
-		else:
-			final_img = Image.new("L", (self.image_shape[0] * self.ex, self.image_shape[0] * self.ex))
+		final_image = np.zeros(shape=(self.image_shape[0] * self.ex, self.image_shape[0] * self.ex, self.image_channels))
 
 		cnt = 0
 		for i in range(self.ex):
 			for j in range(self.ex):
 				cursor = (i * self.image_shape[0], j * self.image_shape[0])
 				if self.image_channels == 3:
-					final_img.paste(Image.fromarray(gen_imgs[cnt], "RGB"), cursor)
+					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), :] = gen_imgs[cnt]
 				else:
-					final_img.paste(Image.fromarray(gen_imgs[cnt, :, :, 0], "L"), cursor)
+					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
 				cnt += 1
-		final_img.save(f"{self.progress_image_path}/{self.epoch_counter + 1}.png")
+		cv.imwrite(f"{self.progress_image_path}/{self.epoch_counter + 1}.png", final_image)
 
 	def show_current_state(self, num_of_states:int=1, ex:int=3):
 		for _ in range(num_of_states):
