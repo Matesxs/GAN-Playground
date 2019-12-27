@@ -168,7 +168,7 @@ class DCGAN:
 				# Train discriminator (real as ones and fake as zeros)
 				self.discriminator.trainable = True
 				d_loss_real = self.discriminator.train_on_batch(imgs, np.random.uniform(0.7, 1.2, size=(batch_size, 1)))
-				d_loss_fake = self.discriminator.train_on_batch(gen_imgs, np.random.uniform(0.0, 0.3, size=(batch_size, 1)))
+				d_loss_fake = self.discriminator.train_on_batch(gen_imgs, np.random.uniform(0.0, 0.2, size=(batch_size, 1)))
 				self.discriminator.trainable = False
 				d_loss = 0.5 * (d_loss_real[0] + d_loss_fake[0])
 				if d_loss < 0: d_loss = 0.0
@@ -227,6 +227,7 @@ class DCGAN:
 				else:
 					final_img.paste(Image.fromarray(gen_imgs[cnt, :, :, 0], "L"), cursor)
 				cnt += 1
+		final_img.save(f"{self.progress_image_path}/{self.epoch_counter + 1}.png")
 
 	def show_current_state(self, num_of_states:int=1, ex:int=3):
 		for _ in range(num_of_states):

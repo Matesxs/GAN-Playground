@@ -15,7 +15,7 @@ Discriminators:
 
 if __name__ == '__main__':
 	gan = DCGAN("training_data/normalized", progress_image_path="prog_images",
-	            latent_dim=512, gen_mod_name="mod_ext_4upscl", disc_mod_name="mod_base_4layers")
+	            latent_dim=512, gen_mod_name="mod_ext_4upscl", disc_mod_name="mod_min_4layers")
 	gan.save_models_structure_images()
 	# gan.show_sample_of_dataset()
 	gan.clear_progress_images()
@@ -23,7 +23,7 @@ if __name__ == '__main__':
 	# Training with showing progress
 	while True:
 		gan.train(200, 32, 10,
-		          weights_save_path="trained_weights", weights_save_interval=20)
+		          weights_save_path="trained_weights", weights_save_interval=10)
 		gan.show_current_state(3)
 		gan.show_training_stats()
 
