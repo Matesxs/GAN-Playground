@@ -226,7 +226,7 @@ class DCGAN:
 		if not os.path.isdir(self.progress_image_path): os.mkdir(self.progress_image_path)
 		gen_imgs = self.generator.predict(self.static_noise)
 
-		# Rescale images 0 to 1
+		# Rescale images 0 to 255
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
 		final_image = np.zeros(shape=(self.image_shape[0] * self.progress_image_num, self.image_shape[0] * self.progress_image_num, self.image_channels)).astype(np.float32)
@@ -234,7 +234,6 @@ class DCGAN:
 		cnt = 0
 		for i in range(self.progress_image_num):
 			for j in range(self.progress_image_num):
-				cursor = (i * self.image_shape[0], j * self.image_shape[0])
 				if self.image_channels == 3:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), :] = gen_imgs[cnt]
 				else:
@@ -242,6 +241,25 @@ class DCGAN:
 				cnt += 1
 		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
 		cv.imwrite(f"{self.progress_image_path}/{self.epoch_counter + 1}.png", final_image)
+
+	def generate_collage(self, img_size:tuple=(16, 9), save_path: str = ".", blur: bool = False):
+		gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(img_size[0] * img_size[1], self.latent_dim)))
+
+		# Rescale images 0 to 255
+		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
+
+		final_image = np.zeros(shape=(self.image_shape[0] * img_size[0], self.image_shape[0] * img_size[1],self.image_channels)).astype(np.float32)
+
+		cnt = 0
+		for i in range(img_size[0]):
+			for j in range(img_size[1]):
+				if self.image_channels == 3:
+					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), :] = gen_imgs[cnt]
+				else:
+					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
+				cnt += 1
+		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
+		cv.imwrite(f"{save_path}/collage.png", final_image)
 
 	def show_current_state(self, num_of_states:int=1, progress_image_num:int=3):
 		for _ in range(num_of_states):

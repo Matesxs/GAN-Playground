@@ -10,6 +10,7 @@ Generators:
 	
 Discriminators:
 	mod_base_4layers - Works fine
+	mod_extD_4layers - Not tested
 	mod_base_5layers - Maybe works but need more testing
 	mod_ext_5layers  - Not tested
 	mod_extD_5layers - Not tested
@@ -23,18 +24,24 @@ if __name__ == '__main__':
 	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
 	            generator_weights=None, discriminator_weights=None)
 	gan.save_models_structure_images()
-	# gan.show_sample_of_dataset()
+	# gan.show_sample_of_dataset(10)
 	gan.clear_progress_images()
+
+	# Pretrain
+	gan.train(20, 32, progress_save_interval=10,
+	          weights_save_path=None, weights_save_interval=None,
+	          discriminator_smooth_labels=True, generator_smooth_labels=True,
+	          disc_train_multip=2)
 
 	# Training with showing progress
 	while True:
 		gan.train(100, 32, progress_save_interval=10,
 		          weights_save_path="trained_weights", weights_save_interval=10,
 		          discriminator_smooth_labels=True, generator_smooth_labels=True)
-		gan.show_current_state(3)
+		gan.show_current_state(3, 5)
 		gan.show_training_stats()
 
 		if input("Continue?\n") == "n": break
 
 	if input("Make progress gif?\n") == "y": gan.make_gif()
-	if input("Generate images?\n") == "y": gan.generate_random_images(100, "gen_images")
+	if input("Generate collage?\n") == "y": gan.generate_collage()
