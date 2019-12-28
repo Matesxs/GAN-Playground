@@ -97,8 +97,10 @@ class DCGAN:
 
 		# Statistics
 		self.gen_losses = deque()
-		self.gen_mean_losses = deque()
-		self.disc_losses = deque()
+		self.disc_real_losses = deque()
+		self.disc_fake_losses = deque()
+		self.disc_real_accs = deque()
+		self.disc_fake_accs = deque()
 
 	def validate_dataset(self):
 		if type(self.train_data) == list:
@@ -157,7 +159,11 @@ class DCGAN:
 		batch_maker.start()
 
 		num_of_batches = self.data_length // batch_size
-		disc_batch_losses = deque(maxlen=num_of_batches)
+
+		disc_batch_real_losses = deque(maxlen=num_of_batches)
+		disc_batch_fake_losses = deque(maxlen=num_of_batches)
+		disc_batch_real_accs = deque(maxlen=num_of_batches)
+		disc_batch_fake_accs = deque(maxlen=num_of_batches)
 		gen_batch_losses = deque(maxlen=num_of_batches)
 
 		# Images generated in prewious batch
@@ -194,13 +200,14 @@ class DCGAN:
 							disc_fake_labels = np.zeros(shape=(batch_size, 1))
 
 					self.discriminator.trainable = True
-					d_stat_real = self.discriminator.train_on_batch(imgs, disc_real_labels)
-					d_stat_fake = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+					d_loss_real, d_acc_real = self.discriminator.train_on_batch(imgs, disc_real_labels)
+					d_loss_fake, d_acc_fake = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
 					self.discriminator.trainable = False
 
-					d_loss = 0.5 * (d_stat_real[0] + d_stat_fake[0])
-					if d_loss < 0: d_loss = 0.0
-					disc_batch_losses.append(d_loss)
+					disc_batch_real_losses.append(d_loss_real)
+					disc_batch_real_accs.append(d_acc_real)
+					disc_batch_fake_losses.append(d_loss_fake)
+					disc_batch_fake_accs.append(d_acc_fake)
 
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
@@ -217,14 +224,19 @@ class DCGAN:
 			# Save statistics
 			gen_loss = np.mean(np.array(gen_batch_losses))
 			self.gen_losses.append(gen_loss)
-			mean_gen_loss = np.mean(np.array(self.gen_losses)[-50:])
-			self.gen_mean_losses.append(mean_gen_loss)
-			disc_loss = np.mean(np.array(disc_batch_losses))
-			self.disc_losses.append(disc_loss)
+
+			disc_real_loss = np.mean(np.array(disc_batch_real_losses))
+			self.disc_real_losses.append(disc_real_loss)
+			disc_real_acc = np.mean(np.array(disc_batch_real_accs)) * 100
+			self.disc_real_accs.append(disc_real_acc)
+			disc_fake_loss = np.mean(np.array(disc_batch_fake_losses))
+			self.disc_fake_losses.append(disc_fake_loss)
+			disc_fake_acc = np.mean(np.array(disc_batch_fake_accs)) * 100
+			self.disc_fake_accs.append(disc_fake_acc)
 
 			# Save progress
 			if self.progress_image_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
-				print(f"[D loss: {disc_loss}] [G loss: {gen_loss}, Mean G Loss: {mean_gen_loss}]")
+				print(f"[D-R loss: {disc_real_loss}, D-R acc: {disc_real_acc}, D-F loss: {disc_fake_loss}, D-F acc: {disc_fake_acc}] [G loss: {gen_loss}]")
 				self.__save_imgs(self.epoch_counter)
 
 			if weights_save_path is not None and weights_save_interval is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
@@ -330,10 +342,19 @@ class DCGAN:
 			cv.imwrite(f"{save_path}/gen_im_{idx}.png", image)
 
 	def show_training_stats(self, plt_save_path:str=None):
-		plt.plot(self.disc_losses)
-		plt.plot(self.gen_losses)
-		plt.plot(self.gen_mean_losses)
-		plt.legend(["Disc Loss", "Gen Loss", "Mean Gen Loss L50"])
+		# Loss graph
+		plt.subplot(2, 1, 1)
+		plt.plot(self.gen_losses, label="Gen Loss")
+		plt.plot(self.disc_fake_losses, label="Disc Fake Loss")
+		plt.plot(self.disc_real_losses, label="Disc Real Loss")
+		plt.legend()
+
+		# Acc graph
+		plt.subplot(2, 1, 2)
+		plt.plot(self.disc_fake_accs, label="Disc Fake Acc")
+		plt.plot(self.disc_real_accs, label="Disc Real Acc")
+		plt.legend()
+
 		if not plt_save_path:
 			plt.show()
 		else:
