@@ -22,7 +22,7 @@ Discriminators:
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Disc : Gen | Rank | Description
 	mod_base_2upscl     mod_ext2_5layers    256        None     1:1          ---    Impossible to train now - too long (485s/ep)
-	mod_base_2upscl     mod_extD_5layers    256        200      1:1          D      Artifacts maybe more training needed
+	mod_base_2upscl     mod_extD_5layers    256        200      1:1          D      Artifacts - Maybe fixed, need test again
 	mod_base_2upscl     mod_base_5layers    256        
 '''
 

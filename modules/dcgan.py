@@ -181,14 +181,14 @@ class DCGAN:
 
 					# Train discriminator (real as ones and fake as zeros)
 					if discriminator_smooth_labels:
-						disc_real_labels = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
+						disc_real_labels = np.random.uniform(0.85, 0.95, size=(batch_size, 1))
 						if feed_prew_gen_batch and last_gen_images is not None:
-							disc_fake_labels = np.random.uniform(0.0, 0.3, size=(batch_size * 2, 1))
+							disc_fake_labels = np.random.uniform(0.0, 0.1, size=(batch_size * 2, 1))
 							tmp_imgs = np.concatenate((gen_imgs, last_gen_images))
 							last_gen_images = gen_imgs
 							gen_imgs = tmp_imgs
 						else:
-							disc_fake_labels = np.random.uniform(0.0, 0.3, size=(batch_size, 1))
+							disc_fake_labels = np.random.uniform(0.0, 0.1, size=(batch_size, 1))
 					else:
 						disc_real_labels = np.ones(shape=(batch_size, 1))
 						if feed_prew_gen_batch and last_gen_images is not None:

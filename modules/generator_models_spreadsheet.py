@@ -17,17 +17,17 @@ def mod_base_2upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 	m = Reshape((st_s, st_s, 256))(m)
 
 	# (st_s, st_s, 256) -> (st_s, st_s, 256)
-	m = Conv2DTranspose(256, (5, 5), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(256, (4, 4), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU()(m)
 
 	# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
-	m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(128, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU()(m)
 
 	# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, num_ch)
-	m = Conv2DTranspose(image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)
+	m = Conv2DTranspose(image_channels, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)
 	return m
 
 def mod_extM_2upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
@@ -40,12 +40,12 @@ def mod_extM_2upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 	m = Reshape((st_s, st_s, 512))(m)
 
 	# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
-	m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(256, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, num_ch)
-	m = Conv2DTranspose(image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)
+	m = Conv2DTranspose(image_channels, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)
 	return m
 
 def mod_base_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
@@ -58,17 +58,17 @@ def mod_base_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 	m = Reshape((st_s, st_s, 512))(m)
 
 	# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
-	m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(256, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
-	m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(128, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, num_ch)
-	m = Conv2DTranspose(image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)
+	m = Conv2DTranspose(image_channels, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)
 	return m
 
 def mod_base_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
@@ -81,27 +81,27 @@ def mod_base_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 	m = Reshape((st_s, st_s, 512))(m)
 
 	# (st_s, st_s, 512) -> (st_s, st_s, 512)
-	m = Conv2DTranspose(512, (5, 5), strides=(1, 1), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(512, (4, 4), strides=(1, 1), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
-	m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(256, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, 128)
-	m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(128, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (4*st_s, 4*st_s, 128) -> (8*st_s, 8*st_s, 64)
-	m = Conv2DTranspose(64, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(64, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (8*st_s, 8*st_s, 64) -> (16*st_s, 16*st_s, num_ch)
-	m = Conv2DTranspose(image_channels, (5, 5), strides=(2, 2), padding="same",kernel_initializer=kernel_initializer, activation="tanh")(m)
+	m = Conv2DTranspose(image_channels, (4, 4), strides=(2, 2), padding="same",kernel_initializer=kernel_initializer, activation="tanh")(m)
 	return m
 
 def mod_ext_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
@@ -114,20 +114,20 @@ def mod_ext_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_init
 	m = Reshape((st_s, st_s, 1024))(m)
 
 	# (st_s, st_s, 1024) -> (2*st_s, 2*st_s, 512)
-	m = Conv2DTranspose(512, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(512, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (2*st_s, 2*st_s, 512) -> (4*st_s, 4*st_s, 256)
-	m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(256, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (4*st_s, 4*st_s, 256) -> (8*st_s, 8*st_s, 128)
-	m = Conv2DTranspose(128, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = Conv2DTranspose(128, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
 	m = LeakyReLU(0.2)(m)
 
 	# (8*st_s, 8*st_s, 128) -> (16*st_s, 16*st_s, num_ch)
-	m = Conv2DTranspose(image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)
+	m = Conv2DTranspose(image_channels, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)
 	return m
