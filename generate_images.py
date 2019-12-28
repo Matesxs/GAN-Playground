@@ -4,7 +4,7 @@ import os
 import numpy as np
 import cv2 as cv
 
-from src import generator_models_spreadsheet
+from modules import generator_models_spreadsheet
 
 latent_dim = 512
 img_shape = (64, 64, 3)
