@@ -1,6 +1,7 @@
 from keras.optimizers import Adam
 from modules.dcgan import DCGAN
 from modules import generator_models_spreadsheet, discriminator_models_spreadsheet
+import gc
 
 save_path = "models_testing"
 training_epochs = 200
@@ -11,6 +12,10 @@ batch_sizes = [ 16, 32, 64, 128 ]
 generator_models = [name for name in dir(generator_models_spreadsheet) if name.startswith("mod_")]
 discriminator_models = [name for name in dir(discriminator_models_spreadsheet) if name.startswith("mod_")]
 
+all_combinations = len(latent_dims) * len(batch_sizes) * len(generator_models) * len(discriminator_models)
+done_tests = 0
+
+print(f"Number of tests: {all_combinations}")
 for gen_model in generator_models:
 	for disc_model in discriminator_models:
 		for latent_dim in latent_dims:
@@ -26,3 +31,8 @@ for gen_model in generator_models:
 				          feed_prew_gen_batch=True)
 				gan.show_training_stats(plt_save_path=f"{save_path}/{testing_name}")
 				gan.generate_collage(save_path=f"{save_path}/{testing_name}")
+
+				del gan
+				done_tests += 1
+				print(f"Finished tests: {done_tests}/{all_combinations}")
+				gc.collect()
