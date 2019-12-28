@@ -36,13 +36,13 @@ def mod_extM_2upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 	# (512 * st_s^2,) -> (st_s, st_s, 512)
 	m = Dense(512 * st_s * st_s, kernel_initializer=kernel_initializer)(inp)
 	m = BatchNormalization()(m)
-	m = LeakyReLU()(m)
-	m = Reshape((st_s, st_s, 256))(m)
+	m = LeakyReLU(0.2)(m)
+	m = Reshape((st_s, st_s, 512))(m)
 
 	# (st_s, st_s, 512) -> (2*st_s, 2*st_s, 256)
 	m = Conv2DTranspose(256, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization()(m)
-	m = LeakyReLU()(m)
+	m = LeakyReLU(0.2)(m)
 
 	# (2*st_s, 2*st_s, 256) -> (4*st_s, 4*st_s, num_ch)
 	m = Conv2DTranspose(image_channels, (5, 5), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)

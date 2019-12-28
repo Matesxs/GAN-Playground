@@ -4,7 +4,7 @@ from modules import generator_models_spreadsheet, discriminator_models_spreadshe
 import gc
 
 save_path = "models_testing"
-training_epochs = 200
+training_epochs = 300
 
 latent_dims = [ 128, 256, 512, 1024 ]
 batch_sizes = [ 16, 32, 64, 128 ]
