@@ -343,7 +343,7 @@ class DCGAN:
 			image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
 			cv.imwrite(f"{save_path}/gen_im_{idx}.png", image)
 
-	def show_training_stats(self, plt_save_path:str=None):
+	def show_training_stats(self, save_path:str=None):
 		# Loss graph
 		plt.subplot(2, 1, 1)
 		plt.plot(self.gen_losses, label="Gen Loss")
@@ -357,10 +357,10 @@ class DCGAN:
 		plt.plot(self.disc_real_accs, label="Disc Real Acc")
 		plt.legend()
 
-		if not plt_save_path:
+		if not save_path:
 			plt.show()
 		else:
-			plt.savefig(f"{plt_save_path}/training_stats.png")
+			plt.savefig(f"{save_path}/training_stats.png")
 		plt.close()
 
 	def save_models_structure_images(self, save_path:str= "."):

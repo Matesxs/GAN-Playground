@@ -42,7 +42,7 @@ if __name__ == '__main__':
 		          discriminator_smooth_labels=True, generator_smooth_labels=True,
 		          feed_prew_gen_batch=True, disc_train_multip=1)
 		gan.show_current_state(3, 5)
-		gan.show_training_stats(plt_save_path=None)
+		gan.show_training_stats(save_path=None)
 
 		if input("Continue?\n") == "n": break
 
