@@ -1,0 +1,7 @@
+tqdm
+opencv-python
+Pillow
+tensorflow-gpu==1.15.0
+numpy==1.17.4
+matplotlib
+keras
