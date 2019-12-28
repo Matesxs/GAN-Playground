@@ -4,9 +4,10 @@ from src.dcgan import DCGAN
 '''
 Generators:
 	mod_base_2upscl - Bad on color images, some tweaks needed, "good" on small gray images
-	mod_base_3upscl - Kind of work, some "good" results after 1000 epochs - 1024 latent dim
+	mod_extM_2upscl - Not tested
+	mod_base_3upscl - Kind of work, some "good" results after 1000 epochs - 1024 latent dim (maybe too much, need testing)
 	mod_base_4upscl - Bad decaying loss at 300 epoch, maybe more training needed or some tweaks
-	mod_ext_4upscl - Works fine (200 epochs, 512 latent dim)
+	mod_ext_4upscl  - Works fine (200 epochs, 512 latent dim)
 	
 Discriminators:
 	mod_base_4layers - Works fine
