@@ -227,16 +227,18 @@ class DCGAN:
 
 			disc_real_loss = np.mean(np.array(disc_batch_real_losses))
 			self.disc_real_losses.append(disc_real_loss)
-			disc_real_acc = np.mean(np.array(disc_batch_real_accs)) * 100
+			disc_real_acc = np.mean(np.array(disc_batch_real_accs)) * 100.0
 			self.disc_real_accs.append(disc_real_acc)
 			disc_fake_loss = np.mean(np.array(disc_batch_fake_losses))
 			self.disc_fake_losses.append(disc_fake_loss)
-			disc_fake_acc = np.mean(np.array(disc_batch_fake_accs)) * 100
+			disc_fake_acc = np.mean(np.array(disc_batch_fake_accs)) * 100.0
 			self.disc_fake_accs.append(disc_fake_acc)
+
+			if (self.epoch_counter + 1) % 10 == 0:
+				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}] [G loss: {gen_loss}]")
 
 			# Save progress
 			if self.progress_image_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
-				print(f"[D-R loss: {disc_real_loss}, D-R acc: {disc_real_acc}, D-F loss: {disc_fake_loss}, D-F acc: {disc_fake_acc}] [G loss: {gen_loss}]")
 				self.__save_imgs(self.epoch_counter)
 
 			if weights_save_path is not None and weights_save_interval is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
