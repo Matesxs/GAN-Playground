@@ -25,7 +25,7 @@ Settings testing:
 
 if __name__ == '__main__':
 	gan = DCGAN("training_data/normalized", progress_image_path="prog_images", progress_image_num=10,
-	            latent_dim=256, gen_mod_name="mod_base_2upscl", disc_mod_name="mod_base_4layers",
+	            latent_dim=256, gen_mod_name="mod_base_2upscl", disc_mod_name="mod_ext2_5layers",
 	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
 	            generator_weights=None, discriminator_weights=None)
 	gan.save_models_structure_images()

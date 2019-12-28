@@ -14,14 +14,11 @@ import math
 import cv2 as cv
 from tqdm import tqdm
 from typing import Union
-import colorama
-from colorama import Fore
 
 from modules.batch_maker import BatchMaker
 from modules import generator_models_spreadsheet
 from modules import discriminator_models_spreadsheet
 
-colorama.init(autoreset=True)
 tf.get_logger().setLevel('ERROR')
 
 class DCGAN:
@@ -113,7 +110,7 @@ class DCGAN:
 			for image in self.train_data:
 				if image.shape != self.image_shape:
 					raise Exception("Inconsistent dataset")
-		print(Fore.GREEN + "Dataset valid")
+		print("Dataset valid")
 
 	def build_generator(self, model_name:str="mod_base_2upscl"):
 		noise = Input(shape=(self.latent_dim,))
@@ -227,10 +224,10 @@ class DCGAN:
 
 			# Save progress
 			if self.progress_image_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
-				print(Fore.GREEN + f"[D loss: {disc_loss}] [G loss: {gen_loss}, Mean G Loss: {mean_gen_loss}]")
+				print(f"[D loss: {disc_loss}] [G loss: {gen_loss}, Mean G Loss: {mean_gen_loss}]")
 				self.__save_imgs(self.epoch_counter)
 
-			if weights_save_path is not None and weights_save_path is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
+			if weights_save_path is not None and weights_save_interval is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
 				self.save_weights(weights_save_path)
 
 			self.epoch_counter += 1
