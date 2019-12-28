@@ -22,12 +22,13 @@ Discriminators:
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Disc : Gen | Rank | Description
 	mod_base_2upscl     mod_ext2_5layers    256        None     1:1          ---    Impossible to train now - too long (485s/ep)
-	mod_base_2upscl     mod_extD_5layers    256        
+	mod_base_2upscl     mod_extD_5layers    256        200      1:1          D      Artifacts maybe more training needed
+	mod_base_2upscl     mod_base_5layers    256        
 '''
 
 if __name__ == '__main__':
 	gan = DCGAN("training_data/normalized", progress_image_path="prog_images", progress_image_num=10,
-	            latent_dim=256, gen_mod_name="mod_base_2upscl", disc_mod_name="mod_extD_5layers",
+	            latent_dim=256, gen_mod_name="mod_base_2upscl", disc_mod_name="mod_base_5layers",
 	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
 	            generator_weights=None, discriminator_weights=None)
 	gan.save_models_structure_images()
@@ -39,7 +40,7 @@ if __name__ == '__main__':
 		gan.train(100, 32, progress_save_interval=10,
 		          weights_save_path="trained_weights", weights_save_interval=None,
 		          discriminator_smooth_labels=True, generator_smooth_labels=True,
-		          feed_prew_gen_batch=True)
+		          feed_prew_gen_batch=True, disc_train_multip=1)
 		gan.show_current_state(3, 5)
 		gan.show_training_stats(plt_save_path=None)
 

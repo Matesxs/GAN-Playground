@@ -1,6 +1,8 @@
 from keras.optimizers import Adam
 from modules.dcgan import DCGAN
 from modules import generator_models_spreadsheet, discriminator_models_spreadsheet
+import colorama
+from colorama import Fore
 import gc
 
 save_path = "models_testing"
@@ -15,7 +17,8 @@ discriminator_models = [name for name in dir(discriminator_models_spreadsheet) i
 all_combinations = len(latent_dims) * len(batch_sizes) * len(generator_models) * len(discriminator_models)
 done_tests = 0
 
-print(f"Number of tests: {all_combinations}")
+colorama.init()
+print(Fore.YELLOW + f"Number of tests: {all_combinations}")
 for gen_model in generator_models:
 	for disc_model in discriminator_models:
 		for latent_dim in latent_dims:
@@ -26,13 +29,15 @@ for gen_model in generator_models:
 				            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
 				            generator_weights=None, discriminator_weights=None)
 				gan.clear_progress_images()
+				print(Fore.GREEN + f"{testing_name} - Test Started")
 				gan.train(training_epochs, batch_size, progress_save_interval=10,
 				          discriminator_smooth_labels=True, generator_smooth_labels=True,
 				          feed_prew_gen_batch=True)
 				gan.show_training_stats(plt_save_path=f"{save_path}/{testing_name}")
 				gan.generate_collage(save_path=f"{save_path}/{testing_name}")
+				print(Fore.GREEN + f"{testing_name} - Test Finished")
 
 				del gan
 				done_tests += 1
-				print(f"Finished tests: {done_tests}/{all_combinations}")
+				print(Fore.YELLOW + f"Finished tests: {done_tests}/{all_combinations}")
 				gc.collect()
