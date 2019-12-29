@@ -1,5 +1,5 @@
 from keras.initializers import Initializer, RandomNormal
-from keras.layers import Layer, Dense, BatchNormalization, Reshape, Conv2DTranspose
+from keras.layers import Layer, Dense, BatchNormalization, Reshape, Conv2DTranspose, UpSampling2D
 from keras.layers.advanced_activations import LeakyReLU
 
 def count_upscaling_start_size(image_shape: tuple, num_of_upscales: int):

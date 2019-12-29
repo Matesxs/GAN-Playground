@@ -40,7 +40,7 @@ if __name__ == '__main__':
 		gan.train(100, 32, progress_save_interval=10,
 		          weights_save_path="trained_weights", weights_save_interval=None,
 		          discriminator_smooth_labels=True, generator_smooth_labels=True,
-		          feed_prew_gen_batch=True, disc_train_multip=1)
+		          feed_prev_gen_batch=True, disc_train_multip=1, disc_half_batch=False)
 		gan.show_current_state(3, 5)
 		gan.show_training_stats(save_path=None)
 

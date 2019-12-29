@@ -37,7 +37,7 @@ for gen_model in generator_models:
 					print(Fore.RESET)
 					gan.train(training_epochs, batch_size, progress_save_interval=10,
 					          discriminator_smooth_labels=True, generator_smooth_labels=True,
-					          feed_prew_gen_batch=True)
+					          feed_prev_gen_batch=True)
 					gan.show_training_stats(save_path=f"{save_path}/{testing_name}")
 					gan.save_models_structure_images(save_path=f"{save_path}/{testing_name}")
 					gan.generate_collage(save_path=f"{save_path}/{testing_name}")
