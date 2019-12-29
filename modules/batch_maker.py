@@ -30,7 +30,7 @@ class BatchMaker(Thread):
 				self.batch_ready = True
 			time.sleep(0.02)
 
-	def get_batch(self):
+	def get_batch(self) -> np.ndarray:
 		while not self.batch_ready: time.sleep(0.02)
 		tmp_batch = copy(self.batch)
 		self.batch_ready = False

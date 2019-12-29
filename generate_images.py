@@ -8,8 +8,8 @@ from modules import generator_models_spreadsheet
 
 latent_dim = 512
 img_shape = (64, 64, 3)
-model_name = "mod_ext_4upscl"
-model_weights_path = "D:/Projekty/Python/GANTest/trained_weights/100/generator_mod_ext_4upscl.h5"
+model_name = "mod_base_4upscl"
+model_weights_path = None
 
 num_of_images = 300
 image_save_path = "generated_images"
