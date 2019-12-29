@@ -16,6 +16,7 @@ Discriminators:
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
 	mod_base_2upscl     mod_ext_5layers     100        200      C      Not enough capacity of generator I think
+	mod_mod_2upscl      mod_ext_5layers     100        200
 '''
 
 if __name__ == '__main__':
@@ -32,7 +33,7 @@ if __name__ == '__main__':
 		gan.train(200, 32, progress_save_interval=10,
 		          weights_save_interval=None,
 		          discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.0,
-		          feed_prev_gen_batch=True, disc_half_batch=True)
+		          feed_prev_gen_batch=True)
 		gan.show_current_state(3, 5)
 		gan.show_training_stats(save_path=None)
 
