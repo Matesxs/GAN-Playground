@@ -17,7 +17,7 @@ Discriminators:
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
 	mod_base_2upscl     mod_base_4layers    100        100000   D      Not enough capacity
-	mod_min_3upscl      mod_min_5layers     100
+	mod_min_3upscl      mod_min_5layers     100        100000   C+
 	mod_base_3upscl     mod_ext_5layers     100   --- Maybe the best combination, but models are too large ---
 '''
 
@@ -35,8 +35,8 @@ if __name__ == '__main__':
 		try:
 			gan.train(100_000, 32, progress_images_save_interval=200, agregate_stats_interval=100,
 		            weights_save_interval=None,
-		            discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.02,
-		            feed_prev_gen_batch=False, feed_amount=0.1)
+		            discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.05,
+		            feed_prev_gen_batch=True, feed_amount=0.1)
 		except KeyboardInterrupt:
 			gan.show_training_stats(save_path="training_data")
 

@@ -37,7 +37,7 @@ def mod_base_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 	m = Reshape((st_s[0], st_s[1], 64))(m)
 	m = BatchNormalization(momentum=0.8)(m)
 
-	# (st_s, st_s, 128) -> (2*st_s, 2*st_s, 1024)
+	# (st_s, st_s, 64) -> (2*st_s, 2*st_s, 1024)
 	m = UpSampling2D()(m)
 	m = Conv2D(1024, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization(momentum=0.8)(m)
@@ -73,7 +73,7 @@ def mod_min_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_init
 
 	# (64 * st_s^2,) -> (st_s, st_s, 64)
 	m = Dense(64 * st_s[0] * st_s[1], kernel_initializer=kernel_initializer, activation="relu")(inp)
-	m = Reshape((st_s[0], st_s[1], 128))(m)
+	m = Reshape((st_s[0], st_s[1], 64))(m)
 	m = BatchNormalization(momentum=0.8)(m)
 
 	# (st_s, st_s, 64) -> (2*st_s, 2*st_s, 512)

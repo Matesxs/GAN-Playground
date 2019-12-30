@@ -21,7 +21,7 @@ class BatchMaker(Thread):
 
 	def run(self):
 		while not self.terminate:
-			if not len(self.batches) < self.batches_in_buffer:
+			if len(self.batches) < self.batches_in_buffer:
 				if type(self.train_data) == list:
 					# Load and normalize images if train_data is list of paths
 					self.batches.append(np.array([cv.cvtColor(cv.imread(im_p), cv.COLOR_BGR2RGB) / 127.5 - 1.0 for im_p in np.array(self.train_data)[np.random.randint(0, self.data_length, self.batch_size)]]).astype(np.float32))

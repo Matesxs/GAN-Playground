@@ -71,7 +71,7 @@ class DCGAN:
 		# Build generator
 		self.generator = self.build_generator(gen_mod_name)
 		if generator_weights: self.generator.load_weights(generator_weights)
-		if self.generator.output_shape != self.image_shape: raise Exception("Invalid image input size for this generator model")
+		if self.generator.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
 
 		# Generator takes noise and generates images
 		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
@@ -265,8 +265,8 @@ class DCGAN:
 		final_image = np.zeros(shape=(self.image_shape[0] * collage_dims[1], self.image_shape[1] * collage_dims[0], self.image_channels)).astype(np.float32)
 
 		cnt = 0
-		for i in range(collage_dims[0]):
-			for j in range(collage_dims[1]):
+		for i in range(collage_dims[1]):
+			for j in range(collage_dims[2]):
 				if self.image_channels == 3:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), :] = gen_imgs[cnt]
 				else:
