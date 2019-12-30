@@ -54,9 +54,8 @@ class DCGAN:
 			self.image_channels = self.image_shape[2]
 
 			# Check image size validity
-			if self.image_shape[0] != self.image_shape[1]: raise Exception("Images must be squared")
-			if self.image_shape[0] < 4: raise Exception("Images too small")
-			if not math.log2(self.image_shape[0]).is_integer(): raise Exception("Invalid size, size have to be power of 2")
+			if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
+			if not math.log2(self.image_shape[0]).is_integer() or not math.log2(self.image_shape[1]).is_integer(): raise Exception("Invalid size, size have to be power of 2")
 
 			# Check validity of dataset
 			self.validate_dataset()
@@ -232,7 +231,7 @@ class DCGAN:
 			self.disc_fake_accs.append(disc_fake_acc)
 
 			if (self.epoch_counter + 1) % 10 == 0:
-				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}, G acc: {round(gen_accuracy, 2)}]")
+				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}, G acc: {round(gen_accuracy, 2)}%]")
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
@@ -254,15 +253,15 @@ class DCGAN:
 		# Rescale images 0 to 255
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
-		final_image = np.zeros(shape=(self.image_shape[0] * self.progress_image_num, self.image_shape[0] * self.progress_image_num, self.image_channels)).astype(np.float32)
+		final_image = np.zeros(shape=(self.image_shape[0] * self.progress_image_num, self.image_shape[1] * self.progress_image_num, self.image_channels)).astype(np.float32)
 
 		cnt = 0
 		for i in range(self.progress_image_num):
 			for j in range(self.progress_image_num):
 				if self.image_channels == 3:
-					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), :] = gen_imgs[cnt]
+					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), :] = gen_imgs[cnt]
 				else:
-					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
+					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
 				cnt += 1
 		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
 		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter + 1}.png", final_image)
@@ -273,15 +272,15 @@ class DCGAN:
 		# Rescale images 0 to 255
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
-		final_image = np.zeros(shape=(self.image_shape[0] * img_size[0], self.image_shape[0] * img_size[1],self.image_channels)).astype(np.float32)
+		final_image = np.zeros(shape=(self.image_shape[0] * img_size[0], self.image_shape[1] * img_size[1],self.image_channels)).astype(np.float32)
 
 		cnt = 0
 		for i in range(img_size[0]):
 			for j in range(img_size[1]):
 				if self.image_channels == 3:
-					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), :] = gen_imgs[cnt]
+					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), :] = gen_imgs[cnt]
 				else:
-					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[0] * j:self.image_shape[0] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
+					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
 				cnt += 1
 		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
 		cv.imwrite(f"{save_path}/collage.png", final_image)
