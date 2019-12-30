@@ -6,10 +6,10 @@ from colorama import Fore
 import gc
 
 save_path = "models_testing"
-training_epochs = 200
+training_epochs = 70_000
 
 latent_dims = [ 64, 128, 256 ]
-batch_sizes = [ 16, 32, 64 ]
+batch_sizes = [ 16, 32 ]
 
 generator_models = [name for name in dir(generator_models_spreadsheet) if name.startswith("mod_")]
 discriminator_models = [name for name in dir(discriminator_models_spreadsheet) if name.startswith("mod_")]
