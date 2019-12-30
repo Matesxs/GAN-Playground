@@ -364,8 +364,8 @@ class DCGAN:
 	def save_weights(self):
 		save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter + 1)
 		if not os.path.exists(save_dir): os.makedirs(save_dir)
-		self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
-		self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
+		if not os.path.exists(f"{save_dir}/generator_{self.gen_mod_name}.h5"): self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
+		if not os.path.exists(f"{save_dir}/discriminator_{self.disc_mod_name}.h5"): self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
 
 	def make_progress_gif(self, save_path:str=None, duration:int=120):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): return

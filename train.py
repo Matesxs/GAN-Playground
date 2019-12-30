@@ -46,5 +46,6 @@ if __name__ == '__main__':
 
 		if input("Continue?\n") == "n": break
 
+	gan.save_weights()
 	if input("Make progress gif?\n") == "y": gan.make_progress_gif(save_path="training_data")
 	if input("Generate collage?\n") == "y": gan.generate_collage(save_path="training_data", collage_dims=(16, 9))
