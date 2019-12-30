@@ -132,7 +132,7 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=0.0, agregate_stats_interval:int=100):
+	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=0.0, agregate_stats_interval:int=100, buffered_batches:int=10):
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
 			for idx in range(labels.shape[0]):
 				if random.random() < noise_ammount:
@@ -152,7 +152,7 @@ class DCGAN:
 		if agregate_stats_interval is not None and agregate_stats_interval < 1: raise Exception("Invalid agregate stats interval")
 
 		# Create batchmaker and start it
-		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size)
+		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size, buffered_batches=buffered_batches)
 		batch_maker.start()
 
 		# Images generated in prewious batch
@@ -256,17 +256,17 @@ class DCGAN:
 		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
 		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter + 1}.png", final_image)
 
-	def generate_collage(self, img_size:tuple=(16, 9), save_path: str = ".", blur: bool = False):
-		gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(img_size[0] * img_size[1], self.latent_dim)))
+	def generate_collage(self, collage_dims:tuple=(16, 9), save_path: str = ".", blur: bool = False):
+		gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(collage_dims[0] * collage_dims[1], self.latent_dim)))
 
 		# Rescale images 0 to 255
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
-		final_image = np.zeros(shape=(self.image_shape[0] * img_size[1], self.image_shape[1] * img_size[0],self.image_channels)).astype(np.float32)
+		final_image = np.zeros(shape=(self.image_shape[0] * collage_dims[1], self.image_shape[1] * collage_dims[0], self.image_channels)).astype(np.float32)
 
 		cnt = 0
-		for i in range(img_size[0]):
-			for j in range(img_size[1]):
+		for i in range(collage_dims[0]):
+			for j in range(collage_dims[1]):
 				if self.image_channels == 3:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), :] = gen_imgs[cnt]
 				else:
