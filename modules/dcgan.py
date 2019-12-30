@@ -8,7 +8,6 @@ from keras.initializers import RandomNormal
 from keras.utils import plot_model
 import tensorflow as tf
 from PIL import Image
-import math
 import cv2 as cv
 import random
 import shutil
@@ -56,7 +55,6 @@ class DCGAN:
 
 			# Check image size validity
 			if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
-			if not math.log2(self.image_shape[0]).is_integer() or not math.log2(self.image_shape[1]).is_integer(): raise Exception("Invalid size, size have to be power of 2")
 
 			# Check validity of dataset
 			self.validate_dataset()
@@ -73,6 +71,7 @@ class DCGAN:
 		# Build generator
 		self.generator = self.build_generator(gen_mod_name)
 		if generator_weights: self.generator.load_weights(generator_weights)
+		if self.generator.output_shape != self.image_shape: raise Exception("Invalid image input size for this generator model")
 
 		# Generator takes noise and generates images
 		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
@@ -133,20 +132,24 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, discriminator_label_noise:float=0.0, agregate_stats_interval:int=100):
+	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=0.0, agregate_stats_interval:int=100):
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
 			for idx in range(labels.shape[0]):
 				if random.random() < noise_ammount:
 					labels[idx] = 1 - labels[idx]
 			return labels
 
+		def replace_random_images(orig_images: np.ndarray, repl_images: np.ndarray, perc_ammount:float=0.20):
+			for idx in range(orig_images.shape[0]):
+				if random.random() < perc_ammount:
+					orig_images[idx] = repl_images[random.randint(0, repl_images.shape[0])]
+			return orig_images
+
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if self.data_length < batch_size or batch_size%2 != 0 or batch_size < 4: raise Exception("Invalid batch size")
 		if self.train_data is None: raise Exception("No dataset loaded")
 		if agregate_stats_interval is not None and agregate_stats_interval < 1: raise Exception("Invalid agregate stats interval")
-
-		half_batch = batch_size // 2
 
 		# Create batchmaker and start it
 		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size)
@@ -167,19 +170,17 @@ class DCGAN:
 			if discriminator_smooth_labels:
 				disc_real_labels = np.random.uniform(0.85, 0.95, size=(batch_size, 1))
 				if feed_prev_gen_batch and last_gen_images is not None:
-					disc_fake_labels = np.random.uniform(0.0, 0.1, size=(batch_size, 1))
-					tmp_imgs = np.concatenate((last_gen_images[-half_batch:], gen_imgs[-half_batch:]))
+					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(batch_size, 1))
+					gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
 					last_gen_images = gen_imgs
-					gen_imgs = tmp_imgs
 				else:
-					disc_fake_labels = np.random.uniform(0.0, 0.1, size=(batch_size, 1))
+					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(batch_size, 1))
 			else:
 				disc_real_labels = np.ones(shape=(batch_size, 1))
 				if feed_prev_gen_batch and last_gen_images is not None:
 					disc_fake_labels = np.zeros(shape=(batch_size, 1))
-					tmp_imgs = np.concatenate((last_gen_images[-half_batch:], gen_imgs[-half_batch:]))
+					gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
 					last_gen_images = gen_imgs
-					gen_imgs = tmp_imgs
 				else:
 					disc_fake_labels = np.zeros(shape=(batch_size, 1))
 

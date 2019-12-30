@@ -4,7 +4,6 @@ from modules.dcgan import DCGAN
 '''
 Generators:
 	mod_base_2upscl
-	mod_mod_2upscl
 	mod_base_3upscl - New high capacity
 	mod_min_3upscl  - Min version
 	
@@ -12,16 +11,18 @@ Discriminators:
 	mod_base_4layers
 	mod_base_5layers
 	mod_ext_5layers
+	mod_min_5layers - Min version of ext
 	
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
 	mod_base_2upscl     mod_base_4layers    100       100000    D      Not enough capacity
-	mod_base_3upscl     mod_ext_5layers     100
+	mod_min_3upscl      mod_min_5layers     100
+	mod_base_3upscl     mod_ext_5layers     100   --- Maybe the best combination, but models are too large ---
 '''
 
 if __name__ == '__main__':
-	gan = DCGAN("dataset/normalized", training_progress_save_path="training_data", progress_image_num=10,
-	            latent_dim=100, gen_mod_name="mod_min_3upscl", disc_mod_name="mod_base_5layers",
+	gan = DCGAN("dataset/cats/normalized", training_progress_save_path="training_data", progress_image_num=10,
+	            latent_dim=100, gen_mod_name="mod_min_3upscl", disc_mod_name="mod_min_5layers",
 	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
 	            generator_weights=None, discriminator_weights=None)
 	gan.clear_training_progress_folder()
@@ -33,7 +34,7 @@ if __name__ == '__main__':
 		gan.train(100000, 32, progress_images_save_interval=200, agregate_stats_interval=100,
 		          weights_save_interval=None,
 		          discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.01,
-		          feed_prev_gen_batch=False)
+		          feed_prev_gen_batch=False, feed_amount=0.2)
 		gan.show_current_state(3, 5)
 		gan.show_training_stats(save_path=None)
 		gan.show_training_stats(save_path="training_data")
