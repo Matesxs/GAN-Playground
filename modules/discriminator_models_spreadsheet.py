@@ -22,22 +22,22 @@ def mod_base_4layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stdd
 	return m
 
 def mod_base_5layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
-	m = Conv2D(32, (4, 4), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(inp)
+	m = Conv2D(32, (3, 3), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(inp)
 	m = LeakyReLU(0.2)(m)
 
-	m = Conv2D(64, (4, 4), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(m)
-	m = LeakyReLU(0.2)(m)
-	m = BatchNormalization(momentum=0.8)(m)
-
-	m = Conv2D(128, (4, 4), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(m)
+	m = Conv2D(64, (3, 3), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
 	m = BatchNormalization(momentum=0.8)(m)
 
-	m = Conv2D(256, (4, 4), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(m)
+	m = Conv2D(128, (3, 3), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
 	m = BatchNormalization(momentum=0.8)(m)
 
-	m = Conv2D(512, (4, 4), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(m)
+	m = Conv2D(256, (3, 3), padding='same', strides=(2, 2), kernel_initializer=kernel_initializer)(m)
+	m = LeakyReLU(0.2)(m)
+	m = BatchNormalization(momentum=0.8)(m)
+
+	m = Conv2D(512, (3, 3), padding='same', strides=(1, 1), kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
 	m = BatchNormalization(momentum=0.8)(m)
 

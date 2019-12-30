@@ -8,11 +8,12 @@ from keras.initializers import RandomNormal
 from keras.utils import plot_model
 import tensorflow as tf
 from PIL import Image
-from collections import deque
 import math
 import cv2 as cv
 import random
 import shutil
+import csv
+import pandas as pd
 from tqdm import tqdm
 from typing import Union
 
@@ -86,15 +87,7 @@ class DCGAN:
 		# Combine models
 		# Train generator to fool discriminator
 		self.combined_model = Model(noise_input, valid, name="dcgan_model")
-		self.combined_model.compile(loss="binary_crossentropy", optimizer=self.generator_optimizer, metrics=['binary_accuracy'])
-
-		# Statistics
-		self.gen_losses = deque()
-		self.gen_accs = deque()
-		self.disc_real_losses = deque()
-		self.disc_fake_losses = deque()
-		self.disc_real_accs = deque()
-		self.disc_fake_accs = deque()
+		self.combined_model.compile(loss="binary_crossentropy", optimizer=self.generator_optimizer)
 
 	def validate_dataset(self):
 		if type(self.train_data) == list:
@@ -140,21 +133,19 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=200, batch_size:int=64, progress_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, discriminator_label_noise:float=0.0):
+	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, discriminator_label_noise:float=0.0, agregate_stats_interval:int=100):
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
 			for idx in range(labels.shape[0]):
 				if random.random() < noise_ammount:
 					labels[idx] = 1 - labels[idx]
 			return labels
 
-		if self.training_progress_save_path is not None and progress_save_interval is not None and progress_save_interval <= epochs:
-			if epochs%progress_save_interval != 0: raise Exception("Invalid progress save interval")
-		if weights_save_interval is not None and weights_save_interval <= epochs:
-			if epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
+		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
+		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if self.data_length < batch_size or batch_size%2 != 0 or batch_size < 4: raise Exception("Invalid batch size")
 		if self.train_data is None: raise Exception("No dataset loaded")
+		if agregate_stats_interval is not None and agregate_stats_interval < 1: raise Exception("Invalid agregate stats interval")
 
-		num_of_batches = self.data_length // batch_size
 		half_batch = batch_size // 2
 
 		# Create batchmaker and start it
@@ -165,76 +156,74 @@ class DCGAN:
 		last_gen_images = None
 
 		for _ in tqdm(range(epochs), unit="ep"):
-			for batch in range(num_of_batches):
-				### Train Discriminator ###
-				# Select batch of valid images
-				imgs = batch_maker.get_batch()
-
-				# Sample noise and generate new images
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
-
-				# Train discriminator (real as ones and fake as zeros)
-				if discriminator_smooth_labels:
-					disc_real_labels = np.random.uniform(0.85, 0.95, size=(batch_size, 1))
-					if feed_prev_gen_batch and last_gen_images is not None:
-						disc_fake_labels = np.random.uniform(0.0, 0.1, size=(batch_size, 1))
-						tmp_imgs = np.concatenate((last_gen_images[-half_batch:], gen_imgs[-half_batch:]))
-						last_gen_images = gen_imgs
-						gen_imgs = tmp_imgs
-					else:
-						disc_fake_labels = np.random.uniform(0.0, 0.1, size=(batch_size, 1))
-				else:
-					disc_real_labels = np.ones(shape=(batch_size, 1))
-					if feed_prev_gen_batch and last_gen_images is not None:
-						disc_fake_labels = np.zeros(shape=(batch_size, 1))
-						tmp_imgs = np.concatenate((last_gen_images[-half_batch:], gen_imgs[-half_batch:]))
-						last_gen_images = gen_imgs
-						gen_imgs = tmp_imgs
-					else:
-						disc_fake_labels = np.zeros(shape=(batch_size, 1))
-
-				# Adding random noise to discriminator labels
-				if discriminator_label_noise > 0:
-					discriminator_label_noise /= 2
-					disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
-					disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
-
-				self.discriminator.trainable = True
-				self.discriminator.train_on_batch(imgs, disc_real_labels)
-				self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-				self.discriminator.trainable = False
-
-				### Train Generator ###
-				# Train generator (wants discriminator to recognize fake images as valid)
-				if generator_smooth_labels:
-					gen_labels = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
-				else:
-					gen_labels = np.ones(shape=(batch_size, 1))
-
-				self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
-
-			# Generate and save statistics
+			### Train Discriminator ###
+			# Select batch of valid images
 			imgs = batch_maker.get_batch()
-			gen_imgs = gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
-			disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
-			disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-			gen_loss, gen_accuracy = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
 
-			self.gen_losses.append(gen_loss)
-			gen_accuracy *= 100
-			self.gen_accs.append(gen_accuracy)
-			self.disc_real_losses.append(disc_real_loss)
-			disc_real_acc *= 100
-			self.disc_real_accs.append(disc_real_acc)
-			self.disc_fake_losses.append(disc_fake_loss)
-			disc_fake_acc *= 100
-			self.disc_fake_accs.append(disc_fake_acc)
+			# Sample noise and generate new images
+			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
 
-			if (self.epoch_counter + 1) % 10 == 0:
-				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}, G acc: {round(gen_accuracy, 2)}%]")
+			# Train discriminator (real as ones and fake as zeros)
+			if discriminator_smooth_labels:
+				disc_real_labels = np.random.uniform(0.85, 0.95, size=(batch_size, 1))
+				if feed_prev_gen_batch and last_gen_images is not None:
+					disc_fake_labels = np.random.uniform(0.0, 0.1, size=(batch_size, 1))
+					tmp_imgs = np.concatenate((last_gen_images[-half_batch:], gen_imgs[-half_batch:]))
+					last_gen_images = gen_imgs
+					gen_imgs = tmp_imgs
+				else:
+					disc_fake_labels = np.random.uniform(0.0, 0.1, size=(batch_size, 1))
+			else:
+				disc_real_labels = np.ones(shape=(batch_size, 1))
+				if feed_prev_gen_batch and last_gen_images is not None:
+					disc_fake_labels = np.zeros(shape=(batch_size, 1))
+					tmp_imgs = np.concatenate((last_gen_images[-half_batch:], gen_imgs[-half_batch:]))
+					last_gen_images = gen_imgs
+					gen_imgs = tmp_imgs
+				else:
+					disc_fake_labels = np.zeros(shape=(batch_size, 1))
+
+			# Adding random noise to discriminator labels
+			if discriminator_label_noise > 0:
+				discriminator_label_noise /= 2
+				disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
+				disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
+
+			self.discriminator.trainable = True
+			self.discriminator.train_on_batch(imgs, disc_real_labels)
+			self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+			self.discriminator.trainable = False
+
+			### Train Generator ###
+			# Train generator (wants discriminator to recognize fake images as valid)
+			if generator_smooth_labels:
+				gen_labels = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
+			else:
+				gen_labels = np.ones(shape=(batch_size, 1))
+
+			self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
+
+			if agregate_stats_interval is not None and (self.epoch_counter + 1) % agregate_stats_interval == 0:
+				# Generate and save statistics
+				imgs = batch_maker.get_batch()
+				gen_imgs = gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
+				disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
+				disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
+				gen_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
+
+				disc_real_acc *= 100
+				disc_fake_acc *= 100
+
+				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]")
+				if self.training_progress_save_path is not None:
+					if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+					with open(f"{self.training_progress_save_path}/training_stats.csv", "a+") as f:
+						writer = csv.writer(f)
+						writer.writerow([(self.epoch_counter + 1), disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
+						f.close()
 
 			# Save progress
-			if self.training_progress_save_path is not None and progress_save_interval is not None and (self.epoch_counter + 1) % progress_save_interval == 0:
+			if self.training_progress_save_path is not None and progress_images_save_interval is not None and (self.epoch_counter + 1) % progress_images_save_interval == 0:
 				self.__save_imgs(self.epoch_counter)
 
 			if weights_save_interval is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
@@ -272,7 +261,7 @@ class DCGAN:
 		# Rescale images 0 to 255
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
-		final_image = np.zeros(shape=(self.image_shape[0] * img_size[0], self.image_shape[1] * img_size[1],self.image_channels)).astype(np.float32)
+		final_image = np.zeros(shape=(self.image_shape[0] * img_size[1], self.image_shape[1] * img_size[0],self.image_channels)).astype(np.float32)
 
 		cnt = 0
 		for i in range(img_size[0]):
@@ -328,20 +317,22 @@ class DCGAN:
 		plt.close()
 
 	def show_training_stats(self, save_path:str=None):
+		if not os.path.exists(f"{self.training_progress_save_path}/training_stats.csv"): return
+		
+		loaded_stats = pd.read_csv(f"{self.training_progress_save_path}/training_stats.csv", header=None)
+		epochs = loaded_stats[0].values
+
 		# Loss graph
 		plt.subplot(2, 1, 1)
-		plt.plot(self.gen_losses, label="Gen Loss")
-		plt.plot(self.disc_fake_losses, label="Disc Fake Loss")
-		plt.plot(self.disc_real_losses, label="Disc Real Loss")
-		plt.plot(0.5 * np.add(self.disc_fake_losses, self.disc_real_losses), label="Disc Loss")
+		plt.plot(epochs, loaded_stats[5].values, label="Gen Loss")
+		plt.plot(epochs, loaded_stats[3].values, label="Disc Fake Loss")
+		plt.plot(epochs, loaded_stats[1].values, label="Disc Real Loss")
 		plt.legend()
 
 		# Acc graph
 		plt.subplot(2, 1, 2)
-		plt.plot(self.gen_accs, label="Gen Acc")
-		plt.plot(self.disc_fake_accs, label="Disc Fake Acc")
-		plt.plot(self.disc_real_accs, label="Disc Real Acc")
-		plt.plot(0.5 * np.add(self.disc_fake_accs, self.disc_real_accs), label="Disc Acc")
+		plt.plot(epochs, loaded_stats[4].values, label="Disc Fake Acc")
+		plt.plot(epochs, loaded_stats[2].values, label="Disc Real Acc")
 		plt.legend()
 
 		if not save_path:

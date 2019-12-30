@@ -33,10 +33,10 @@ for gen_model in generator_models:
 				gan.clear_training_progress_folder()
 				print(Fore.GREEN + f"{testing_name} - Test Started")
 				print(Fore.RESET)
-				gan.train(training_epochs, batch_size, progress_save_interval=10,
+				gan.train(training_epochs, batch_size, progress_images_save_interval=10,
 				          weights_save_interval=None,
-					        discriminator_smooth_labels=True, generator_smooth_labels=True,
-					        feed_prev_gen_batch=True)
+				          discriminator_smooth_labels=True, generator_smooth_labels=True,
+				          feed_prev_gen_batch=True)
 				gan.show_training_stats(save_path=f"{save_path}/{testing_name}")
 				gan.save_models_structure_images()
 				gan.generate_collage(save_path=f"{save_path}/{testing_name}")
