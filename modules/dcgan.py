@@ -28,8 +28,8 @@ colorama.init()
 
 class DCGAN:
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
+	             gen_mod_name: str, disc_mod_name: str,
 	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_num:int=5,
-	             gen_mod_name:str= "mod_base_2upscl", disc_mod_name:str= "mod_base_4layers",
 	             generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
 	             generator_weights:str=None, discriminator_weights:str=None,
 	             start_episode:int=0):
@@ -96,6 +96,7 @@ class DCGAN:
 		self.combined_model = Model(noise_input, valid, name="dcgan_model")
 		self.combined_model.compile(loss="binary_crossentropy", optimizer=generator_optimizer)
 
+	# Function for creating gradient generator
 	def gradient_norm_generator(self, model:Model):
 		grads = K.gradients(model.total_loss, model.trainable_weights)
 		summed_squares = [K.sum(K.square(g)) for g in grads]
@@ -104,6 +105,7 @@ class DCGAN:
 		func = K.function(inputs, [norm])
 		return func
 
+	# Check if dataset have consistent shapes
 	def validate_dataset(self):
 		if type(self.train_data) == list:
 			for im_path in self.train_data:
@@ -116,7 +118,8 @@ class DCGAN:
 					raise Exception("Inconsistent dataset")
 		print("Dataset valid")
 
-	def build_generator(self, model_name:str="mod_base_2upscl"):
+	# Create generator based on template selected by name
+	def build_generator(self, model_name:str):
 		noise = Input(shape=(self.latent_dim,))
 
 		try:
@@ -131,7 +134,8 @@ class DCGAN:
 
 		return model
 
-	def build_discriminator(self, model_name:str="mod_base_4layers"):
+	# Create discriminator based on teplate selected by name
+	def build_discriminator(self, model_name:str):
 		img = Input(shape=self.image_shape)
 
 		try:
@@ -149,12 +153,14 @@ class DCGAN:
 		return model
 
 	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=None, agregate_stats_interval:int=100, buffered_batches:int=10, half_batch_discriminator:bool=False, discriminator_lr_loops:int=1):
+		# Function for adding random noise to labels (flipping them)
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
 			for idx in range(labels.shape[0]):
 				if random.random() < noise_ammount:
 					labels[idx] = 1 - labels[idx]
 			return labels
 
+		# Function for replacing new generated images with old generated images
 		def replace_random_images(orig_images: np.ndarray, repl_images: np.ndarray, perc_ammount:float=0.20):
 			for idx in range(orig_images.shape[0]):
 				if random.random() < perc_ammount:
@@ -182,8 +188,8 @@ class DCGAN:
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
-			# Select batch of valid images
 			for _ in range(discriminator_lr_loops):
+				# Select batch of valid images
 				imgs = batch_maker.get_batch()
 
 				# Sample noise and generate new images
@@ -242,6 +248,8 @@ class DCGAN:
 				eval_labels = np.ones(shape=(batch_size, 1))
 				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
+
+				# TODO: Automate changing discriminator training multiplier based on trend of generator loss
 
 				# Convert accuracy to percents
 				disc_real_acc *= 100

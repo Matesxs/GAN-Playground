@@ -17,7 +17,7 @@ Discriminators:
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
 	mod_base_2upscl     mod_base_4layers    100        100000   D      Not enough capacity
-	mod_min_3upscl      mod_min_5layers     100        100000   C+     Dont halve disc batch!
+	mod_min_3upscl      mod_min_5layers     100        100000   C+
 	mod_base_3upscl     mod_ext_5layers     100   --- Maybe the best combination, but models are too large ---
 '''
 
