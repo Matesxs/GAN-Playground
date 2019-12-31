@@ -371,13 +371,14 @@ class DCGAN:
 		if not os.path.exists(f"{save_dir}/generator_{self.gen_mod_name}.h5"): self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
 		if not os.path.exists(f"{save_dir}/discriminator_{self.disc_mod_name}.h5"): self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
 
-	def make_progress_gif(self, save_path:str=None, duration:int=120):
+	def make_progress_gif(self, save_path:str=None, framerate:int=30):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
 		if not save_path: save_path = self.training_progress_save_path
 		if not os.path.exists(save_path): os.makedirs(save_path)
 
 		frames = []
 		img_file_names = os.listdir(self.training_progress_save_path + "/progress_images")
+		duration = len(img_file_names) // framerate
 
 		for im_file in img_file_names:
 			if os.path.isfile(self.training_progress_save_path + "/progress_images/" + im_file):
