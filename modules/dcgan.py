@@ -148,7 +148,7 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=None, agregate_stats_interval:int=100, buffered_batches:int=10, half_batch_discriminator:bool=False):
+	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=None, agregate_stats_interval:int=100, buffered_batches:int=10, half_batch_discriminator:bool=False, discriminator_lr_loops:int=1):
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
 			for idx in range(labels.shape[0]):
 				if random.random() < noise_ammount:
@@ -167,6 +167,7 @@ class DCGAN:
 		if self.data_length < batch_size or batch_size%2 != 0 or batch_size < 4: raise Exception("Invalid batch size")
 		if self.train_data is None: raise Exception("No dataset loaded")
 		if agregate_stats_interval is not None and agregate_stats_interval < 1: raise Exception("Invalid agregate stats interval")
+		if discriminator_lr_loops < 1: raise Exception("Invalid discriminator learning multiplier")
 
 		# Batch size for discriminator
 		disc_batch = batch_size
@@ -182,39 +183,40 @@ class DCGAN:
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
 			# Select batch of valid images
-			imgs = batch_maker.get_batch()
+			for _ in range(discriminator_lr_loops):
+				imgs = batch_maker.get_batch()
 
-			# Sample noise and generate new images
-			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
+				# Sample noise and generate new images
+				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
 
-			# Train discriminator (real as ones and fake as zeros)
-			if discriminator_smooth_labels:
-				disc_real_labels = np.random.uniform(0.85, 0.95, size=(disc_batch, 1))
-				if feed_prev_gen_batch and last_gen_images is not None:
-					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
-					gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
-					last_gen_images = gen_imgs
+				# Train discriminator (real as ones and fake as zeros)
+				if discriminator_smooth_labels:
+					disc_real_labels = np.random.uniform(0.85, 0.95, size=(disc_batch, 1))
+					if feed_prev_gen_batch and last_gen_images is not None:
+						disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
+						gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
+						last_gen_images = gen_imgs
+					else:
+						disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
 				else:
-					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
-			else:
-				disc_real_labels = np.ones(shape=(disc_batch, 1))
-				if feed_prev_gen_batch and last_gen_images is not None:
-					disc_fake_labels = np.zeros(shape=(disc_batch, 1))
-					gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
-					last_gen_images = gen_imgs
-				else:
-					disc_fake_labels = np.zeros(shape=(disc_batch, 1))
+					disc_real_labels = np.ones(shape=(disc_batch, 1))
+					if feed_prev_gen_batch and last_gen_images is not None:
+						disc_fake_labels = np.zeros(shape=(disc_batch, 1))
+						gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
+						last_gen_images = gen_imgs
+					else:
+						disc_fake_labels = np.zeros(shape=(disc_batch, 1))
 
-			# Adding random noise to discriminator labels
-			if discriminator_label_noise and discriminator_label_noise > 0:
-				discriminator_label_noise /= 2
-				disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
-				disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
+				# Adding random noise to discriminator labels
+				if discriminator_label_noise and discriminator_label_noise > 0:
+					discriminator_label_noise /= 2
+					disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
+					disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
 
-			self.discriminator.trainable = True
-			self.discriminator.train_on_batch(imgs, disc_real_labels)
-			self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-			self.discriminator.trainable = False
+				self.discriminator.trainable = True
+				self.discriminator.train_on_batch(imgs, disc_real_labels)
+				self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+				self.discriminator.trainable = False
 
 			### Train Generator ###
 			# Train generator (wants discriminator to recognize fake images as valid)
