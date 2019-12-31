@@ -6,6 +6,7 @@ from keras.models import Model
 from keras.layers import Input, Dense
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
+import keras.backend as K
 import tensorflow as tf
 from PIL import Image
 import cv2 as cv
@@ -15,24 +16,31 @@ import csv
 import pandas as pd
 from tqdm import tqdm
 from typing import Union
+import colorama
+from colorama import Fore
 
 from modules.batch_maker import BatchMaker
 from modules import generator_models_spreadsheet
 from modules import discriminator_models_spreadsheet
 
 tf.get_logger().setLevel('ERROR')
+colorama.init()
 
 class DCGAN:
-	def __init__(self, train_images:Union[np.ndarray, list, None, str], generator_optimizer:Optimizer=Adam(0.0002, 0.5), discriminator_optimizer:Optimizer=Adam(0.0002, 0.5), latent_dim:int=100, training_progress_save_path:str=None, progress_image_num:int=5, gen_mod_name:str= "mod_base_2upscl", disc_mod_name:str= "mod_base_4layers", discriminator_weights:str=None, generator_weights:str=None):
-		self.generator_optimizer = generator_optimizer
-		self.discriminator_optimizer = discriminator_optimizer
+	def __init__(self, train_images:Union[np.ndarray, list, None, str],
+	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_num:int=5,
+	             gen_mod_name:str= "mod_base_2upscl", disc_mod_name:str= "mod_base_4layers",
+	             generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
+	             generator_weights:str=None, discriminator_weights:str=None,
+	             start_episode:int=0):
 
 		self.disc_mod_name = disc_mod_name
 		self.gen_mod_name = gen_mod_name
 
 		self.latent_dim = latent_dim
 		self.progress_image_num = progress_image_num
-		self.epoch_counter = 0
+		if start_episode < 0: start_episode = 0
+		self.epoch_counter = start_episode
 		self.training_progress_save_path = training_progress_save_path
 
 		if type(train_images) == list:
@@ -65,12 +73,12 @@ class DCGAN:
 
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_mod_name)
-		self.discriminator.compile(loss="binary_crossentropy", optimizer=self.discriminator_optimizer, metrics=['binary_accuracy'])
-		if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
+		self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['binary_accuracy'])
+		if discriminator_weights: self.discriminator.load_weights(f"{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
 
 		# Build generator
 		self.generator = self.build_generator(gen_mod_name)
-		if generator_weights: self.generator.load_weights(generator_weights)
+		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
 		if self.generator.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
 
 		# Generator takes noise and generates images
@@ -86,7 +94,15 @@ class DCGAN:
 		# Combine models
 		# Train generator to fool discriminator
 		self.combined_model = Model(noise_input, valid, name="dcgan_model")
-		self.combined_model.compile(loss="binary_crossentropy", optimizer=self.generator_optimizer)
+		self.combined_model.compile(loss="binary_crossentropy", optimizer=generator_optimizer)
+
+	def gradient_norm_generator(self, model:Model):
+		grads = K.gradients(model.total_loss, model.trainable_weights)
+		summed_squares = [K.sum(K.square(g)) for g in grads]
+		norm = K.sqrt(sum(summed_squares))
+		inputs = model._feed_inputs + model._feed_targets + model._feed_sample_weights
+		func = K.function(inputs, [norm])
+		return func
 
 	def validate_dataset(self):
 		if type(self.train_data) == list:
@@ -132,7 +148,7 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=0.0, agregate_stats_interval:int=100, buffered_batches:int=10, half_batch_discriminator:bool=False):
+	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=None, agregate_stats_interval:int=100, buffered_batches:int=10, half_batch_discriminator:bool=False):
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
 			for idx in range(labels.shape[0]):
 				if random.random() < noise_ammount:
@@ -145,12 +161,14 @@ class DCGAN:
 					orig_images[idx] = repl_images[random.randint(0, repl_images.shape[0])]
 			return orig_images
 
+		# Check arguments and input data
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if self.data_length < batch_size or batch_size%2 != 0 or batch_size < 4: raise Exception("Invalid batch size")
 		if self.train_data is None: raise Exception("No dataset loaded")
 		if agregate_stats_interval is not None and agregate_stats_interval < 1: raise Exception("Invalid agregate stats interval")
 
+		# Batch size for discriminator
 		disc_batch = batch_size
 		if half_batch_discriminator: disc_batch = batch_size // 2
 
@@ -188,7 +206,7 @@ class DCGAN:
 					disc_fake_labels = np.zeros(shape=(disc_batch, 1))
 
 			# Adding random noise to discriminator labels
-			if discriminator_label_noise > 0:
+			if discriminator_label_noise and discriminator_label_noise > 0:
 				discriminator_label_noise /= 2
 				disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
 				disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
@@ -207,40 +225,54 @@ class DCGAN:
 
 			self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
 
-			if agregate_stats_interval is not None and (self.epoch_counter + 1) % agregate_stats_interval == 0:
-				# Generate and save statistics
+			self.epoch_counter += 1
+
+			if agregate_stats_interval is not None and self.epoch_counter % agregate_stats_interval == 0:
+				# Generate images for statistics
 				imgs = batch_maker.get_batch()
 				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
 
+				# Evaluate models state
 				disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
 				disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-				gen_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
+				get_gradients = self.gradient_norm_generator(self.combined_model)
+				eval_noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
+				eval_labels = np.ones(shape=(batch_size, 1))
+				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
+				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
+				# Convert accuracy to percents
 				disc_real_acc *= 100
 				disc_fake_acc *= 100
 
-				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]")
+				# Change color of log according to state of training
+				if disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10 or norm_gradient > 100: print(Fore.RED)
+				elif 0.5 * (disc_fake_acc + disc_real_acc) == 100 or disc_fake_acc == 100: print(Fore.YELLOW)
+				else: print(Fore.GREEN)
+
+				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}, G norm_grad: {round(norm_gradient, 4)}]" + Fore.RESET)
+
+				# Save statistics to csv file
 				if self.training_progress_save_path is not None:
 					if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 					with open(f"{self.training_progress_save_path}/training_stats.csv", "a+") as f:
 						writer = csv.writer(f)
-						writer.writerow([(self.epoch_counter + 1), disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
+						writer.writerow([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
 						f.close()
 
 			# Save progress
-			if self.training_progress_save_path is not None and progress_images_save_interval is not None and (self.epoch_counter + 1) % progress_images_save_interval == 0:
-				self.__save_imgs(self.epoch_counter)
+			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
+				self.__save_imgs()
 
-			if weights_save_interval is not None and (self.epoch_counter + 1) % weights_save_interval == 0:
+			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
-
-			self.epoch_counter += 1
 
 		# Shutdown batchmaker and wait for its exit
 		batch_maker.terminate = True
 		batch_maker.join()
 
-	def __save_imgs(self, epoch):
+	# Function for saving progress images
+	def __save_imgs(self):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
 		gen_imgs = self.generator.predict(self.static_noise)
 
@@ -258,7 +290,7 @@ class DCGAN:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
 				cnt += 1
 		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
-		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter + 1}.png", final_image)
+		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
 
 	def generate_collage(self, collage_dims:tuple=(16, 9), save_path: str = ".", blur: bool = False):
 		gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(collage_dims[0] * collage_dims[1], self.latent_dim)))
@@ -270,7 +302,7 @@ class DCGAN:
 
 		cnt = 0
 		for i in range(collage_dims[1]):
-			for j in range(collage_dims[2]):
+			for j in range(collage_dims[0]):
 				if self.image_channels == 3:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), :] = gen_imgs[cnt]
 				else:
@@ -366,7 +398,7 @@ class DCGAN:
 				pass
 
 	def save_weights(self):
-		save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter + 1)
+		save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter)
 		if not os.path.exists(save_dir): os.makedirs(save_dir)
 		if not os.path.exists(f"{save_dir}/generator_{self.gen_mod_name}.h5"): self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
 		if not os.path.exists(f"{save_dir}/discriminator_{self.disc_mod_name}.h5"): self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
