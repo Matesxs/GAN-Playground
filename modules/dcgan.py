@@ -132,7 +132,7 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=0.0, agregate_stats_interval:int=100, buffered_batches:int=10):
+	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=0.0, agregate_stats_interval:int=100, buffered_batches:int=10, half_batch_discriminator:bool=False):
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
 			for idx in range(labels.shape[0]):
 				if random.random() < noise_ammount:
@@ -151,8 +151,11 @@ class DCGAN:
 		if self.train_data is None: raise Exception("No dataset loaded")
 		if agregate_stats_interval is not None and agregate_stats_interval < 1: raise Exception("Invalid agregate stats interval")
 
+		disc_batch = batch_size
+		if half_batch_discriminator: disc_batch = batch_size // 2
+
 		# Create batchmaker and start it
-		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size, buffered_batches=buffered_batches)
+		batch_maker = BatchMaker(self.train_data, self.data_length, disc_batch, buffered_batches=buffered_batches)
 		batch_maker.start()
 
 		# Images generated in prewious batch
@@ -164,25 +167,25 @@ class DCGAN:
 			imgs = batch_maker.get_batch()
 
 			# Sample noise and generate new images
-			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
+			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
 
 			# Train discriminator (real as ones and fake as zeros)
 			if discriminator_smooth_labels:
-				disc_real_labels = np.random.uniform(0.85, 0.95, size=(batch_size, 1))
+				disc_real_labels = np.random.uniform(0.85, 0.95, size=(disc_batch, 1))
 				if feed_prev_gen_batch and last_gen_images is not None:
-					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(batch_size, 1))
+					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
 					gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
 					last_gen_images = gen_imgs
 				else:
-					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(batch_size, 1))
+					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
 			else:
-				disc_real_labels = np.ones(shape=(batch_size, 1))
+				disc_real_labels = np.ones(shape=(disc_batch, 1))
 				if feed_prev_gen_batch and last_gen_images is not None:
-					disc_fake_labels = np.zeros(shape=(batch_size, 1))
+					disc_fake_labels = np.zeros(shape=(disc_batch, 1))
 					gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
 					last_gen_images = gen_imgs
 				else:
-					disc_fake_labels = np.zeros(shape=(batch_size, 1))
+					disc_fake_labels = np.zeros(shape=(disc_batch, 1))
 
 			# Adding random noise to discriminator labels
 			if discriminator_label_noise > 0:
@@ -207,7 +210,8 @@ class DCGAN:
 			if agregate_stats_interval is not None and (self.epoch_counter + 1) % agregate_stats_interval == 0:
 				# Generate and save statistics
 				imgs = batch_maker.get_batch()
-				gen_imgs = gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
+				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
+
 				disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
 				disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
 				gen_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
