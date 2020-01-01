@@ -267,7 +267,7 @@ class DCGAN:
 					if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 					with open(f"{self.training_progress_save_path}/training_stats.csv", "a+") as f:
 						writer = csv.writer(f)
-						writer.writerow([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
+						writer.writerow([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss, norm_gradient])
 						f.close()
 
 			# Save progress
@@ -276,6 +276,11 @@ class DCGAN:
 
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
+
+			# Every 5000 epochs generate new seed
+			if self.epoch_counter % 5_000:
+				np.random.seed(None)
+				random.seed()
 
 		# Shutdown batchmaker and wait for its exit
 		batch_maker.terminate = True
@@ -365,22 +370,31 @@ class DCGAN:
 
 	def show_training_stats(self, save_path:str=None):
 		if not os.path.exists(f"{self.training_progress_save_path}/training_stats.csv"): return
-		
-		loaded_stats = pd.read_csv(f"{self.training_progress_save_path}/training_stats.csv", header=None)
+
+		try:
+			loaded_stats = pd.read_csv(f"{self.training_progress_save_path}/training_stats.csv", header=None)
+		except:
+			print(Fore.RED + f"Unable to load statistics!" + Fore.RESET)
+			return
+
 		epochs = loaded_stats[0].values
 
 		# Loss graph
-		plt.subplot(2, 1, 1)
+		plt.subplot(3, 1, 1)
 		plt.plot(epochs, loaded_stats[5].values, label="Gen Loss")
 		plt.plot(epochs, loaded_stats[3].values, label="Disc Fake Loss")
 		plt.plot(epochs, loaded_stats[1].values, label="Disc Real Loss")
 		plt.legend()
 
 		# Acc graph
-		plt.subplot(2, 1, 2)
+		plt.subplot(3, 1, 2)
 		plt.plot(epochs, loaded_stats[4].values, label="Disc Fake Acc")
 		plt.plot(epochs, loaded_stats[2].values, label="Disc Real Acc")
 		plt.legend()
+
+		# Generator normal gradient graph
+		plt.subplot(3, 1, 3)
+		plt.plot(epochs, loaded_stats[6].values, label="Gen Norm Grad")
 
 		if not save_path:
 			plt.show()

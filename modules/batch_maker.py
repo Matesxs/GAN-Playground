@@ -5,6 +5,7 @@ from collections import deque
 import cv2 as cv
 import time
 
+# TODO: Add workers to loading batches for faster batch creation
 class BatchMaker(Thread):
 	def __init__(self, train_data: Union[list, np.ndarray], data_length: int, batch_size: int, buffered_batches:int=5):
 		super().__init__()

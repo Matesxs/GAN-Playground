@@ -17,7 +17,7 @@ Discriminators:
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
 	mod_base_2upscl     mod_base_4layers    100        100000   D      Not enough capacity
-	mod_min_3upscl      mod_min_5layers     100        100000   C+
+	mod_min_3upscl      mod_min_5layers     100        100000   B
 	mod_base_3upscl     mod_ext_5layers     100   --- Maybe the best combination, but models are too large ---
 '''
 
@@ -25,8 +25,8 @@ if __name__ == '__main__':
 	gan = DCGAN("dataset/cats/normalized", training_progress_save_path="training_data", progress_image_num=10,
 	            latent_dim=100, gen_mod_name="mod_min_3upscl", disc_mod_name="mod_min_5layers",
 	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
-	            generator_weights="training_data/weights/140000", discriminator_weights="training_data/weights/140000",
-	            start_episode=140_000)
+	            generator_weights="training_data/weights/160000", discriminator_weights="training_data/weights/160000",
+	            start_episode=160_000)
 	if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 	gan.save_models_structure_images()
 	# gan.show_sample_of_dataset(10)
@@ -34,7 +34,7 @@ if __name__ == '__main__':
 	# Training with showing progress
 	while True:
 		try:
-			gan.train(20_000, 32, progress_images_save_interval=200, agregate_stats_interval=100,
+			gan.train(100_000, 32, progress_images_save_interval=200, agregate_stats_interval=100,
 			          weights_save_interval=None,
 			          discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.05,
 			          feed_prev_gen_batch=True, feed_amount=0.1, half_batch_discriminator=False, discriminator_lr_loops=1)

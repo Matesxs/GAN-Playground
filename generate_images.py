@@ -1,26 +1,34 @@
 from keras.models import Model
-from keras.layers import Input
+from keras.layers import Input, Dense
 import os
 import numpy as np
 import cv2 as cv
 
-from modules import generator_models_spreadsheet
+from modules import generator_models_spreadsheet, discriminator_models_spreadsheet
 
-latent_dim = 512
+latent_dim = 100
 img_shape = (64, 64, 3)
-model_name = "mod_base_4upscl"
-model_weights_path = None
+generator_model_name = "mod_min_3upscl"
+discriminator_model_name = "mod_min_5layers"
+generator_weights_path = None
+discriminator_weights_path = None
 
-num_of_images = 300
+num_of_images = 1000
 image_save_path = "generated_images"
 
-inp = Input(shape=(latent_dim,))
-m = getattr(generator_models_spreadsheet, model_name)(inp, img_shape, img_shape[2])
-model = Model(inp, m, name="generator")
-if model_weights_path: model.load_weights(model_weights_path)
+lat_input = Input(shape=(latent_dim,))
+preq_gen = getattr(generator_models_spreadsheet, generator_model_name)(lat_input, img_shape, img_shape[2])
+gen_mod = Model(lat_input, preq_gen, name="generator")
+if generator_weights_path: gen_mod.load_weights(generator_weights_path)
+
+im_input = Input(shape=img_shape)
+preq_disc = getattr(discriminator_models_spreadsheet, discriminator_model_name)(im_input, )
+preq_disc = Dense(1, activation="sigmoid")(preq_disc)
+disc_mod = Model(im_input, preq_disc)
+if discriminator_weights_path: disc_mod.load_weights(discriminator_weights_path)
 
 noise = np.random.normal(np.random.normal(0.0, 1.0, size=(num_of_images, latent_dim)))
-gen_images = model.predict(noise)
+gen_images = gen_mod.predict(noise)
 gen_images = (0.5 * gen_images + 0.5) * 255
 
 if not os.path.isdir(image_save_path):
@@ -34,4 +42,5 @@ else:
 
 for idx, image in enumerate(gen_images):
 	image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+	print(disc_mod.predict(image))
 	cv.imwrite(f"{image_save_path}/img_{idx+1}.png", image)
