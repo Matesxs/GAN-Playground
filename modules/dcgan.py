@@ -12,7 +12,6 @@ from PIL import Image
 import cv2 as cv
 import random
 import shutil
-import csv
 import pandas as pd
 from tqdm import tqdm
 from typing import Union
@@ -20,6 +19,7 @@ import colorama
 from colorama import Fore
 
 from modules.batch_maker import BatchMaker
+from modules.statsaver import StatSaver
 from modules import generator_models_spreadsheet
 from modules import discriminator_models_spreadsheet
 
@@ -183,6 +183,12 @@ class DCGAN:
 		batch_maker = BatchMaker(self.train_data, self.data_length, disc_batch, buffered_batches=buffered_batches)
 		batch_maker.start()
 
+		# Create statsaver and start it
+		if self.training_progress_save_path is not None and agregate_stats_interval is not None:
+			stat_saver = StatSaver(self.training_progress_save_path)
+			stat_saver.start()
+		else: stat_saver = None
+
 		# Images generated in prewious batch
 		last_gen_images = None
 
@@ -243,11 +249,7 @@ class DCGAN:
 				# Evaluate models state
 				disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
 				disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-				get_gradients = self.gradient_norm_generator(self.combined_model)
-				eval_noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
-				eval_labels = np.ones(shape=(batch_size, 1))
-				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
-				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
+				gen_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
 
 				# TODO: Automate changing discriminator training multiplier based on trend of generator loss
 
@@ -256,19 +258,14 @@ class DCGAN:
 				disc_fake_acc *= 100
 
 				# Change color of log according to state of training
-				if disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10 or norm_gradient > 100: print(Fore.RED)
+				if disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10: print(Fore.RED)
 				elif 0.5 * (disc_fake_acc + disc_real_acc) == 100 or disc_fake_acc == 100: print(Fore.YELLOW)
 				else: print(Fore.GREEN)
 
-				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}, G norm_grad: {round(norm_gradient, 4)}]" + Fore.RESET)
+				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 				# Save statistics to csv file
-				if self.training_progress_save_path is not None:
-					if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
-					with open(f"{self.training_progress_save_path}/training_stats.csv", "a+") as f:
-						writer = csv.writer(f)
-						writer.writerow([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss, norm_gradient])
-						f.close()
+				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
@@ -277,14 +274,26 @@ class DCGAN:
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
 
-			# Every 5000 epochs generate new seed
-			if self.epoch_counter % 5_000:
-				np.random.seed(None)
-				random.seed()
+			if self.epoch_counter % 10_000 == 0:
+				eval_noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
+				eval_labels = np.ones(shape=(batch_size, 1))
+				get_gradients = self.gradient_norm_generator(self.combined_model)
+				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
+				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
+				if norm_gradient > 100:
+					print(Fore.RED)
+				else:
+					print(Fore.GREEN)
+				print(f"Current generator norm gradient: {norm_gradient}" + Fore.RESET)
 
-		# Shutdown batchmaker and wait for its exit
+		# Shutdown helper threads
+		print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
 		batch_maker.terminate = True
+		if stat_saver:
+			stat_saver.terminate = True
+			stat_saver.join()
 		batch_maker.join()
+		print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
 	# Function for saving progress images
 	def __save_imgs(self):
@@ -380,21 +389,17 @@ class DCGAN:
 		epochs = loaded_stats[0].values
 
 		# Loss graph
-		plt.subplot(3, 1, 1)
+		plt.subplot(2, 1, 1)
 		plt.plot(epochs, loaded_stats[5].values, label="Gen Loss")
 		plt.plot(epochs, loaded_stats[3].values, label="Disc Fake Loss")
 		plt.plot(epochs, loaded_stats[1].values, label="Disc Real Loss")
 		plt.legend()
 
 		# Acc graph
-		plt.subplot(3, 1, 2)
+		plt.subplot(2, 1, 2)
 		plt.plot(epochs, loaded_stats[4].values, label="Disc Fake Acc")
 		plt.plot(epochs, loaded_stats[2].values, label="Disc Real Acc")
 		plt.legend()
-
-		# Generator normal gradient graph
-		plt.subplot(3, 1, 3)
-		plt.plot(epochs, loaded_stats[6].values, label="Gen Norm Grad")
 
 		if not save_path:
 			plt.show()
