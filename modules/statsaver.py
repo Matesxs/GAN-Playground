@@ -20,9 +20,9 @@ class StatSaver(Thread):
 	def run(self) -> None:
 		while not self.terminate or self.data:
 			if self.data:
-				for stat in self.data:
-					self.writer.writerow(stat)
-			time.sleep(0.02)
+				for _ in range(len(self.data)):
+					self.writer.writerow(self.data.popleft())
+			time.sleep(0.04)
 		self.save_file.close()
 
 	def apptend_stats(self, stats:list):
