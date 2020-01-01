@@ -12,18 +12,19 @@ class StatSaver(Thread):
 		self.data = deque()
 
 		if not os.path.exists(save_path): os.makedirs(save_path)
-		self.save_file = open(f"{save_path}/training_stats.csv", "a+")
-		self.writer = csv.writer(self.save_file)
+		self.save_path = save_path
 
 		self.terminate = False
 
 	def run(self) -> None:
 		while not self.terminate or self.data:
 			if len(self.data) > 0:
-				for _ in range(len(self.data)):
-					self.writer.writerow(self.data.popleft())
+				with open(f"{self.save_path}/training_stats.csv", "a+") as f:
+					writer = csv.writer(f)
+					for _ in range(len(self.data)):
+						writer.writerow(self.data.popleft())
+					f.close()
 			time.sleep(0.04)
-		self.save_file.close()
 
 	def apptend_stats(self, stats:list):
 		self.data.append(stats)
