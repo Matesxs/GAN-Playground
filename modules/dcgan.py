@@ -274,17 +274,18 @@ class DCGAN:
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
 
-			if self.epoch_counter % 10_000 == 0:
+			if self.epoch_counter % 5_000 == 0:
 				eval_noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
 				eval_labels = np.ones(shape=(batch_size, 1))
 				get_gradients = self.gradient_norm_generator(self.combined_model)
 				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 				if norm_gradient > 100:
-					print(Fore.RED)
+					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
+					print("Gradient too high!" + Fore.RESET)
+					if input("Do you want exit training?\n") == "y": return
 				else:
-					print(Fore.GREEN)
-				print(f"Current generator norm gradient: {norm_gradient}" + Fore.RESET)
+					print(Fore.GREEN + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
 
 		# Shutdown helper threads
 		print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
