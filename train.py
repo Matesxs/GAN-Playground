@@ -34,13 +34,16 @@ if __name__ == '__main__':
 	# Training with showing progress
 	while True:
 		try:
-			gan.train(100_000, 32, progress_images_save_interval=200, agregate_stats_interval=100,
+			gan.train(80_000, 32, progress_images_save_interval=200, agregate_stats_interval=100,
 			          weights_save_interval=None,
 			          discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.05,
-			          feed_prev_gen_batch=True, feed_amount=0.1, half_batch_discriminator=False, discriminator_lr_loops=1)
+			          feed_prev_gen_batch=True, feed_amount=0.12, half_batch_discriminator=False, discriminator_lr_loops=1)
 		except KeyboardInterrupt:
 			gan.save_weights()
 			gan.show_training_stats(save_path="training_data")
+		except Exception:
+			print(f"Exception on epoch: {gan.epoch_counter}")
+			gan.save_weights()
 
 		gan.show_current_state(3, 5)
 		gan.show_training_stats(save_path=None)
