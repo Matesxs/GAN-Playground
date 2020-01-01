@@ -19,7 +19,7 @@ class StatSaver(Thread):
 
 	def run(self) -> None:
 		while not self.terminate or self.data:
-			if self.data:
+			if len(self.data) > 0:
 				for _ in range(len(self.data)):
 					self.writer.writerow(self.data.popleft())
 			time.sleep(0.04)
