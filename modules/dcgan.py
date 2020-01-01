@@ -17,6 +17,7 @@ from tqdm import tqdm
 from typing import Union
 import colorama
 from colorama import Fore
+from collections import deque
 
 from modules.batch_maker import BatchMaker
 from modules.statsaver import StatSaver
@@ -161,7 +162,8 @@ class DCGAN:
 			return labels
 
 		# Function for replacing new generated images with old generated images
-		def replace_random_images(orig_images: np.ndarray, repl_images: np.ndarray, perc_ammount:float=0.20):
+		def replace_random_images(orig_images: np.ndarray, repl_images: deque, perc_ammount:float=0.20):
+			repl_images = np.array(repl_images)
 			for idx in range(orig_images.shape[0]):
 				if random.random() < perc_ammount:
 					orig_images[idx] = repl_images[random.randint(0, repl_images.shape[0])]
@@ -189,8 +191,8 @@ class DCGAN:
 			stat_saver.start()
 		else: stat_saver = None
 
-		# Images generated in prewious batch
-		last_gen_images = None
+		# Previously generated images
+		prev_gen_images = deque(maxlen=3*disc_batch)
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
@@ -204,20 +206,18 @@ class DCGAN:
 				# Train discriminator (real as ones and fake as zeros)
 				if discriminator_smooth_labels:
 					disc_real_labels = np.random.uniform(0.85, 0.95, size=(disc_batch, 1))
-					if feed_prev_gen_batch and last_gen_images is not None:
-						disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
-						gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
-						last_gen_images = gen_imgs
-					else:
-						disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
+					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
 				else:
 					disc_real_labels = np.ones(shape=(disc_batch, 1))
-					if feed_prev_gen_batch and last_gen_images is not None:
-						disc_fake_labels = np.zeros(shape=(disc_batch, 1))
-						gen_imgs = replace_random_images(gen_imgs, last_gen_images, feed_amount)
-						last_gen_images = gen_imgs
+					disc_fake_labels = np.zeros(shape=(disc_batch, 1))
+
+				if feed_prev_gen_batch:
+					if len(prev_gen_images) > 0:
+						tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_amount)
+						for img in gen_imgs: prev_gen_images.append(img)
+						gen_imgs = tmp_imgs
 					else:
-						disc_fake_labels = np.zeros(shape=(disc_batch, 1))
+						for img in gen_imgs: prev_gen_images.append(img)
 
 				# Adding random noise to discriminator labels
 				if discriminator_label_noise and discriminator_label_noise > 0:
