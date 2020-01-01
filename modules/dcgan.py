@@ -271,16 +271,21 @@ class DCGAN:
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
 				self.__save_imgs()
 
+			# Save weights of models
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
 
 			# Gradient checking and reseed every 5000 epochs
 			if self.epoch_counter % 5_000 == 0:
+				# Generate evaluation noise and labels
 				eval_noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
 				eval_labels = np.ones(shape=(batch_size, 1))
+
+				# Create gradient function and evaluate based on eval noise and labels
 				get_gradients = self.gradient_norm_generator(self.combined_model)
 				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
+
 				if norm_gradient > 100:
 					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
 					print("Gradient too high!" + Fore.RESET)
@@ -288,6 +293,7 @@ class DCGAN:
 				else:
 					print(Fore.GREEN + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
 
+				# Change seed for keeping as low number of constants as possible
 				np.random.seed(None)
 				random.seed()
 
