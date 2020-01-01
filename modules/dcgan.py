@@ -274,6 +274,7 @@ class DCGAN:
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
 
+			# Gradient checking and reseed every 5000 epochs
 			if self.epoch_counter % 5_000 == 0:
 				eval_noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
 				eval_labels = np.ones(shape=(batch_size, 1))
@@ -286,6 +287,9 @@ class DCGAN:
 					if input("Do you want exit training?\n") == "y": return
 				else:
 					print(Fore.GREEN + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
+
+				np.random.seed(None)
+				random.seed()
 
 		# Shutdown helper threads
 		print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
