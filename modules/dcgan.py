@@ -166,7 +166,7 @@ class DCGAN:
 			repl_images = np.array(repl_images)
 			for idx in range(orig_images.shape[0]):
 				if random.random() < perc_ammount:
-					orig_images[idx] = repl_images[random.randint(0, repl_images.shape[0])]
+					orig_images[idx] = repl_images[random.randint(0, repl_images.shape[0] - 1)]
 			return orig_images
 
 		# Check arguments and input data
@@ -214,10 +214,10 @@ class DCGAN:
 				if feed_prev_gen_batch:
 					if len(prev_gen_images) > 0:
 						tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_amount)
-						for img in gen_imgs: prev_gen_images.append(img)
+						prev_gen_images += deque(gen_imgs)
 						gen_imgs = tmp_imgs
 					else:
-						for img in gen_imgs: prev_gen_images.append(img)
+						prev_gen_images += deque(gen_imgs)
 
 				# Adding random noise to discriminator labels
 				if discriminator_label_noise and discriminator_label_noise > 0:
@@ -440,8 +440,8 @@ class DCGAN:
 	def save_weights(self):
 		save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter)
 		if not os.path.exists(save_dir): os.makedirs(save_dir)
-		if not os.path.exists(f"{save_dir}/generator_{self.gen_mod_name}.h5"): self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
-		if not os.path.exists(f"{save_dir}/discriminator_{self.disc_mod_name}.h5"): self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
+		self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
+		self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
 
 	def make_progress_gif(self, save_path:str=None, framerate:int=30):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
