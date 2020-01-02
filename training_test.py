@@ -26,7 +26,7 @@ for gen_model in generator_models:
 			for batch_size in batch_sizes:
 				testing_name = f"{gen_model}-{disc_model}-{latent_dim}ld-{batch_size}bs"
 				gan = DCGAN("dataset/normalized", training_progress_save_path=f"{save_path}/{testing_name}",
-				            progress_image_num=10,
+				            progress_image_dim=10,
 				            latent_dim=latent_dim, gen_mod_name=gen_model, disc_mod_name=disc_model,
 				            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
 				            generator_weights=None, discriminator_weights=None)

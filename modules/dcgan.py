@@ -30,7 +30,7 @@ colorama.init()
 class DCGAN:
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, disc_mod_name: str,
-	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_num:int=5,
+	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
 	             generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
 	             generator_weights:str=None, discriminator_weights:str=None,
 	             start_episode:int=0):
@@ -39,7 +39,7 @@ class DCGAN:
 		self.gen_mod_name = gen_mod_name
 
 		self.latent_dim = latent_dim
-		self.progress_image_num = progress_image_num
+		self.progress_image_dim = progress_image_dim
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
 		self.training_progress_save_path = training_progress_save_path
@@ -69,7 +69,7 @@ class DCGAN:
 			self.validate_dataset()
 
 		# Define static vars
-		self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_num * self.progress_image_num, self.latent_dim))
+		self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
 		# Build discriminator
@@ -258,11 +258,18 @@ class DCGAN:
 				disc_fake_acc *= 100
 
 				# Change color of log according to state of training
-				if disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10: print(Fore.RED)
-				elif 0.5 * (disc_fake_acc + disc_real_acc) == 100 or disc_fake_acc == 100: print(Fore.YELLOW)
-				else: print(Fore.GREEN)
-
-				print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > 500:
+					print(Fore.RED)
+					print("__FAIL__")
+					print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+					if input("Do you want exit training?\n") == "y": return
+				elif 0.5 * (disc_fake_acc + disc_real_acc) == 100 or disc_fake_acc == 100:
+					print(Fore.YELLOW)
+					print("!!Warning!!")
+					print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+				else:
+					print(Fore.GREEN)
+					print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 				# Save statistics to csv file
 				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
@@ -314,11 +321,11 @@ class DCGAN:
 		# Rescale images 0 to 255
 		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
 
-		final_image = np.zeros(shape=(self.image_shape[0] * self.progress_image_num, self.image_shape[1] * self.progress_image_num, self.image_channels)).astype(np.float32)
+		final_image = np.zeros(shape=(self.image_shape[0] * self.progress_image_dim[1], self.image_shape[1] * self.progress_image_dim[0], self.image_channels)).astype(np.float32)
 
 		cnt = 0
-		for i in range(self.progress_image_num):
-			for j in range(self.progress_image_num):
+		for i in range(self.progress_image_dim[1]):
+			for j in range(self.progress_image_dim[0]):
 				if self.image_channels == 3:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), :] = gen_imgs[cnt]
 				else:
