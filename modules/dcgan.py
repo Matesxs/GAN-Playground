@@ -28,6 +28,8 @@ tf.get_logger().setLevel('ERROR')
 colorama.init()
 
 class DCGAN:
+	CONTROL_THRESHOLD = 500
+
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, disc_mod_name: str,
 	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
@@ -153,7 +155,12 @@ class DCGAN:
 
 		return model
 
-	def train(self, epochs:int=500000, batch_size:int=32, progress_images_save_interval:int=None, weights_save_interval:int=None, generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, discriminator_label_noise:float=None, agregate_stats_interval:int=100, buffered_batches:int=10, half_batch_discriminator:bool=False, discriminator_lr_loops:int=1):
+	def train(self, epochs:int=500000, batch_size:int=32, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
+	          progress_images_save_interval:int=None, weights_save_interval:int=None,
+	          generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, discriminator_label_noise:float=None,
+	          agregate_stats_interval:int=100,
+	          half_batch_discriminator:bool=False, auto_training_balancing:bool=False):
+
 		# Function for adding random noise to labels (flipping them)
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
 			for idx in range(labels.shape[0]):
@@ -175,7 +182,6 @@ class DCGAN:
 		if self.data_length < batch_size or batch_size%2 != 0 or batch_size < 4: raise Exception("Invalid batch size")
 		if self.train_data is None: raise Exception("No dataset loaded")
 		if agregate_stats_interval is not None and agregate_stats_interval < 1: raise Exception("Invalid agregate stats interval")
-		if discriminator_lr_loops < 1: raise Exception("Invalid discriminator learning multiplier")
 
 		# Batch size for discriminator
 		disc_batch = batch_size
@@ -191,8 +197,10 @@ class DCGAN:
 			stat_saver.start()
 		else: stat_saver = None
 
-		# Previously generated images
+		# Training variables
 		prev_gen_images = deque(maxlen=3*disc_batch)
+		generator_lr_loops = 1
+		discriminator_lr_loops = 1
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
@@ -232,12 +240,13 @@ class DCGAN:
 
 			### Train Generator ###
 			# Train generator (wants discriminator to recognize fake images as valid)
-			if generator_smooth_labels:
-				gen_labels = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
-			else:
-				gen_labels = np.ones(shape=(batch_size, 1))
+			for _ in range(generator_lr_loops):
+				if generator_smooth_labels:
+					gen_labels = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
+				else:
+					gen_labels = np.ones(shape=(batch_size, 1))
 
-			self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
+				self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
 
 			self.epoch_counter += 1
 
@@ -251,14 +260,14 @@ class DCGAN:
 				disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
 				gen_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
 
-				# TODO: Automate changing discriminator training multiplier based on trend of generator loss
+				# TODO: Automate changing discriminator and generator training multipliers based on trend of generator loss
 
 				# Convert accuracy to percents
 				disc_real_acc *= 100
 				disc_fake_acc *= 100
 
 				# Change color of log according to state of training
-				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > 500:
+				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
 					print(Fore.RED)
 					print("__FAIL__")
 					print(f"[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
@@ -293,7 +302,7 @@ class DCGAN:
 				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
-				if norm_gradient > 100:
+				if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
 					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
 					print("Gradient too high!" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
@@ -407,17 +416,21 @@ class DCGAN:
 		epochs = loaded_stats[0].values
 
 		# Loss graph
-		plt.subplot(2, 1, 1)
+		ax = plt.subplot(2, 1, 1)
 		plt.plot(epochs, loaded_stats[5].values, label="Gen Loss")
 		plt.plot(epochs, loaded_stats[3].values, label="Disc Fake Loss")
 		plt.plot(epochs, loaded_stats[1].values, label="Disc Real Loss")
-		plt.legend()
+		box = ax.get_position()
+		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
+		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=3)
 
 		# Acc graph
-		plt.subplot(2, 1, 2)
+		ax = plt.subplot(2, 1, 2)
 		plt.plot(epochs, loaded_stats[4].values, label="Disc Fake Acc")
 		plt.plot(epochs, loaded_stats[2].values, label="Disc Real Acc")
-		plt.legend()
+		box = ax.get_position()
+		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
+		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=2)
 
 		if not save_path:
 			plt.show()
