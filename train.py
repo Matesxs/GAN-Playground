@@ -17,7 +17,7 @@ Discriminators:
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
 	mod_base_2upscl     mod_base_4layers    100        100000   D      Not enough capacity of models
-	mod_min_3upscl      mod_min_5layers     100        100000   B
+	mod_min_3upscl      mod_min_5layers     100        300000   B-
 	mod_base_3upscl     mod_ext_5layers     100   --- Maybe the best combination, but models are too large for me ---
 '''
 
@@ -35,10 +35,10 @@ if __name__ == '__main__':
 	# This is loop training, you can do it at ones but meh, I dont like it
 	while True:
 		try:
-			gan.train(50_000, 32, progress_images_save_interval=200, agregate_stats_interval=100,
+			gan.train(50_000, 32, progress_images_save_interval=200, save_training_stats=True,
 			          weights_save_interval=None,
 			          discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.04,
-			          feed_prev_gen_batch=True, feed_amount=0.1, half_batch_discriminator=False, auto_training_balancing=False)
+			          feed_prev_gen_batch=True, feed_amount=0.1, half_batch_discriminator=False, auto_training_balancing=True)
 		except KeyboardInterrupt:
 			print(f"Quiting on epoch: {gan.epoch_counter} - This could take little time, get some coffe and rest :)")
 			gan.save_weights()

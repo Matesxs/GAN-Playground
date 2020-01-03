@@ -29,6 +29,8 @@ colorama.init()
 
 class DCGAN:
 	CONTROL_THRESHOLD = 500
+	AGREGATE_STAT_INTERVAL = 100
+	TUNING_STATS_LENGTH = 10
 
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, disc_mod_name: str,
@@ -158,7 +160,7 @@ class DCGAN:
 	def train(self, epochs:int=500000, batch_size:int=32, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, discriminator_label_noise:float=None,
-	          agregate_stats_interval:int=100,
+	          save_training_stats:bool=True,
 	          half_batch_discriminator:bool=False, auto_training_balancing:bool=False):
 
 		# Function for adding random noise to labels (flipping them)
@@ -181,7 +183,6 @@ class DCGAN:
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if self.data_length < batch_size or batch_size%2 != 0 or batch_size < 4: raise Exception("Invalid batch size")
 		if self.train_data is None: raise Exception("No dataset loaded")
-		if agregate_stats_interval is not None and agregate_stats_interval < 1: raise Exception("Invalid agregate stats interval")
 
 		# Batch size for discriminator
 		disc_batch = batch_size
@@ -192,7 +193,7 @@ class DCGAN:
 		batch_maker.start()
 
 		# Create statsaver and start it
-		if self.training_progress_save_path is not None and agregate_stats_interval is not None:
+		if self.training_progress_save_path is not None and save_training_stats:
 			stat_saver = StatSaver(self.training_progress_save_path)
 			stat_saver.start()
 		else: stat_saver = None
@@ -201,6 +202,7 @@ class DCGAN:
 		prev_gen_images = deque(maxlen=3*disc_batch)
 		generator_lr_loops = 1
 		discriminator_lr_loops = 1
+		tuning_stats = deque(maxlen=self.TUNING_STATS_LENGTH)
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
@@ -250,7 +252,7 @@ class DCGAN:
 
 			self.epoch_counter += 1
 
-			if agregate_stats_interval is not None and self.epoch_counter % agregate_stats_interval == 0:
+			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
 				# Generate images for statistics
 				imgs = batch_maker.get_batch()
 				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
@@ -260,11 +262,29 @@ class DCGAN:
 				disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
 				gen_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
 
-				# TODO: Automate changing discriminator and generator training multipliers based on trend of generator loss
-
 				# Convert accuracy to percents
 				disc_real_acc *= 100
 				disc_fake_acc *= 100
+
+				# Save stats
+				tuning_stats.append([disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
+				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
+
+				# TODO: Need to monitor and improve
+				if auto_training_balancing:
+					if len(tuning_stats) == self.TUNING_STATS_LENGTH:
+						t_stats = np.array(tuning_stats)
+						t_mean_disc_fake_acc = np.mean(t_stats[:, 3])
+
+						if t_mean_disc_fake_acc > 75:
+							generator_lr_loops = 2
+							discriminator_lr_loops = 1
+						elif t_mean_disc_fake_acc < 60:
+							generator_lr_loops = 1
+							discriminator_lr_loops = 2
+						else:
+							generator_lr_loops = 1
+							discriminator_lr_loops = 1
 
 				# Change color of log according to state of training
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
@@ -274,9 +294,6 @@ class DCGAN:
 					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 				else:
 					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
-
-				# Save statistics to csv file
-				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
