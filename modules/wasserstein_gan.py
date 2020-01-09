@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from keras.optimizers import Adam, Optimizer
+from keras.optimizers import RMSprop, Optimizer
 from keras.models import Model
 from keras.layers import Input, Dense
 from keras.initializers import RandomNormal
@@ -27,23 +27,22 @@ from modules import discriminator_models_spreadsheet
 tf.get_logger().setLevel('ERROR')
 colorama.init()
 
-class DCGAN:
+def wasserstein_loss(y_true, y_pred):
+	return K.mean(y_true * y_pred)
+
+class WGAN:
 	CONTROL_THRESHOLD = 500
 	AGREGATE_STAT_INTERVAL = 100
 	TUNING_STATS_LENGTH = 10
 
-	BOOST_GEN_DISC_ACC = 78
-	BOOST_DISC_GEN_LOSS = 1
-	BOOST_DISC_DISC_ACC = 55
-
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
-	             gen_mod_name: str, disc_mod_name: str,
+	             gen_mod_name: str, critic_mod_name: str,
 	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
-	             generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
-	             generator_weights:str=None, discriminator_weights:str=None,
+	             generator_optimizer: Optimizer = RMSprop(0.00005), critic_optimizer: Optimizer = RMSprop(0.00005),
+	             generator_weights:str=None, critic_weights:str=None,
 	             start_episode:int=0):
 
-		self.disc_mod_name = disc_mod_name
+		self.critic_mod_name = critic_mod_name
 		self.gen_mod_name = gen_mod_name
 
 		self.latent_dim = latent_dim
@@ -83,10 +82,10 @@ class DCGAN:
 			self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
-		# Build discriminator
-		self.discriminator = self.build_discriminator(disc_mod_name)
-		self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['binary_accuracy'])
-		if discriminator_weights: self.discriminator.load_weights(f"{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
+		# Build critic
+		self.critic = self.build_critic(critic_mod_name)
+		self.critic.compile(loss=wasserstein_loss, optimizer=critic_optimizer)
+		if critic_weights: self.critic.load_weights(f"{critic_weights}/critic_{self.critic_mod_name}.h5")
 
 		# Build generator
 		self.generator = self.build_generator(gen_mod_name)
@@ -98,26 +97,14 @@ class DCGAN:
 		gen_images = self.generator(noise_input)
 
 		# For combined model we will only train generator
-		self.discriminator.trainable = False
+		self.critic.trainable = False
 
 		# Discriminator takes images and determinates validity
-		valid = self.discriminator(gen_images)
+		valid = self.critic(gen_images)
 
 		# Combine models
-		# Train generator to fool discriminator
-		self.combined_model = Model(noise_input, valid, name="dcgan_model")
-		self.combined_model.compile(loss="binary_crossentropy", optimizer=generator_optimizer)
-
-		self.tuning_stats = deque(maxlen=self.TUNING_STATS_LENGTH)
-
-	# Function for creating gradient generator
-	def gradient_norm_generator(self, model:Model):
-		grads = K.gradients(model.total_loss, model.trainable_weights)
-		summed_squares = [K.sum(K.square(g)) for g in grads]
-		norm = K.sqrt(sum(summed_squares))
-		inputs = model._feed_inputs + model._feed_targets + model._feed_sample_weights
-		func = K.function(inputs, [norm])
-		return func
+		self.combined_model = Model(noise_input, valid, name="wgan_model")
+		self.combined_model.compile(loss=wasserstein_loss, optimizer=generator_optimizer)
 
 	# Check if dataset have consistent shapes
 	def validate_dataset(self):
@@ -148,29 +135,29 @@ class DCGAN:
 
 		return model
 
-	# Create discriminator based on teplate selected by name
-	def build_discriminator(self, model_name:str):
-		img = Input(shape=self.image_shape)
+	# Create critic based on teplate selected by name
+	def build_critic(self, model_name:str):
+		img_input = Input(shape=self.image_shape)
 
 		try:
-			m = getattr(discriminator_models_spreadsheet, model_name)(img, self.kernel_initializer)
+			m = getattr(discriminator_models_spreadsheet, model_name)(img_input, self.kernel_initializer, discriminator_models_spreadsheet.ClipConstraint(0.01))
 		except Exception as e:
-			raise Exception(f"Discriminator model not found!\n{e.__traceback__}")
+			raise Exception(f"Critic model not found!\n{e.__traceback__}")
 
-		m = Dense(1, activation="sigmoid")(m)
+		m = Dense(1)(m)
 
-		model = Model(img, m, name="discriminator_model")
+		model = Model(img_input, m, name="critic_model")
 
-		print("\nDiscriminator Sumary:")
+		print("\nCritic Sumary:")
 		model.summary()
 
 		return model
 
-	def train(self, epochs:int=500000, batch_size:int=32, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
+	def train(self, epochs:int=500000, batch_size:int=32, feed_prev_gen_batch:bool=False, feed_amount:float=0.1, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
-	          generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, discriminator_label_noise:float=None,
+	          generator_smooth_labels:bool=False, critic_smooth_labels:bool=False, critic_label_noise:float=None,
 	          save_training_stats:bool=True,
-	          half_batch_discriminator:bool=False, auto_training_balancing:bool=False):
+	          critic_multip:int=5):
 
 		# Function for adding random noise to labels (flipping them)
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
@@ -198,12 +185,11 @@ class DCGAN:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
-		# Batch size for discriminator
-		disc_batch = batch_size
-		if half_batch_discriminator: disc_batch = batch_size // 2
+		# Batch size for critic
+		critic_batch = batch_size // 2
 
 		# Create batchmaker and start it
-		batch_maker = BatchMaker(self.train_data, self.data_length, disc_batch, buffered_batches=buffered_batches)
+		batch_maker = BatchMaker(self.train_data, self.data_length, critic_batch, buffered_batches=buffered_batches)
 		batch_maker.start()
 
 		# Create statsaver and start it
@@ -213,26 +199,24 @@ class DCGAN:
 		else: stat_saver = None
 
 		# Training variables
-		prev_gen_images = deque(maxlen=3*disc_batch)
-		generator_lr_loops = 1
-		discriminator_lr_loops = 1
+		prev_gen_images = deque(maxlen=3*critic_batch)
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
-			for _ in range(discriminator_lr_loops):
+			for _ in range(critic_multip):
 				# Select batch of valid images
 				imgs = batch_maker.get_batch()
 
 				# Sample noise and generate new images
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
+				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (critic_batch, self.latent_dim)))
 
-				# Train discriminator (real as ones and fake as zeros)
-				if discriminator_smooth_labels:
-					disc_real_labels = np.random.uniform(0.85, 0.95, size=(disc_batch, 1))
-					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
+				# Train critic (real as ones and fake as zeros)
+				if critic_smooth_labels:
+					critic_real_labels = np.random.uniform(-1.0, -0.85, size=(critic_batch, 1))
+					critic_fake_labels = np.random.uniform(0.85, 1.0, size=(critic_batch, 1))
 				else:
-					disc_real_labels = np.ones(shape=(disc_batch, 1))
-					disc_fake_labels = np.zeros(shape=(disc_batch, 1))
+					critic_real_labels = -np.ones(shape=(critic_batch, 1))
+					critic_fake_labels = np.ones(shape=(critic_batch, 1))
 
 				if feed_prev_gen_batch:
 					if len(prev_gen_images) > 0:
@@ -242,73 +226,47 @@ class DCGAN:
 					else:
 						prev_gen_images += deque(gen_imgs)
 
-				# Adding random noise to discriminator labels
-				if discriminator_label_noise and discriminator_label_noise > 0:
-					discriminator_label_noise /= 2
-					disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
-					disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
+				# Adding random noise to critic labels
+				if critic_label_noise and critic_label_noise > 0:
+					critic_label_noise /= 2
+					critic_real_labels = noising_labels(critic_real_labels, critic_label_noise)
+					critic_fake_labels = noising_labels(critic_fake_labels, critic_label_noise)
 
-				self.discriminator.trainable = True
-				self.discriminator.train_on_batch(imgs, disc_real_labels)
-				self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-				self.discriminator.trainable = False
+				self.critic.trainable = True
+				self.critic.train_on_batch(imgs, critic_real_labels)
+				self.critic.train_on_batch(gen_imgs, critic_fake_labels)
+				self.critic.trainable = False
 
 			### Train Generator ###
-			# Train generator (wants discriminator to recognize fake images as valid)
-			for _ in range(generator_lr_loops):
-				if generator_smooth_labels:
-					gen_labels = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
-				else:
-					gen_labels = np.ones(shape=(batch_size, 1))
+			# Train generator (wants critic to recognize fake images as valid)
+			if generator_smooth_labels:
+				gen_labels = np.random.uniform(-1.2, -0.7, size=(batch_size, 1))
+			else:
+				gen_labels = -np.ones(shape=(batch_size, 1))
 
-				self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
+			self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
 
 			self.epoch_counter += 1
 
 			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
 				# Generate images for statistics
 				imgs = batch_maker.get_batch()
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
+				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (critic_batch, self.latent_dim)))
 
 				# Evaluate models state
-				disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
-				disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-				gen_loss = self.combined_model.test_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
-
-				# Convert accuracy to percents
-				disc_real_acc *= 100
-				disc_fake_acc *= 100
+				critic_real_loss = self.critic.test_on_batch(imgs, -np.ones(shape=(imgs.shape[0], 1)))
+				critic_fake_loss = self.critic.test_on_batch(gen_imgs, np.ones(shape=(imgs.shape[0], 1)))
+				gen_loss = self.combined_model.test_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), -np.ones(shape=(batch_size, 1)))
 
 				# Save stats
-				self.tuning_stats.append([disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
-				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
-
-				# TODO: Need to monitor and improve
-				if auto_training_balancing:
-					if len(self.tuning_stats) == self.TUNING_STATS_LENGTH:
-						t_stats = np.array(self.tuning_stats)
-						t_mean_disc_fake_acc = np.mean(t_stats[:, 3])
-						t_mean_gen_loss = np.mean(t_stats[:, 4])
-
-						# Change numbers of training steps for each model
-						if t_mean_disc_fake_acc > self.BOOST_GEN_DISC_ACC and (generator_lr_loops != 2 or discriminator_lr_loops != 1):
-							generator_lr_loops = 2
-							discriminator_lr_loops = 1
-						elif (t_mean_disc_fake_acc < self.BOOST_DISC_DISC_ACC or t_mean_gen_loss < self.BOOST_DISC_GEN_LOSS) and (generator_lr_loops != 1 or discriminator_lr_loops != 2):
-							generator_lr_loops = 1
-							discriminator_lr_loops = 2
-						elif discriminator_lr_loops != 1 or generator_lr_loops != 1:
-							generator_lr_loops = 1
-							discriminator_lr_loops = 1
+				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, critic_real_loss, critic_fake_loss, gen_loss])
 
 				# Change color of log according to state of training
-				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] LS:[{discriminator_lr_loops}:{generator_lr_loops}]" + Fore.RESET)
+				if gen_loss > 10 and self.epoch_counter > self.CONTROL_THRESHOLD:
+					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(critic_real_loss), 5)}, D-F loss: {round(float(critic_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
-				elif 0.5 * (disc_fake_acc + disc_real_acc) == 100 or disc_fake_acc == 100:
-					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] LS:[{discriminator_lr_loops}:{generator_lr_loops}]" + Fore.RESET)
 				else:
-					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] LS:[{discriminator_lr_loops}:{generator_lr_loops}]" + Fore.RESET)
+					print(Fore.GREEN + f"\n[D-R loss: {round(float(critic_real_loss), 5)}, D-F loss: {round(float(critic_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
@@ -317,24 +275,6 @@ class DCGAN:
 			# Save weights of models
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
-
-			# Gradient checking and reseed every 10000 epochs
-			if self.epoch_counter % 10_000 == 0:
-				# Generate evaluation noise and labels
-				eval_noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
-				eval_labels = np.ones(shape=(batch_size, 1))
-
-				# Create gradient function and evaluate based on eval noise and labels
-				get_gradients = self.gradient_norm_generator(self.combined_model)
-				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
-				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
-
-				if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
-					print("Gradient too high!" + Fore.RESET)
-					if input("Do you want exit training?\n") == "y": return
-				else:
-					print(Fore.GREEN + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
 
 				# Change seed for keeping as low number of constants as possible
 				np.random.seed(None)
@@ -443,34 +383,26 @@ class DCGAN:
 		epochs = loaded_stats[0].values
 
 		# Loss graph
-		ax = plt.subplot(2, 1, 1)
-		plt.plot(epochs, loaded_stats[5].values, label="Gen Loss")
-		plt.plot(epochs, loaded_stats[3].values, label="Disc Fake Loss")
-		plt.plot(epochs, loaded_stats[1].values, label="Disc Real Loss")
-		box = ax.get_position()
-		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
-		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=3)
-
-		# Acc graph
-		ax = plt.subplot(2, 1, 2)
-		plt.plot(epochs, loaded_stats[4].values, label="Disc Fake Acc")
-		plt.plot(epochs, loaded_stats[2].values, label="Disc Real Acc")
-		box = ax.get_position()
-		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
-		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=2)
+		fig = plt.figure()
+		fig.plot(epochs, loaded_stats[3].values, label="Gen Loss")
+		fig.plot(epochs, loaded_stats[2].values, label="Critic Fake Loss")
+		fig.plot(epochs, loaded_stats[1].values, label="Critic Real Loss")
+		box = fig.get_position()
+		fig.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
+		fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=3)
 
 		if not save_path:
 			plt.show()
 		else:
 			plt.savefig(f"{save_path}/training_stats.png")
-		plt.close()
+		fig.close()
 
 	def save_models_structure_images(self, save_path:str=None):
 		if save_path is None: save_path = self.training_progress_save_path + "/model_structures"
 		if not os.path.exists(save_path): os.makedirs(save_path)
 		plot_model(self.combined_model, os.path.join(save_path,"combined.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
-		plot_model(self.discriminator, os.path.join(save_path, "discriminator.png"), expand_nested=True, show_shapes=True)
+		plot_model(self.critic, os.path.join(save_path, "critic.png"), expand_nested=True, show_shapes=True)
 
 	def clear_training_progress_folder(self):
 		if not os.path.exists(self.training_progress_save_path): return
@@ -488,7 +420,7 @@ class DCGAN:
 		save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter)
 		if not os.path.exists(save_dir): os.makedirs(save_dir)
 		self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
-		self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
+		self.critic.save_weights(f"{save_dir}/critic_{self.critic_mod_name}.h5")
 
 	def make_progress_gif(self, save_path:str=None, framerate:int=30):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
