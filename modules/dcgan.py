@@ -32,6 +32,10 @@ class DCGAN:
 	AGREGATE_STAT_INTERVAL = 100
 	TUNING_STATS_LENGTH = 10
 
+	BOOST_GEN_DISC_ACC = 78
+	BOOST_DISC_GEN_LOSS = 1
+	BOOST_DISC_DISC_ACC = 55
+
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, disc_mod_name: str,
 	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
@@ -275,25 +279,27 @@ class DCGAN:
 					if len(tuning_stats) == self.TUNING_STATS_LENGTH:
 						t_stats = np.array(tuning_stats)
 						t_mean_disc_fake_acc = np.mean(t_stats[:, 3])
+						t_mean_gen_loss = np.mean(t_stats[:, 4])
 
-						if t_mean_disc_fake_acc > 75:
+						# Change numbers of training steps for each model
+						if t_mean_disc_fake_acc > self.BOOST_GEN_DISC_ACC and (generator_lr_loops != 2 or discriminator_lr_loops != 1):
 							generator_lr_loops = 2
 							discriminator_lr_loops = 1
-						elif t_mean_disc_fake_acc < 60:
+						elif (t_mean_disc_fake_acc < self.BOOST_DISC_DISC_ACC or t_mean_gen_loss < self.BOOST_DISC_GEN_LOSS) and (generator_lr_loops != 1 or discriminator_lr_loops != 2):
 							generator_lr_loops = 1
 							discriminator_lr_loops = 2
-						else:
+						elif discriminator_lr_loops != 1 or generator_lr_loops != 1:
 							generator_lr_loops = 1
 							discriminator_lr_loops = 1
 
 				# Change color of log according to state of training
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] LS:[{discriminator_lr_loops}:{generator_lr_loops}]" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
 				elif 0.5 * (disc_fake_acc + disc_real_acc) == 100 or disc_fake_acc == 100:
-					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] LS:[{discriminator_lr_loops}:{generator_lr_loops}]" + Fore.RESET)
 				else:
-					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] LS:[{discriminator_lr_loops}:{generator_lr_loops}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
