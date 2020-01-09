@@ -77,7 +77,10 @@ class DCGAN:
 			self.validate_dataset()
 
 		# Define static vars
-		self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
+		if os.path.exists(f"{self.training_progress_save_path}/static_noise.npy"):
+			self.static_noise = np.load(f"{self.training_progress_save_path}/static_noise.npy")
+		else:
+			self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
 		# Build discriminator
@@ -104,6 +107,8 @@ class DCGAN:
 		# Train generator to fool discriminator
 		self.combined_model = Model(noise_input, valid, name="dcgan_model")
 		self.combined_model.compile(loss="binary_crossentropy", optimizer=generator_optimizer)
+
+		self.tuning_stats = deque(maxlen=self.TUNING_STATS_LENGTH)
 
 	# Function for creating gradient generator
 	def gradient_norm_generator(self, model:Model):
@@ -188,6 +193,11 @@ class DCGAN:
 		if self.data_length < batch_size or batch_size%2 != 0 or batch_size < 4: raise Exception("Invalid batch size")
 		if self.train_data is None: raise Exception("No dataset loaded")
 
+		# Save noise for progress consistency
+		if self.training_progress_save_path is not None and progress_images_save_interval is not None:
+			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
+
 		# Batch size for discriminator
 		disc_batch = batch_size
 		if half_batch_discriminator: disc_batch = batch_size // 2
@@ -206,7 +216,6 @@ class DCGAN:
 		prev_gen_images = deque(maxlen=3*disc_batch)
 		generator_lr_loops = 1
 		discriminator_lr_loops = 1
-		tuning_stats = deque(maxlen=self.TUNING_STATS_LENGTH)
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
@@ -271,13 +280,13 @@ class DCGAN:
 				disc_fake_acc *= 100
 
 				# Save stats
-				tuning_stats.append([disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
+				self.tuning_stats.append([disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
 				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
 
 				# TODO: Need to monitor and improve
 				if auto_training_balancing:
-					if len(tuning_stats) == self.TUNING_STATS_LENGTH:
-						t_stats = np.array(tuning_stats)
+					if len(self.tuning_stats) == self.TUNING_STATS_LENGTH:
+						t_stats = np.array(self.tuning_stats)
 						t_mean_disc_fake_acc = np.mean(t_stats[:, 3])
 						t_mean_gen_loss = np.mean(t_stats[:, 4])
 
