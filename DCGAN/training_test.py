@@ -1,6 +1,6 @@
 from keras.optimizers import Adam
-from modules.dcgan import DCGAN
-from modules import generator_models_spreadsheet, discriminator_models_spreadsheet
+from .modules.dcgan import DCGAN
+from .modules import generator_models_spreadsheet, discriminator_models_spreadsheet
 import colorama
 from colorama import Fore
 import gc

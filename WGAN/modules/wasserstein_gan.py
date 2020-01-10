@@ -22,7 +22,7 @@ from collections import deque
 from modules.batch_maker import BatchMaker
 from modules.statsaver import StatSaver
 from modules import generator_models_spreadsheet
-from modules import discriminator_models_spreadsheet
+from modules import critic_models_spreadsheet
 
 tf.get_logger().setLevel('ERROR')
 colorama.init()
@@ -140,7 +140,7 @@ class WGAN:
 		img_input = Input(shape=self.image_shape)
 
 		try:
-			m = getattr(discriminator_models_spreadsheet, model_name)(img_input, self.kernel_initializer, discriminator_models_spreadsheet.ClipConstraint(0.01))
+			m = getattr(critic_models_spreadsheet, model_name)(img_input, self.kernel_initializer, critic_models_spreadsheet.ClipConstraint(0.01))
 		except Exception as e:
 			raise Exception(f"Critic model not found!\n{e.__traceback__}")
 
