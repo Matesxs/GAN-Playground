@@ -36,10 +36,13 @@ if __name__ == '__main__':
 		try:
 			gan.train(20_000, 32, progress_images_save_interval=200, save_training_stats=True,
 			          weights_save_interval=None,
-			          critic_smooth_labels=True, generator_smooth_labels=True, critic_label_noise=0.05,
-			          feed_prev_gen_batch=True, feed_amount=0.15, critic_multip=5)
+			          critic_smooth_labels=False, generator_smooth_labels=False,
+			          critic_label_noise=0.05,
+			          feed_prev_gen_batch=True, feed_amount=0.15,
+			          critic_train_multip=5)
 			gan.save_weights()
 		except KeyboardInterrupt:
+			# After keyboard interrupt this may take a while because of some damn python things
 			print(f"Quiting on epoch: {gan.epoch_counter} - This could take little time, get some coffe and rest :)")
 			gan.save_weights()
 			gan.show_training_stats(save_path="training_data")

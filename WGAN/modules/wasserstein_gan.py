@@ -158,7 +158,7 @@ class WGAN:
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          generator_smooth_labels:bool=False, critic_smooth_labels:bool=False, critic_label_noise:float=None,
 	          save_training_stats:bool=True,
-	          critic_multip:int=5):
+	          critic_train_multip:int=5):
 
 		# Function for adding random noise to labels (flipping them)
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
@@ -204,7 +204,7 @@ class WGAN:
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
-			for _ in range(critic_multip):
+			for _ in range(critic_train_multip):
 				# Select batch of valid images
 				imgs = batch_maker.get_batch()
 
@@ -263,9 +263,10 @@ class WGAN:
 				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, critic_real_loss, critic_fake_loss, gen_loss])
 
 				# Change color of log according to state of training
-				if gen_loss > 10 and self.epoch_counter > self.CONTROL_THRESHOLD:
+				# TODO: Check threshold and tweak it
+				if gen_loss > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
 					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(critic_real_loss), 5)}, D-F loss: {round(float(critic_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
-					if input("Do you want exit training?\n") == "y": return
+					# if input("Do you want exit training?\n") == "y": return
 				else:
 					print(Fore.GREEN + f"\n[D-R loss: {round(float(critic_real_loss), 5)}, D-F loss: {round(float(critic_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
