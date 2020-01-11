@@ -106,6 +106,15 @@ class WGAN:
 		self.combined_model = Model(noise_input, valid, name="wgan_model")
 		self.combined_model.compile(loss=wasserstein_loss, optimizer=generator_optimizer)
 
+	# Function for creating gradient generator
+	def gradient_norm_generator(self, model: Model):
+		grads = K.gradients(model.total_loss, model.trainable_weights)
+		summed_squares = [K.sum(K.square(g)) for g in grads]
+		norm = K.sqrt(sum(summed_squares))
+		inputs = model._feed_inputs + model._feed_targets + model._feed_sample_weights
+		func = K.function(inputs, [norm])
+		return func
+
 	# Check if dataset have consistent shapes
 	def validate_dataset(self):
 		if type(self.train_data) == list:
@@ -277,6 +286,28 @@ class WGAN:
 			# Save weights of models
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
+
+			# Gradient checking and reseed every 10000 epochs
+			if self.epoch_counter % 10_000 == 0:
+				# Generate evaluation noise and labels
+				eval_noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
+				eval_labels = np.ones(shape=(batch_size, 1))
+
+				# Create gradient function and evaluate based on eval noise and labels
+				get_gradients = self.gradient_norm_generator(self.combined_model)
+				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
+				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
+
+				if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
+					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
+					print("Gradient too high!" + Fore.RESET)
+					if input("Do you want exit training?\n") == "y": return
+				elif norm_gradient < 0.2 and self.epoch_counter > self.CONTROL_THRESHOLD:
+					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
+					print("Gradient vanished!" + Fore.RESET)
+					if input("Do you want exit training?\n") == "y": return
+				else:
+					print(Fore.BLUE + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
 
 				# Change seed for keeping as low number of constants as possible
 				np.random.seed(None)
