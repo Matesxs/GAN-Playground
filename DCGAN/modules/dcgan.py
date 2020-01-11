@@ -504,4 +504,4 @@ class DCGAN:
 				frames.append(Image.open(self.training_progress_save_path + "/progress_images/" + im_file))
 
 		if len(frames) > 2:
-			frames[0].save(f"{save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, duration=duration, loop=0)
+			frames[0].save(f"{save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, optimize=False, duration=duration, loop=0)
