@@ -298,11 +298,12 @@ class WGAN:
 				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
-				if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
+				# TODO: Tweak thresholds
+				if norm_gradient > 500 and self.epoch_counter > self.CONTROL_THRESHOLD:
 					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
 					print("Gradient too high!" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
-				elif norm_gradient < 0.2 and self.epoch_counter > self.CONTROL_THRESHOLD:
+				elif norm_gradient < 0.1 and self.epoch_counter > self.CONTROL_THRESHOLD:
 					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
 					print("Gradient vanished!" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
