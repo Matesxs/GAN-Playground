@@ -165,7 +165,7 @@ class WGAN:
 
 	def train(self, epochs:int=500000, batch_size:int=32, feed_prev_gen_batch:bool=False, feed_amount:float=0.1, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
-	          generator_smooth_labels:bool=False, critic_smooth_labels:bool=False, critic_label_noise:float=None,
+	          critic_label_noise:float=None,
 	          save_training_stats:bool=True,
 	          critic_train_multip:int=5):
 
@@ -210,6 +210,8 @@ class WGAN:
 
 		# Training variables
 		prev_gen_images = deque(maxlen=3*critic_batch)
+		critic_fake_losses = deque(maxlen=critic_train_multip)
+		critic_real_losses = deque(maxlen=critic_train_multip)
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
@@ -221,12 +223,8 @@ class WGAN:
 				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (critic_batch, self.latent_dim)))
 
 				# Train critic (real as ones and fake as zeros)
-				if critic_smooth_labels:
-					critic_real_labels = np.random.uniform(-1.0, -0.85, size=(critic_batch, 1))
-					critic_fake_labels = np.random.uniform(0.85, 1.0, size=(critic_batch, 1))
-				else:
-					critic_real_labels = -np.ones(shape=(critic_batch, 1))
-					critic_fake_labels = np.ones(shape=(critic_batch, 1))
+				critic_real_labels = -np.ones(shape=(critic_batch, 1))
+				critic_fake_labels = np.ones(shape=(critic_batch, 1))
 
 				if feed_prev_gen_batch:
 					if len(prev_gen_images) > 0:
@@ -243,41 +241,27 @@ class WGAN:
 					critic_fake_labels = noising_labels(critic_fake_labels, critic_label_noise)
 
 				self.critic.trainable = True
-				self.critic.train_on_batch(imgs, critic_real_labels)
-				self.critic.train_on_batch(gen_imgs, critic_fake_labels)
+				crl = self.critic.train_on_batch(imgs, critic_real_labels)
+				critic_real_losses.append(crl)
+				cfl = self.critic.train_on_batch(gen_imgs, critic_fake_labels)
+				critic_fake_losses.append(cfl)
 				self.critic.trainable = False
 
 			### Train Generator ###
-			# Train generator (wants critic to recognize fake images as valid)
-			if generator_smooth_labels:
-				gen_labels = np.random.uniform(-1.2, -0.7, size=(batch_size, 1))
-			else:
-				gen_labels = -np.ones(shape=(batch_size, 1))
+			gen_labels = -np.ones(shape=(batch_size, 1))
+			gen_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
 
-			self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
+			# Calculate critic statistics
+			critic_real_loss = np.mean(np.array(critic_real_losses))
+			critic_fake_loss = np.mean(np.array(critic_fake_losses))
 
 			self.epoch_counter += 1
 
 			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
-				# Generate images for statistics
-				imgs = batch_maker.get_batch()
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (critic_batch, self.latent_dim)))
-
-				# Evaluate models state
-				critic_real_loss = self.critic.test_on_batch(imgs, -np.ones(shape=(imgs.shape[0], 1)))
-				critic_fake_loss = self.critic.test_on_batch(gen_imgs, np.ones(shape=(imgs.shape[0], 1)))
-				gen_loss = self.combined_model.test_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), -np.ones(shape=(batch_size, 1)))
-
 				# Save stats
 				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, critic_real_loss, critic_fake_loss, gen_loss])
 
-				# Change color of log according to state of training
-				# TODO: Check threshold and tweak it
-				if gen_loss > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(critic_real_loss), 5)}, D-F loss: {round(float(critic_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
-					# if input("Do you want exit training?\n") == "y": return
-				else:
-					print(Fore.GREEN + f"\n[D-R loss: {round(float(critic_real_loss), 5)}, D-F loss: {round(float(critic_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+				print(Fore.GREEN + f"\n[C-R loss: {round(float(critic_real_loss), 5)}, C-F loss: {round(float(critic_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
@@ -299,11 +283,7 @@ class WGAN:
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
 				# TODO: Tweak thresholds
-				if norm_gradient > 500 and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
-					print("Gradient too high!" + Fore.RESET)
-					if input("Do you want exit training?\n") == "y": return
-				elif norm_gradient < 0.1 and self.epoch_counter > self.CONTROL_THRESHOLD:
+				if norm_gradient < 50 and self.epoch_counter > self.CONTROL_THRESHOLD:
 					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
 					print("Gradient vanished!" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
@@ -417,19 +397,19 @@ class WGAN:
 		epochs = loaded_stats[0].values
 
 		# Loss graph
-		fig = plt.figure()
-		fig.plot(epochs, loaded_stats[3].values, label="Gen Loss")
-		fig.plot(epochs, loaded_stats[2].values, label="Critic Fake Loss")
-		fig.plot(epochs, loaded_stats[1].values, label="Critic Real Loss")
-		box = fig.get_position()
-		fig.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
-		fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=3)
+		ax = plt.subplot(1, 1, 1)
+		plt.plot(epochs, loaded_stats[3].values, label="Gen Loss")
+		plt.plot(epochs, loaded_stats[2].values, label="Critic Fake Loss")
+		plt.plot(epochs, loaded_stats[1].values, label="Critic Real Loss")
+		box = ax.get_position()
+		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
+		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=3)
 
 		if not save_path:
 			plt.show()
 		else:
 			plt.savefig(f"{save_path}/training_stats.png")
-		fig.close()
+		plt.close()
 
 	def save_models_structure_images(self, save_path:str=None):
 		if save_path is None: save_path = self.training_progress_save_path + "/model_structures"

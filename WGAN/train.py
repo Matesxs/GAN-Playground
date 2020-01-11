@@ -34,10 +34,9 @@ if __name__ == '__main__':
 	# This is loop training, you can do it at ones but meh, I dont like it
 	while True:
 		try:
-			gan.train(20_000, 32, progress_images_save_interval=200, save_training_stats=True,
+			gan.train(10_000, 32, progress_images_save_interval=200, save_training_stats=True,
 			          weights_save_interval=None,
-			          critic_smooth_labels=False, generator_smooth_labels=False,
-			          critic_label_noise=0.05,
+			          critic_label_noise=0.01,
 			          feed_prev_gen_batch=True, feed_amount=0.15,
 			          critic_train_multip=5)
 			gan.save_weights()
