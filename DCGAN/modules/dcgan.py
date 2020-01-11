@@ -334,7 +334,7 @@ class DCGAN:
 					print("Gradient too high!" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
 				else:
-					print(Fore.GREEN + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
+					print(Fore.BLUE + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
 
 				# Change seed for keeping as low number of constants as possible
 				np.random.seed(None)
