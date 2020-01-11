@@ -4,6 +4,7 @@ from keras.initializers import Initializer, RandomNormal
 from keras.constraints import Constraint
 import keras.backend as K
 
+# Custom constrain for clipping values on conv2d layers
 class ClipConstraint(Constraint):
 	# set clip value when initialized
 	def __init__(self, clip_value):

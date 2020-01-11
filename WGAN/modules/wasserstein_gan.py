@@ -27,13 +27,13 @@ from modules import critic_models_spreadsheet
 tf.get_logger().setLevel('ERROR')
 colorama.init()
 
+# Custom loss function
 def wasserstein_loss(y_true, y_pred):
 	return K.mean(y_true * y_pred)
 
 class WGAN:
 	CONTROL_THRESHOLD = 500
 	AGREGATE_STAT_INTERVAL = 100
-	TUNING_STATS_LENGTH = 10
 
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, critic_mod_name: str,
@@ -121,14 +121,14 @@ class WGAN:
 
 	# Create generator based on template selected by name
 	def build_generator(self, model_name:str):
-		noise = Input(shape=(self.latent_dim,))
+		noise_input = Input(shape=(self.latent_dim,))
 
 		try:
-			m = getattr(generator_models_spreadsheet, model_name)(noise, self.image_shape, self.image_channels, self.kernel_initializer)
+			m = getattr(generator_models_spreadsheet, model_name)(noise_input, self.image_shape, self.image_channels, self.kernel_initializer)
 		except Exception as e:
-			raise Exception(f"Generator model not found!\n{e.__traceback__}")
+			raise Exception(f"Generator model not found!\n{e}")
 
-		model = Model(noise, m, name="generator_model")
+		model = Model(noise_input, m, name="generator_model")
 
 		print("\nGenerator Sumary:")
 		model.summary()
@@ -142,8 +142,9 @@ class WGAN:
 		try:
 			m = getattr(critic_models_spreadsheet, model_name)(img_input, self.kernel_initializer, critic_models_spreadsheet.ClipConstraint(0.01))
 		except Exception as e:
-			raise Exception(f"Critic model not found!\n{e.__traceback__}")
+			raise Exception(f"Critic model not found!\n{e}")
 
+		# Linear output for critic
 		m = Dense(1)(m)
 
 		model = Model(img_input, m, name="critic_model")

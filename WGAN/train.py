@@ -1,4 +1,4 @@
-from keras.optimizers import Adam
+from keras.optimizers import RMSprop
 from modules.wasserstein_gan import WGAN
 
 '''
@@ -23,7 +23,7 @@ Settings testing:
 if __name__ == '__main__':
 	gan = WGAN("../dataset/cats/normalized", training_progress_save_path="training_data", progress_image_dim=(16, 9),
 	            latent_dim=128, gen_mod_name="mod_min_3upscl", critic_mod_name="mod_min_5layers",
-	            generator_optimizer=Adam(0.0002, 0.5), critic_optimizer=Adam(0.0002, 0.5),
+	            generator_optimizer=RMSprop(0.00005), critic_optimizer=RMSprop(0.00005),
 	            generator_weights=None, critic_weights=None,
 	            start_episode=0)
 	if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
