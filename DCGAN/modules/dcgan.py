@@ -333,6 +333,10 @@ class DCGAN:
 					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
 					print("Gradient too high!" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
+				elif norm_gradient < 0.2 and self.epoch_counter > self.CONTROL_THRESHOLD:
+					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
+					print("Gradient vanished!" + Fore.RESET)
+					if input("Do you want exit training?\n") == "y": return
 				else:
 					print(Fore.BLUE + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
 
