@@ -31,6 +31,8 @@ colorama.init()
 def wasserstein_loss(y_true, y_pred):
 	return K.mean(y_true * y_pred)
 
+# TODO: Rework - Plain WGAN seems unstable
+
 class WGAN:
 	CONTROL_THRESHOLD = 500
 	AGREGATE_STAT_INTERVAL = 100

@@ -1,0 +1,17 @@
+GAN Diagnostics - https://machinelearningmastery.com/practical-guide-to-gan-failure-modes/
+		- https://github.com/soumith/ganhacks
+		- https://medium.com/intel-student-ambassadors/tips-on-training-your-gans-faster-and-achieve-better-results-9200354acaa5
+
+GAN Checkerboard artifacts - https://distill.pub/2016/deconv-checkerboard/
+
+Basic DCGAN - https://github.com/mitchelljy/DCGAN-Keras
+
+WGAN - https://machinelearningmastery.com/how-to-code-a-wasserstein-generative-adversarial-network-wgan-from-scratch/
+     - https://arxiv.org/pdf/1704.00028.pdf
+
+WGAN-GP - https://github.com/LuEE-C/WGAN-GP-with-keras-for-text/blob/master/Exploration/GenerativeAdverserialWGAN-GP.py
+
+Progressive Growing GAN - https://machinelearningmastery.com/how-to-implement-progressive-growing-gan-models-in-keras/
+			- https://machinelearningmastery.com/how-to-train-a-progressive-growing-gan-in-keras-for-synthesizing-faces/
+
+AC-GAN - https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/
