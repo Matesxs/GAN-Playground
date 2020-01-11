@@ -26,8 +26,8 @@ if __name__ == '__main__':
 	gan = DCGAN("../dataset/cats/normalized", training_progress_save_path="training_data", progress_image_dim=(16, 9),
 	            latent_dim=128, gen_mod_name="mod_min_3upscl", disc_mod_name="mod_min_5layers",
 	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
-	            generator_weights="training_data/weights/100000", discriminator_weights="training_data/weights/100000",
-	            start_episode=100_000)
+	            generator_weights="training_data/weights/110000", discriminator_weights="training_data/weights/110000",
+	            start_episode=110_000)
 	if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 	gan.save_models_structure_images()
 	# gan.show_sample_of_dataset(10)
@@ -36,8 +36,8 @@ if __name__ == '__main__':
 	# This is loop training, you can do it at ones but meh, I dont like it
 	while True:
 		try:
-			gan.train(1_000, 32, progress_images_save_interval=200, save_training_stats=True,
-			          weights_save_interval=None,
+			gan.train(50_000, 32, progress_images_save_interval=200, save_training_stats=True,
+			          weights_save_interval=500,
 			          discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.05,
 			          feed_prev_gen_batch=True, feed_amount=0.12, half_batch_discriminator=False, auto_training_balancing=True)
 			gan.save_weights()
