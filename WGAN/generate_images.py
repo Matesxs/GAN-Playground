@@ -22,10 +22,10 @@ gen_mod = Model(lat_input, preq_gen, name="generator")
 if generator_weights_path: gen_mod.load_weights(generator_weights_path)
 
 im_input = Input(shape=img_shape)
-preq_disc = getattr(critic_models_spreadsheet, discriminator_model_name)(im_input, )
-preq_disc = Dense(1, activation="sigmoid")(preq_disc)
-disc_mod = Model(im_input, preq_disc)
-if discriminator_weights_path: disc_mod.load_weights(discriminator_weights_path)
+preq_critic = getattr(critic_models_spreadsheet, discriminator_model_name)(im_input, constrain=critic_models_spreadsheet.ClipConstraint(0.01))
+preq_critic = Dense(1)(preq_critic)
+critic_mod = Model(im_input, preq_critic)
+if discriminator_weights_path: critic_mod.load_weights(discriminator_weights_path)
 
 noise = np.random.normal(np.random.normal(0.0, 1.0, size=(num_of_images, latent_dim)))
 gen_images = gen_mod.predict(noise)
@@ -42,5 +42,5 @@ else:
 
 for idx, image in enumerate(gen_images):
 	image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-	print(disc_mod.predict(image))
+	print(critic_mod.predict(image))
 	cv.imwrite(f"{image_save_path}/img_{idx+1}.png", image)
