@@ -40,6 +40,7 @@ class WGAN:
 	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
 	             generator_optimizer: Optimizer = RMSprop(0.00005), critic_optimizer: Optimizer = RMSprop(0.00005),
 	             generator_weights:str=None, critic_weights:str=None,
+	             crit_clip_value:float=0.01,
 	             start_episode:int=0):
 
 		self.critic_mod_name = critic_mod_name
@@ -83,7 +84,7 @@ class WGAN:
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
 		# Build critic
-		self.critic = self.build_critic(critic_mod_name)
+		self.critic = self.build_critic(critic_mod_name, crit_clip_value)
 		self.critic.compile(loss=wasserstein_loss, optimizer=critic_optimizer)
 		if critic_weights: self.critic.load_weights(f"{critic_weights}/critic_{self.critic_mod_name}.h5")
 
@@ -92,19 +93,8 @@ class WGAN:
 		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
 		if self.generator.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
 
-		# Generator takes noise and generates images
-		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
-		gen_images = self.generator(noise_input)
-
-		# For combined model we will only train generator
-		self.critic.trainable = False
-
-		# Discriminator takes images and determinates validity
-		valid = self.critic(gen_images)
-
-		# Combine models
-		self.combined_model = Model(noise_input, valid, name="wgan_model")
-		self.combined_model.compile(loss=wasserstein_loss, optimizer=generator_optimizer)
+		# Build combined model
+		self.combined_model = self.build_combined_model(self.generator, self.critic, generator_optimizer)
 
 	# Function for creating gradient generator
 	def gradient_norm_generator(self, model: Model):
@@ -128,6 +118,22 @@ class WGAN:
 					raise Exception("Inconsistent dataset")
 		print("Dataset valid")
 
+	def build_combined_model(self, generator:Model, critic:Model, generator_optimizer:Optimizer):
+		# Generator takes noise and generates images
+		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
+		gen_images = generator(noise_input)
+
+		# For combined model we will only train generator
+		critic.trainable = False
+
+		# Discriminator takes images and determinates validity
+		valid = self.critic(gen_images)
+
+		# Combine models
+		combined_model = Model(noise_input, valid, name="wgan_model")
+		combined_model.compile(loss=wasserstein_loss, optimizer=generator_optimizer)
+		return combined_model
+
 	# Create generator based on template selected by name
 	def build_generator(self, model_name:str):
 		noise_input = Input(shape=(self.latent_dim,))
@@ -145,11 +151,11 @@ class WGAN:
 		return model
 
 	# Create critic based on teplate selected by name
-	def build_critic(self, model_name:str):
+	def build_critic(self, model_name:str, crit_clip_value:float):
 		img_input = Input(shape=self.image_shape)
 
 		try:
-			m = getattr(critic_models_spreadsheet, model_name)(img_input, self.kernel_initializer, critic_models_spreadsheet.ClipConstraint(0.01))
+			m = getattr(critic_models_spreadsheet, model_name)(img_input, self.kernel_initializer, critic_models_spreadsheet.ClipConstraint(crit_clip_value))
 		except Exception as e:
 			raise Exception(f"Critic model not found!\n{e}")
 
