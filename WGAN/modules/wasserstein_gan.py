@@ -6,6 +6,7 @@ from keras.models import Model
 from keras.layers import Input, Dense
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
+from keras.layers.merge import _Merge
 import keras.backend as K
 import tensorflow as tf
 from PIL import Image
@@ -18,6 +19,7 @@ from typing import Union
 import colorama
 from colorama import Fore
 from collections import deque
+from functools import partial
 
 from modules.batch_maker import BatchMaker
 from modules.statsaver import StatSaver
@@ -31,18 +33,33 @@ colorama.init()
 def wasserstein_loss(y_true, y_pred):
 	return K.mean(y_true * y_pred)
 
-# TODO: Rework - Plain WGAN seems unstable
+# Gradient penalty loss function
+def gradient_penalty_loss(y_true, y_pred, averaged_samples, gradient_penalty_weight):
+	gradients = K.gradients(K.sum(y_pred), averaged_samples)
+	gradient_l2_norm = K.sqrt(K.sum(K.square(gradients)))
+	gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
+	return gradient_penalty
 
-class WGAN:
-	CONTROL_THRESHOLD = 500
+# Weighted average function
+class RandomWeightedAverage(_Merge):
+	def __init__(self, batch_size:int):
+		super().__init__()
+		self.batch_size = batch_size
+
+	def _merge_function(self, inputs):
+		weights = K.random_uniform((self.batch_size, 1, 1, 1))
+		return (weights * inputs[0]) + ((1 - weights) * inputs[1])
+
+class WGANGC:
 	AGREGATE_STAT_INTERVAL = 100
 
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, critic_mod_name: str,
-	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
+	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(16, 9),
 	             generator_optimizer: Optimizer = RMSprop(0.00005), critic_optimizer: Optimizer = RMSprop(0.00005),
+	             batch_size: int = 32,
 	             generator_weights:str=None, critic_weights:str=None,
-	             crit_clip_value:float=0.01,
+	             gradient_penalty_weight:float=1.0,
 	             start_episode:int=0):
 
 		self.critic_mod_name = critic_mod_name
@@ -53,6 +70,7 @@ class WGAN:
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
 		self.training_progress_save_path = training_progress_save_path
+		self.batch_size = batch_size
 
 		if type(train_images) == list:
 			self.train_data = np.array(train_images)
@@ -85,27 +103,69 @@ class WGAN:
 			self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
-		# Build critic
-		self.critic = self.build_critic(critic_mod_name, crit_clip_value)
-		self.critic.compile(loss=wasserstein_loss, optimizer=critic_optimizer)
-		if critic_weights: self.critic.load_weights(f"{critic_weights}/critic_{self.critic_mod_name}.h5")
+		self.fake_labels = np.ones((self.batch_size, 1), dtype=np.float32)
+		self.valid_labels = -self.fake_labels
+		self.gradient_labels = np.zeros((self.batch_size, 1), dtype=np.float32)
 
-		# Build generator
+		# Build critic block
+		self.critic = self.build_critic(critic_mod_name)
+
+		# Build generator block
 		self.generator = self.build_generator(gen_mod_name)
-		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
 		if self.generator.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
 
-		# Build combined model
-		self.combined_model = self.build_combined_model(self.generator, self.critic, generator_optimizer)
+		### Create combined generator ###
+		self.critic.trainable = False
+		self.generator.trainable = True
 
-	# Function for creating gradient generator
-	def gradient_norm_generator(self, model: Model):
-		grads = K.gradients(model.total_loss, model.trainable_weights)
-		summed_squares = [K.sum(K.square(g)) for g in grads]
-		norm = K.sqrt(sum(summed_squares))
-		inputs = model._feed_inputs + model._feed_targets + model._feed_sample_weights
-		func = K.function(inputs, [norm])
-		return func
+		# Create model inputs
+		generator_input = Input(shape=(self.latent_dim,), name="combined_generator_latent_input")
+
+		# Generate images and evaluate them
+		generated_images = self.generator(generator_input)
+		critic_output_for_generator = self.critic(generated_images)
+
+		self.combined_generator_model = Model(inputs=[generator_input], outputs=[critic_output_for_generator])
+		self.combined_generator_model.compile(optimizer=generator_optimizer, loss=wasserstein_loss)
+
+		### Create combined critic ###
+		self.critic.trainable = True
+		self.generator.trainable = False
+
+		# Create model inputs
+		real_image_input = Input(shape=self.image_shape, name="combined_critic_real_image_input")
+		generator_input_for_critic = Input(shape=(self.latent_dim,), name="combined_critic_latent_input")
+
+		# Create fake image input (internal)
+		generated_samples_for_critic = self.generator(generator_input_for_critic)
+
+		# Create critic output for each image "type"
+		fake_out = self.critic(generated_samples_for_critic)
+		valid_out = self.critic(real_image_input)
+
+		# Create weighted input to critic for gradient penalty loss
+		averaged_samples = RandomWeightedAverage(self.batch_size)([real_image_input, generated_samples_for_critic])
+		validity_interpolated = self.critic(averaged_samples)
+
+		# Create partial gradient penalty loss function
+		partial_gp_loss = partial(gradient_penalty_loss,
+		                          averaged_samples=averaged_samples,
+		                          gradient_penalty_weight=gradient_penalty_weight)
+		partial_gp_loss.__name__ = 'gradient_penalty'
+
+		self.combined_critic_model = Model(inputs=[real_image_input, generator_input_for_critic],
+		                                   outputs=[valid_out,
+		                                            fake_out,
+		                                            validity_interpolated])
+		self.combined_critic_model.compile(optimizer=critic_optimizer,
+		                                   loss=[wasserstein_loss,
+		                                         wasserstein_loss,
+		                                         partial_gp_loss],
+		                                   loss_weights=[1, 1, 10])
+
+		# Load weights
+		if critic_weights: self.critic.load_weights(f"{critic_weights}/critic_{self.critic_mod_name}.h5")
+		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
 
 	# Check if dataset have consistent shapes
 	def validate_dataset(self):
@@ -119,22 +179,6 @@ class WGAN:
 				if image.shape != self.image_shape:
 					raise Exception("Inconsistent dataset")
 		print("Dataset valid")
-
-	def build_combined_model(self, generator:Model, critic:Model, generator_optimizer:Optimizer):
-		# Generator takes noise and generates images
-		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
-		gen_images = generator(noise_input)
-
-		# For combined model we will only train generator
-		critic.trainable = False
-
-		# Discriminator takes images and determinates validity
-		valid = self.critic(gen_images)
-
-		# Combine models
-		combined_model = Model(noise_input, valid, name="wgan_model")
-		combined_model.compile(loss=wasserstein_loss, optimizer=generator_optimizer)
-		return combined_model
 
 	# Create generator based on template selected by name
 	def build_generator(self, model_name:str):
@@ -153,11 +197,11 @@ class WGAN:
 		return model
 
 	# Create critic based on teplate selected by name
-	def build_critic(self, model_name:str, crit_clip_value:float):
+	def build_critic(self, model_name:str):
 		img_input = Input(shape=self.image_shape)
 
 		try:
-			m = getattr(critic_models_spreadsheet, model_name)(img_input, self.kernel_initializer, critic_models_spreadsheet.ClipConstraint(crit_clip_value))
+			m = getattr(critic_models_spreadsheet, model_name)(img_input, self.kernel_initializer)
 		except Exception as e:
 			raise Exception(f"Critic model not found!\n{e}")
 
@@ -171,18 +215,10 @@ class WGAN:
 
 		return model
 
-	def train(self, epochs:int=500000, batch_size:int=32, feed_prev_gen_batch:bool=False, feed_amount:float=0.1, buffered_batches:int=10,
+	def train(self, epochs:int=500000, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
-	          critic_label_noise:float=None,
 	          save_training_stats:bool=True,
 	          critic_train_multip:int=5):
-
-		# Function for adding random noise to labels (flipping them)
-		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
-			for idx in range(labels.shape[0]):
-				if random.random() < noise_ammount:
-					labels[idx] = 1 - labels[idx]
-			return labels
 
 		# Function for replacing new generated images with old generated images
 		def replace_random_images(orig_images: np.ndarray, repl_images: deque, perc_ammount:float=0.20):
@@ -195,19 +231,17 @@ class WGAN:
 		# Check arguments and input data
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
-		if self.data_length < batch_size or batch_size%2 != 0 or batch_size < 4: raise Exception("Invalid batch size")
+		if self.data_length < self.batch_size or self.batch_size%2 != 0 or self.batch_size < 4: raise Exception("Invalid batch size")
 		if self.train_data is None: raise Exception("No dataset loaded")
+		if critic_train_multip < 1: raise Exception("Invalid critic training multiplier")
 
 		# Save noise for progress consistency
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
-		# Batch size for critic
-		critic_batch = batch_size // 2
-
 		# Create batchmaker and start it
-		batch_maker = BatchMaker(self.train_data, self.data_length, critic_batch, buffered_batches=buffered_batches)
+		batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
 		batch_maker.start()
 
 		# Create statsaver and start it
@@ -217,59 +251,32 @@ class WGAN:
 		else: stat_saver = None
 
 		# Training variables
-		prev_gen_images = deque(maxlen=3*critic_batch)
-		critic_fake_losses = deque(maxlen=critic_train_multip)
-		critic_real_losses = deque(maxlen=critic_train_multip)
+		critic_losses = deque(maxlen=critic_train_multip)
 
 		for _ in tqdm(range(epochs), unit="ep"):
-			### Train Discriminator ###
+			### Train Critic ###
 			for _ in range(critic_train_multip):
 				# Select batch of valid images
-				imgs = batch_maker.get_batch()
+				image_batch = batch_maker.get_batch()
+				critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
-				# Sample noise and generate new images
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (critic_batch, self.latent_dim)))
-
-				# Train critic (real as ones and fake as zeros)
-				critic_real_labels = -np.ones(shape=(critic_batch, 1))
-				critic_fake_labels = np.ones(shape=(critic_batch, 1))
-
-				if feed_prev_gen_batch:
-					if len(prev_gen_images) > 0:
-						tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_amount)
-						prev_gen_images += deque(gen_imgs)
-						gen_imgs = tmp_imgs
-					else:
-						prev_gen_images += deque(gen_imgs)
-
-				# Adding random noise to critic labels
-				if critic_label_noise and critic_label_noise > 0:
-					critic_label_noise /= 2
-					critic_real_labels = noising_labels(critic_real_labels, critic_label_noise)
-					critic_fake_labels = noising_labels(critic_fake_labels, critic_label_noise)
-
-				self.critic.trainable = True
-				crl = self.critic.train_on_batch(imgs, critic_real_labels)
-				critic_real_losses.append(crl)
-				cfl = self.critic.train_on_batch(gen_imgs, critic_fake_labels)
-				critic_fake_losses.append(cfl)
-				self.critic.trainable = False
+				critic_losses.append(self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels]))
 
 			### Train Generator ###
-			gen_labels = -np.ones(shape=(batch_size, 1))
-			gen_loss = self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
+			generator_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
+			gen_loss = self.combined_generator_model.train_on_batch(generator_noise_batch, self.valid_labels)
 
 			# Calculate critic statistics
-			critic_real_loss = np.mean(np.array(critic_real_losses))
-			critic_fake_loss = np.mean(np.array(critic_fake_losses))
+			critic_loss = np.mean(np.array(critic_losses))
+
+			# Save stats
+			if stat_saver: stat_saver.apptend_stats([self.epoch_counter, critic_loss, gen_loss])
 
 			self.epoch_counter += 1
 
+			# Show stats
 			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
-				# Save stats
-				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, critic_real_loss, critic_fake_loss, gen_loss])
-
-				print(Fore.GREEN + f"\n[C-R loss: {round(float(critic_real_loss), 5)}, C-F loss: {round(float(critic_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+				print(Fore.GREEN + f"\n[Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
@@ -279,25 +286,8 @@ class WGAN:
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
 
-			# Gradient checking and reseed every 10000 epochs
-			if self.epoch_counter % 10_000 == 0:
-				# Generate evaluation noise and labels
-				eval_noise = np.random.normal(0.0, 1.0, (batch_size, self.latent_dim))
-				eval_labels = np.ones(shape=(batch_size, 1))
-
-				# Create gradient function and evaluate based on eval noise and labels
-				get_gradients = self.gradient_norm_generator(self.combined_model)
-				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
-				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
-
-				# TODO: Tweak thresholds
-				if norm_gradient < 50 and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
-					print("Gradient vanished!" + Fore.RESET)
-					if input("Do you want exit training?\n") == "y": return
-				else:
-					print(Fore.BLUE + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
-
+			# Reseed every 2000 epochs
+			if self.epoch_counter % 2_000 == 0:
 				# Change seed for keeping as low number of constants as possible
 				np.random.seed(None)
 				random.seed()
@@ -406,9 +396,8 @@ class WGAN:
 
 		# Loss graph
 		ax = plt.subplot(1, 1, 1)
-		plt.plot(epochs, loaded_stats[3].values, label="Gen Loss")
-		plt.plot(epochs, loaded_stats[2].values, label="Critic Fake Loss")
-		plt.plot(epochs, loaded_stats[1].values, label="Critic Real Loss")
+		plt.plot(epochs, loaded_stats[2].values, label="Gen Loss")
+		plt.plot(epochs, loaded_stats[1].values, label="Critic Loss")
 		box = ax.get_position()
 		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
 		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=3)
@@ -422,7 +411,8 @@ class WGAN:
 	def save_models_structure_images(self, save_path:str=None):
 		if save_path is None: save_path = self.training_progress_save_path + "/model_structures"
 		if not os.path.exists(save_path): os.makedirs(save_path)
-		plot_model(self.combined_model, os.path.join(save_path,"combined.png"), expand_nested=True, show_shapes=True)
+		plot_model(self.combined_generator_model, os.path.join(save_path, "combined_generator.png"), expand_nested=True, show_shapes=True)
+		plot_model(self.combined_critic_model, os.path.join(save_path, "combined_critic.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.critic, os.path.join(save_path, "critic.png"), expand_nested=True, show_shapes=True)
 

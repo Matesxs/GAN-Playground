@@ -1,5 +1,5 @@
 from keras.optimizers import RMSprop
-from modules.wasserstein_gan import WGAN
+from modules.wasserstein_gan import WGANGC
 
 '''
 Generators:
@@ -21,11 +21,12 @@ Settings testing:
 '''
 
 if __name__ == '__main__':
-	gan = WGAN("../dataset/cats/normalized", training_progress_save_path="training_data", progress_image_dim=(16, 9),
-	            latent_dim=128, gen_mod_name="mod_min_3upscl", critic_mod_name="mod_min_5layers",
-	            generator_optimizer=RMSprop(0.00005), critic_optimizer=RMSprop(0.00005),
-	            generator_weights=None, critic_weights=None,
-	            start_episode=0)
+	gan = WGANGC("../dataset/cats/normalized", training_progress_save_path="training_data", progress_image_dim=(16, 9),
+	             latent_dim=128, gen_mod_name="mod_min_3upscl", critic_mod_name="mod_min_5layers",
+	             generator_optimizer=RMSprop(0.00005), critic_optimizer=RMSprop(0.00005),
+	             generator_weights=None, critic_weights=None,
+	             gradient_penalty_weight=1.0,
+	             start_episode=0)
 	if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 	gan.save_models_structure_images()
 	# gan.show_sample_of_dataset(10)
@@ -34,10 +35,8 @@ if __name__ == '__main__':
 	# This is loop training, you can do it at ones but meh, I dont like it
 	while True:
 		try:
-			gan.train(50_000, 32, progress_images_save_interval=200, save_training_stats=True,
+			gan.train(10_000, 32, progress_images_save_interval=100, save_training_stats=True,
 			          weights_save_interval=None,
-			          critic_label_noise=0.0,
-			          feed_prev_gen_batch=True, feed_amount=0.15,
 			          critic_train_multip=5)
 			gan.save_weights()
 		except KeyboardInterrupt:
@@ -55,5 +54,5 @@ if __name__ == '__main__':
 
 		if input("Continue?\n") == "n": break
 
-	if input("Make progress gif?\n") == "y": gan.make_progress_gif(save_path="training_data", framerate=60)
+	if input("Make progress gif?\n") == "y": gan.make_progress_gif(save_path="training_data", framerate=15)
 	if input("Generate collage?\n") == "y": gan.generate_collage(save_path="training_data", collage_dims=(16, 9))
