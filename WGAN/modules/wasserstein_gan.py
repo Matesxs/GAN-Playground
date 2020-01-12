@@ -61,13 +61,13 @@ class RandomWeightedAverage(_Merge):
 		return (weights * inputs[0]) + ((1 - weights) * inputs[1])
 
 class WGANGC:
-	AGREGATE_STAT_INTERVAL = 100
+	SAMPLE_INTERVAL = 100
 
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
-	             gen_mod_name: str, critic_mod_name: str,
+	             gen_mod_name:str, critic_mod_name:str,
 	             latent_dim:int, training_progress_save_path:str=None, progress_image_dim:tuple=(16, 9),
-	             generator_optimizer: Optimizer = RMSprop(0.00005), critic_optimizer: Optimizer = RMSprop(0.00005),
-	             batch_size: int = 32,
+	             generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
+	             batch_size:int=32,
 	             generator_weights:str=None, critic_weights:str=None,
 	             critic_gradient_penalty_weight:float=1.0,
 	             start_episode:int=0):
@@ -124,7 +124,10 @@ class WGANGC:
 		self.generator = self.build_generator(gen_mod_name)
 		if self.generator.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
 
+		#################################
 		### Create combined generator ###
+		#################################
+		# Freeze critic model and unfreeze generator model
 		self.critic.trainable = False
 		self.generator.trainable = True
 
@@ -138,23 +141,25 @@ class WGANGC:
 		self.combined_generator_model = Model(inputs=[generator_input], outputs=[critic_output_for_generator])
 		self.combined_generator_model.compile(optimizer=generator_optimizer, loss=wasserstein_loss)
 
+		##############################
 		### Create combined critic ###
+		##############################
 		self.critic.trainable = True
 		self.generator.trainable = False
 
 		# Create model inputs
 		real_image_input = Input(shape=self.image_shape, name="combined_critic_real_image_input")
-		generator_input_for_critic = Input(shape=(self.latent_dim,), name="combined_critic_latent_input")
+		critic_noise_input = Input(shape=(self.latent_dim,), name="combined_critic_latent_input")
 
 		# Create fake image input (internal)
-		generated_samples_for_critic = self.generator(generator_input_for_critic)
+		generated_images_for_critic = self.generator(critic_noise_input)
 
 		# Create critic output for each image "type"
-		fake_out = self.critic(generated_samples_for_critic)
+		fake_out = self.critic(generated_images_for_critic)
 		valid_out = self.critic(real_image_input)
 
 		# Create weighted input to critic for gradient penalty loss
-		averaged_samples = RandomWeightedAverage(self.batch_size)([real_image_input, generated_samples_for_critic])
+		averaged_samples = RandomWeightedAverage(self.batch_size)([real_image_input, generated_images_for_critic])
 		validity_interpolated = self.critic(averaged_samples)
 
 		# Create partial gradient penalty loss function
@@ -163,7 +168,7 @@ class WGANGC:
 		                          gradient_penalty_weight=critic_gradient_penalty_weight)
 		partial_gp_loss.__name__ = 'gradient_penalty'
 
-		self.combined_critic_model = Model(inputs=[real_image_input, generator_input_for_critic],
+		self.combined_critic_model = Model(inputs=[real_image_input, critic_noise_input],
 		                                   outputs=[valid_out,
 		                                            fake_out,
 		                                            validity_interpolated])
@@ -292,7 +297,7 @@ class WGANGC:
 			self.epoch_counter += 1
 
 			# Show stats
-			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
+			if self.epoch_counter % self.SAMPLE_INTERVAL == 0:
 				print(Fore.GREEN + f"\n[Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress

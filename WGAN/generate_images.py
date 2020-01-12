@@ -1,12 +1,12 @@
 from keras.models import Model
-from keras.layers import Input, Dense
+from keras.layers import Input
 import os
 import numpy as np
 import cv2 as cv
 
-from modules import generator_models_spreadsheet, critic_models_spreadsheet
+from modules import generator_models_spreadsheet
 
-latent_dim = 100
+latent_dim = 128
 img_shape = (64, 64, 3)
 generator_model_name = "mod_min_3upscl"
 discriminator_model_name = "mod_min_5layers"
@@ -20,12 +20,6 @@ lat_input = Input(shape=(latent_dim,))
 preq_gen = getattr(generator_models_spreadsheet, generator_model_name)(lat_input, img_shape, img_shape[2])
 gen_mod = Model(lat_input, preq_gen, name="generator")
 if generator_weights_path: gen_mod.load_weights(generator_weights_path)
-
-im_input = Input(shape=img_shape)
-preq_critic = getattr(critic_models_spreadsheet, discriminator_model_name)(im_input, constrain=critic_models_spreadsheet.ClipConstraint(0.01))
-preq_critic = Dense(1)(preq_critic)
-critic_mod = Model(im_input, preq_critic)
-if discriminator_weights_path: critic_mod.load_weights(discriminator_weights_path)
 
 noise = np.random.normal(np.random.normal(0.0, 1.0, size=(num_of_images, latent_dim)))
 gen_images = gen_mod.predict(noise)
@@ -42,5 +36,4 @@ else:
 
 for idx, image in enumerate(gen_images):
 	image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-	print(critic_mod.predict(image))
 	cv.imwrite(f"{image_save_path}/img_{idx+1}.png", image)
