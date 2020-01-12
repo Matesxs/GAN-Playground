@@ -33,12 +33,21 @@ colorama.init()
 def wasserstein_loss(y_true, y_pred):
 	return K.mean(y_true * y_pred)
 
-# Gradient penalty loss function
-def gradient_penalty_loss(y_true, y_pred, averaged_samples, gradient_penalty_weight):
+# Gradient penalty loss function V1
+def gradient_penalty_loss_V1(y_true, y_pred, averaged_samples, gradient_penalty_weight):
 	gradients = K.gradients(K.sum(y_pred), averaged_samples)
 	gradient_l2_norm = K.sqrt(K.sum(K.square(gradients)))
 	gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
 	return gradient_penalty
+
+# Gradient penalty loss function V2
+def gradient_penalty_loss_V2(y_true, y_pred, averaged_samples, gradient_penalty_weight):
+	gradients = K.gradients(y_pred, averaged_samples)[0]
+	gradients_sqr = K.square(gradients)
+	gradients_sqr_sum = K.sum(gradients_sqr, axis=np.arange(1, len(gradients_sqr.shape)))
+	gradient_l2_norm = K.sqrt(gradients_sqr_sum)
+	gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
+	return K.mean(gradient_penalty)
 
 # Weighted average function
 class RandomWeightedAverage(_Merge):
@@ -46,6 +55,7 @@ class RandomWeightedAverage(_Merge):
 		super().__init__()
 		self.batch_size = batch_size
 
+	# Provides a (random) weighted average between real and generated image samples
 	def _merge_function(self, inputs):
 		weights = K.random_uniform((self.batch_size, 1, 1, 1))
 		return (weights * inputs[0]) + ((1 - weights) * inputs[1])
@@ -55,11 +65,11 @@ class WGANGC:
 
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, critic_mod_name: str,
-	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(16, 9),
+	             latent_dim:int, training_progress_save_path:str=None, progress_image_dim:tuple=(16, 9),
 	             generator_optimizer: Optimizer = RMSprop(0.00005), critic_optimizer: Optimizer = RMSprop(0.00005),
 	             batch_size: int = 32,
 	             generator_weights:str=None, critic_weights:str=None,
-	             gradient_penalty_weight:float=1.0,
+	             critic_gradient_penalty_weight:float=1.0,
 	             start_episode:int=0):
 
 		self.critic_mod_name = critic_mod_name
@@ -148,9 +158,9 @@ class WGANGC:
 		validity_interpolated = self.critic(averaged_samples)
 
 		# Create partial gradient penalty loss function
-		partial_gp_loss = partial(gradient_penalty_loss,
+		partial_gp_loss = partial(gradient_penalty_loss_V1,
 		                          averaged_samples=averaged_samples,
-		                          gradient_penalty_weight=gradient_penalty_weight)
+		                          gradient_penalty_weight=critic_gradient_penalty_weight)
 		partial_gp_loss.__name__ = 'gradient_penalty'
 
 		self.combined_critic_model = Model(inputs=[real_image_input, generator_input_for_critic],
@@ -255,15 +265,22 @@ class WGANGC:
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Critic ###
+			self.generator.trainable = False
+			self.critic.trainable = True
 			for _ in range(critic_train_multip):
-				# Select batch of valid images
+				# Load image batch and generate new latent noise
 				image_batch = batch_maker.get_batch()
 				critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
 				critic_losses.append(self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels]))
 
 			### Train Generator ###
+			self.generator.trainable = True
+			self.critic.trainable = False
+
+			# Generate new latent noise
 			generator_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
+
 			gen_loss = self.combined_generator_model.train_on_batch(generator_noise_batch, self.valid_labels)
 
 			# Calculate critic statistics

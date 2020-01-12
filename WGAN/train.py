@@ -3,12 +3,10 @@ from modules.wasserstein_gan import WGANGC
 
 '''
 Generators:
-	mod_base_2upscl
 	mod_base_3upscl - New high capacity
 	mod_min_3upscl  - Min version
 	
 Discriminators:
-	mod_base_4layers
 	mod_base_5layers
 	mod_ext_5layers
 	mod_min_5layers - Min version of ext
@@ -25,7 +23,7 @@ if __name__ == '__main__':
 	             latent_dim=128, gen_mod_name="mod_min_3upscl", critic_mod_name="mod_min_5layers",
 	             generator_optimizer=RMSprop(0.00005), critic_optimizer=RMSprop(0.00005),
 	             generator_weights=None, critic_weights=None,
-	             gradient_penalty_weight=1.0,
+	             critic_gradient_penalty_weight=1.0,
 	             start_episode=0)
 	if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 	gan.save_models_structure_images()

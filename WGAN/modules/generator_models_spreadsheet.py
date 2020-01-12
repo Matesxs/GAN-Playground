@@ -7,28 +7,6 @@ def count_upscaling_start_size(image_shape: tuple, num_of_upscales: int):
 	if upsc[0] < 1 or upsc[1] < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
 	return upsc
 
-def mod_base_2upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
-	st_s = count_upscaling_start_size(image_shape, 2)
-
-	# (256 * st_s^2,) -> (st_s, st_s, 256)
-	m = Dense(256 * st_s[0] * st_s[1], kernel_initializer=kernel_initializer)(inp)
-	m = Reshape((st_s[0], st_s[1], 256))(m)
-	m = BatchNormalization(momentum=0.8)(m)
-
-	# (st_s, st_s, 256) -> (st_s, st_s, 256)
-	m = Conv2DTranspose(256, (4, 4), padding="same", kernel_initializer=kernel_initializer)(m)
-	m = BatchNormalization(momentum=0.8)(m)
-	m = LeakyReLU()(m)
-
-	# (st_s, st_s, 256) -> (2*st_s, 2*st_s, 128)
-	m = Conv2DTranspose(128, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
-	m = BatchNormalization(momentum=0.8)(m)
-	m = LeakyReLU()(m)
-
-	# (2*st_s, 2*st_s, 128) -> (4*st_s, 4*st_s, num_ch)
-	m = Conv2DTranspose(image_channels, (4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer, activation="tanh")(m)
-	return m
-
 def mod_base_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	st_s = count_upscaling_start_size(image_shape, 3)
 
