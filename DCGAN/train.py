@@ -26,8 +26,8 @@ if __name__ == '__main__':
 	gan = DCGAN("../dataset/cats/normalized", training_progress_save_path="training_data", progress_image_dim=(16, 9),
 	            latent_dim=128, gen_mod_name="mod_min_3upscl", disc_mod_name="mod_min_5layers",
 	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
-	            generator_weights="training_data/weights/160000", discriminator_weights="training_data/weights/160000",
-	            start_episode=160_000)
+	            generator_weights="training_data/weights/220000", discriminator_weights="training_data/weights/220000",
+	            start_episode=220_000)
 	if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 	gan.save_models_structure_images()
 	# gan.show_sample_of_dataset(10)

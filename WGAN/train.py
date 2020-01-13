@@ -1,4 +1,4 @@
-from keras.optimizers import RMSprop
+from keras.optimizers import RMSprop, Adam
 from modules.wasserstein_gan import WGANGC
 
 '''
@@ -20,10 +20,11 @@ Settings testing:
 
 if __name__ == '__main__':
 	gan = WGANGC("../dataset/cats/normalized", training_progress_save_path="training_data", progress_image_dim=(16, 9),
+	             batch_size=64,
 	             latent_dim=128, gen_mod_name="mod_min_3upscl", critic_mod_name="mod_min_5layers",
-	             generator_optimizer=RMSprop(0.00005), critic_optimizer=RMSprop(0.00005),
+	             generator_optimizer=Adam(0.0001, beta_1=0.5, beta_2=0.9), critic_optimizer=Adam(0.0001, beta_1=0.5, beta_2=0.9), # Adam(0.0001, beta_1=0.5, beta_2=0.9), RMSprop(0.00005)
 	             generator_weights=None, critic_weights=None,
-	             critic_gradient_penalty_weight=1.0,
+	             critic_gradient_penalty_weight=10,
 	             start_episode=0)
 	if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 	gan.save_models_structure_images()
@@ -33,7 +34,7 @@ if __name__ == '__main__':
 	# This is loop training, you can do it at ones but meh, I dont like it
 	while True:
 		try:
-			gan.train(10_000, 32, progress_images_save_interval=100, save_training_stats=True,
+			gan.train(10_000, progress_images_save_interval=100, save_training_stats=True, buffered_batches=10,
 			          weights_save_interval=None,
 			          critic_train_multip=5)
 			gan.save_weights()

@@ -7,6 +7,7 @@ from keras.layers import Input, Dense
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
 from keras.layers.merge import _Merge
+from keras.engine.network import Network
 import keras.backend as K
 import tensorflow as tf
 from PIL import Image
@@ -128,8 +129,9 @@ class WGANGC:
 		### Create combined generator ###
 		#################################
 		# Freeze critic model and unfreeze generator model
+		for layer in self.critic.layers:
+			layer.trainable = False
 		self.critic.trainable = False
-		self.generator.trainable = True
 
 		# Create model inputs
 		generator_input = Input(shape=(self.latent_dim,), name="combined_generator_latent_input")
@@ -138,12 +140,18 @@ class WGANGC:
 		generated_images = self.generator(generator_input)
 		critic_output_for_generator = self.critic(generated_images)
 
-		self.combined_generator_model = Model(inputs=[generator_input], outputs=[critic_output_for_generator])
+		self.combined_generator_model = Model(inputs=[generator_input],
+		                                      outputs=[critic_output_for_generator],
+		                                      name="combined_generator_model")
 		self.combined_generator_model.compile(optimizer=generator_optimizer, loss=wasserstein_loss)
 
 		##############################
 		### Create combined critic ###
 		##############################
+		for layer in self.critic.layers:
+			layer.trainable = True
+		for layer in self.generator.layers:
+			layer.trainable = False
 		self.critic.trainable = True
 		self.generator.trainable = False
 
@@ -163,7 +171,7 @@ class WGANGC:
 		validity_interpolated = self.critic(averaged_samples)
 
 		# Create partial gradient penalty loss function
-		partial_gp_loss = partial(gradient_penalty_loss_V1,
+		partial_gp_loss = partial(gradient_penalty_loss_V2,
 		                          averaged_samples=averaged_samples,
 		                          gradient_penalty_weight=critic_gradient_penalty_weight)
 		partial_gp_loss.__name__ = 'gradient_penalty'
@@ -171,12 +179,16 @@ class WGANGC:
 		self.combined_critic_model = Model(inputs=[real_image_input, critic_noise_input],
 		                                   outputs=[valid_out,
 		                                            fake_out,
-		                                            validity_interpolated])
+		                                            validity_interpolated],
+		                                   name="combined_critic_model")
 		self.combined_critic_model.compile(optimizer=critic_optimizer,
 		                                   loss=[wasserstein_loss,
 		                                         wasserstein_loss,
-		                                         partial_gp_loss],
-		                                   loss_weights=[1, 1, 10])
+		                                         partial_gp_loss])
+
+		# Summarz of combined models
+		self.combined_generator_model.summary()
+		self.combined_critic_model.summary()
 
 		# Load weights
 		if critic_weights: self.critic.load_weights(f"{critic_weights}/critic_{self.critic_mod_name}.h5")
@@ -204,12 +216,7 @@ class WGANGC:
 		except Exception as e:
 			raise Exception(f"Generator model not found!\n{e}")
 
-		model = Model(noise_input, m, name="generator_model")
-
-		print("\nGenerator Sumary:")
-		model.summary()
-
-		return model
+		return Model(noise_input, m, name="generator_model")
 
 	# Create critic based on teplate selected by name
 	def build_critic(self, model_name:str):
@@ -223,12 +230,7 @@ class WGANGC:
 		# Linear output for critic
 		m = Dense(1)(m)
 
-		model = Model(img_input, m, name="critic_model")
-
-		print("\nCritic Sumary:")
-		model.summary()
-
-		return model
+		return Model(img_input, m, name="critic_model")
 
 	def train(self, epochs:int=500000, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
@@ -270,8 +272,6 @@ class WGANGC:
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Critic ###
-			self.generator.trainable = False
-			self.critic.trainable = True
 			for _ in range(critic_train_multip):
 				# Load image batch and generate new latent noise
 				image_batch = batch_maker.get_batch()
@@ -280,9 +280,6 @@ class WGANGC:
 				critic_losses.append(self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels]))
 
 			### Train Generator ###
-			self.generator.trainable = True
-			self.critic.trainable = False
-
 			# Generate new latent noise
 			generator_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 

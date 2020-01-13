@@ -11,6 +11,7 @@ WGAN - https://machinelearningmastery.com/how-to-code-a-wasserstein-generative-a
 
 WGAN-GP - https://github.com/LuEE-C/WGAN-GP-with-keras-for-text/blob/master/Exploration/GenerativeAdverserialWGAN-GP.py
 	- https://github.com/kongyanye/cwgan-gp
+	- https://github.com/keras-team/keras-contrib/blob/master/examples/improved_wgan.py
 
 Progressive Growing GAN - https://machinelearningmastery.com/how-to-implement-progressive-growing-gan-models-in-keras/
 			- https://machinelearningmastery.com/how-to-train-a-progressive-growing-gan-in-keras-for-synthesizing-faces/
