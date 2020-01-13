@@ -128,17 +128,16 @@ class WGANGC:
 		#################################
 		### Create combined generator ###
 		#################################
-		# Freeze critic model and unfreeze generator model
-		for layer in self.critic.layers:
-			layer.trainable = False
-		self.critic.trainable = False
-
 		# Create model inputs
 		generator_input = Input(shape=(self.latent_dim,), name="combined_generator_latent_input")
 
+		# Create frozen version of critic
+		frozen_critics = Network(self.critic.inputs, self.critic.outputs, name="frozen_critic")
+		frozen_critics.trainable = False
+
 		# Generate images and evaluate them
 		generated_images = self.generator(generator_input)
-		critic_output_for_generator = self.critic(generated_images)
+		critic_output_for_generator = frozen_critics(generated_images)
 
 		self.combined_generator_model = Model(inputs=[generator_input],
 		                                      outputs=[critic_output_for_generator],
@@ -148,19 +147,16 @@ class WGANGC:
 		##############################
 		### Create combined critic ###
 		##############################
-		for layer in self.critic.layers:
-			layer.trainable = True
-		for layer in self.generator.layers:
-			layer.trainable = False
-		self.critic.trainable = True
-		self.generator.trainable = False
-
 		# Create model inputs
 		real_image_input = Input(shape=self.image_shape, name="combined_critic_real_image_input")
 		critic_noise_input = Input(shape=(self.latent_dim,), name="combined_critic_latent_input")
 
+		# Create frozen version of generator
+		frozen_generator = Network(self.generator.inputs, self.generator.outputs, name="frozen_generator")
+		frozen_generator.trainable = False
+
 		# Create fake image input (internal)
-		generated_images_for_critic = self.generator(critic_noise_input)
+		generated_images_for_critic = frozen_generator(critic_noise_input)
 
 		# Create critic output for each image "type"
 		fake_out = self.critic(generated_images_for_critic)

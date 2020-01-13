@@ -22,7 +22,7 @@ if __name__ == '__main__':
 	gan = WGANGC("../dataset/cats/normalized", training_progress_save_path="training_data", progress_image_dim=(16, 9),
 	             batch_size=64,
 	             latent_dim=128, gen_mod_name="mod_min_3upscl", critic_mod_name="mod_min_5layers",
-	             generator_optimizer=Adam(0.0001, beta_1=0.5, beta_2=0.9), critic_optimizer=Adam(0.0001, beta_1=0.5, beta_2=0.9), # Adam(0.0001, beta_1=0.5, beta_2=0.9), RMSprop(0.00005)
+	             generator_optimizer=RMSprop(0.00005), critic_optimizer=RMSprop(0.00005), # Adam(0.0001, beta_1=0.5, beta_2=0.9), RMSprop(0.00005)
 	             generator_weights=None, critic_weights=None,
 	             critic_gradient_penalty_weight=10,
 	             start_episode=0)
