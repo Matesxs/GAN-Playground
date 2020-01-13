@@ -6,6 +6,7 @@ from keras.models import Model
 from keras.layers import Input, Dense
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
+from keras.engine.network import Network
 import keras.backend as K
 import tensorflow as tf
 from PIL import Image
@@ -97,11 +98,12 @@ class DCGAN:
 		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
 		gen_images = self.generator(noise_input)
 
-		# For combined model we will only train generator
-		self.discriminator.trainable = False
+		# Create frozen version of discriminator
+		frozen_discriminator = Network(self.discriminator.inputs, self.discriminator.outputs, name="frozen_discriminator")
+		frozen_discriminator.trainable = False
 
 		# Discriminator takes images and determinates validity
-		valid = self.discriminator(gen_images)
+		valid = frozen_discriminator(gen_images)
 
 		# Combine models
 		# Train generator to fool discriminator
@@ -248,10 +250,8 @@ class DCGAN:
 					disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
 					disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
 
-				self.discriminator.trainable = True
 				self.discriminator.train_on_batch(imgs, disc_real_labels)
 				self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-				self.discriminator.trainable = False
 
 			### Train Generator ###
 			# Train generator (wants discriminator to recognize fake images as valid)
