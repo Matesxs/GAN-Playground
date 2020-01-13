@@ -129,18 +129,18 @@ class WGANGC:
 		### Create combined generator ###
 		#################################
 		# Create model inputs
-		generator_input = Input(shape=(self.latent_dim,), name="combined_generator_latent_input")
+		gen_latent_input = Input(shape=(self.latent_dim,), name="combined_generator_latent_input")
 
 		# Create frozen version of critic
 		frozen_critics = Network(self.critic.inputs, self.critic.outputs, name="frozen_critic")
 		frozen_critics.trainable = False
 
 		# Generate images and evaluate them
-		generated_images = self.generator(generator_input)
-		critic_output_for_generator = frozen_critics(generated_images)
+		generated_images = self.generator(gen_latent_input)
+		critic_gen_output = frozen_critics(generated_images)
 
-		self.combined_generator_model = Model(inputs=[generator_input],
-		                                      outputs=[critic_output_for_generator],
+		self.combined_generator_model = Model(inputs=[gen_latent_input],
+		                                      outputs=[critic_gen_output],
 		                                      name="combined_generator_model")
 		self.combined_generator_model.compile(optimizer=generator_optimizer, loss=wasserstein_loss)
 
@@ -149,14 +149,14 @@ class WGANGC:
 		##############################
 		# Create model inputs
 		real_image_input = Input(shape=self.image_shape, name="combined_critic_real_image_input")
-		critic_noise_input = Input(shape=(self.latent_dim,), name="combined_critic_latent_input")
+		critic_latent_input = Input(shape=(self.latent_dim,), name="combined_critic_latent_input")
 
 		# Create frozen version of generator
 		frozen_generator = Network(self.generator.inputs, self.generator.outputs, name="frozen_generator")
 		frozen_generator.trainable = False
 
 		# Create fake image input (internal)
-		generated_images_for_critic = frozen_generator(critic_noise_input)
+		generated_images_for_critic = frozen_generator(critic_latent_input)
 
 		# Create critic output for each image "type"
 		fake_out = self.critic(generated_images_for_critic)
@@ -172,7 +172,7 @@ class WGANGC:
 		                          gradient_penalty_weight=critic_gradient_penalty_weight)
 		partial_gp_loss.__name__ = 'gradient_penalty'
 
-		self.combined_critic_model = Model(inputs=[real_image_input, critic_noise_input],
+		self.combined_critic_model = Model(inputs=[real_image_input, critic_latent_input],
 		                                   outputs=[valid_out,
 		                                            fake_out,
 		                                            validity_interpolated],

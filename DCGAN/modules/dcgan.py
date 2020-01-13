@@ -87,11 +87,9 @@ class DCGAN:
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_mod_name)
 		self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['binary_accuracy'])
-		if discriminator_weights: self.discriminator.load_weights(f"{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
 
 		# Build generator
 		self.generator = self.build_generator(gen_mod_name)
-		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
 		if self.generator.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
 
 		# Generator takes noise and generates images
@@ -109,6 +107,10 @@ class DCGAN:
 		# Train generator to fool discriminator
 		self.combined_model = Model(noise_input, valid, name="dcgan_model")
 		self.combined_model.compile(loss="binary_crossentropy", optimizer=generator_optimizer)
+
+		# Load weights
+		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
+		if discriminator_weights: self.discriminator.load_weights(f"{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
 
 		self.tuning_stats = deque(maxlen=self.TUNING_STATS_LENGTH)
 

@@ -1,5 +1,6 @@
 from keras.initializers import Initializer, RandomNormal
-from keras.layers import Layer, Dense, BatchNormalization, Reshape, UpSampling2D, Conv2D
+from keras.layers import Layer, Dense, BatchNormalization, Reshape, UpSampling2D, Conv2D, Conv2DTranspose
+from keras.layers.advanced_activations import LeakyReLU
 
 def count_upscaling_start_size(image_shape: tuple, num_of_upscales: int):
 	upsc = (image_shape[0] // (2 ** num_of_upscales), image_shape[1] // (2 ** num_of_upscales))
@@ -83,4 +84,35 @@ def mod_min_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_init
 
 	# (8*st_s, 8*st_s, 32) -> (8*st_s, 8*st_s, num_ch)
 	m = Conv2D(image_channels, kernel_size=(3, 3), padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
+	return m
+
+def mod_ext_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+	st_s = count_upscaling_start_size(image_shape, 3)
+
+	m = Dense(1024, kernel_initializer=kernel_initializer)(inp)
+	m = LeakyReLU()(m)
+	m = Dense(128 * st_s[0] * st_s[1], kernel_initializer=kernel_initializer)(m)
+	m = BatchNormalization(momentum=0.8)(m)
+	m = LeakyReLU()(m)
+	m = Reshape((st_s[0], st_s[1], 128))(m)
+
+	m = Conv2DTranspose(256, (5, 5), strides=2, padding="same", kernel_initializer=kernel_initializer)(m)
+	m = BatchNormalization(momentum=0.8)(m)
+	m = LeakyReLU()(m)
+	m = Conv2D(128, (5, 5), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = BatchNormalization(momentum=0.8)(m)
+	m = LeakyReLU()(m)
+
+	m = Conv2DTranspose(128, (5, 5), strides=2, padding="same", kernel_initializer=kernel_initializer)(m)
+	m = BatchNormalization(momentum=0.8)(m)
+	m = LeakyReLU()(m)
+	m = Conv2D(64, (5, 5), padding="same", kernel_initializer=kernel_initializer)(m)
+	m = BatchNormalization(momentum=0.8)(m)
+	m = LeakyReLU()(m)
+
+	m = Conv2DTranspose(64, (5, 5), strides=2, padding="same", kernel_initializer=kernel_initializer)(m)
+	m = BatchNormalization(momentum=0.8)(m)
+	m = LeakyReLU()(m)
+
+	m = Conv2D(image_channels, (5, 5), padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
 	return m
