@@ -34,20 +34,13 @@ colorama.init()
 def wasserstein_loss(y_true, y_pred):
 	return K.mean(y_true * y_pred)
 
-# Gradient penalty loss function V1
-def gradient_penalty_loss_V1(y_true, y_pred, averaged_samples, gradient_penalty_weight):
-	gradients = K.gradients(K.sum(y_pred), averaged_samples)
-	gradient_l2_norm = K.sqrt(K.sum(K.square(gradients)))
-	gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
-	return gradient_penalty
-
-# Gradient penalty loss function V2
-def gradient_penalty_loss_V2(y_true, y_pred, averaged_samples, gradient_penalty_weight):
+# Gradient penalty loss function
+def gradient_penalty_loss(y_true, y_pred, averaged_samples):
 	gradients = K.gradients(y_pred, averaged_samples)[0]
 	gradients_sqr = K.square(gradients)
 	gradients_sqr_sum = K.sum(gradients_sqr, axis=np.arange(1, len(gradients_sqr.shape)))
 	gradient_l2_norm = K.sqrt(gradients_sqr_sum)
-	gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
+	gradient_penalty = K.square(1 - gradient_l2_norm)
 	return K.mean(gradient_penalty)
 
 # Weighted average function
@@ -70,7 +63,7 @@ class WGANGC:
 	             generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
 	             batch_size:int=32,
 	             generator_weights:str=None, critic_weights:str=None,
-	             critic_gradient_penalty_weight:float=1.0,
+	             critic_gradient_penalty_weight:float=10,
 	             start_episode:int=0):
 
 		self.critic_mod_name = critic_mod_name
@@ -167,9 +160,8 @@ class WGANGC:
 		validity_interpolated = self.critic(averaged_samples)
 
 		# Create partial gradient penalty loss function
-		partial_gp_loss = partial(gradient_penalty_loss_V2,
-		                          averaged_samples=averaged_samples,
-		                          gradient_penalty_weight=critic_gradient_penalty_weight)
+		partial_gp_loss = partial(gradient_penalty_loss,
+		                          averaged_samples=averaged_samples)
 		partial_gp_loss.__name__ = 'gradient_penalty'
 
 		self.combined_critic_model = Model(inputs=[real_image_input, critic_latent_input],
@@ -180,7 +172,8 @@ class WGANGC:
 		self.combined_critic_model.compile(optimizer=critic_optimizer,
 		                                   loss=[wasserstein_loss,
 		                                         wasserstein_loss,
-		                                         partial_gp_loss])
+		                                         partial_gp_loss],
+		                                   loss_weights=[1, 1, critic_gradient_penalty_weight])
 
 		# Summarz of combined models
 		self.combined_generator_model.summary()
@@ -282,7 +275,7 @@ class WGANGC:
 			gen_loss = self.combined_generator_model.train_on_batch(generator_noise_batch, self.valid_labels)
 
 			# Calculate critic statistics
-			critic_loss = np.mean(np.array(critic_losses))
+			critic_loss = np.mean(np.array(critic_losses)[:, 0])
 
 			# Save stats
 			if stat_saver: stat_saver.apptend_stats([self.epoch_counter, critic_loss, gen_loss])
@@ -449,7 +442,7 @@ class WGANGC:
 		self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
 		self.critic.save_weights(f"{save_dir}/critic_{self.critic_mod_name}.h5")
 
-	def make_progress_gif(self, save_path:str=None, framerate:int=30):
+	def make_progress_gif(self, save_path:str=None, framerate:int=10):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
 		if not save_path: save_path = self.training_progress_save_path
 		if not os.path.exists(save_path): os.makedirs(save_path)

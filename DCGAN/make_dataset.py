@@ -2,7 +2,7 @@ import os
 import cv2 as cv
 
 scaled_dim = (64, 64)
-folder = "../dataset/dogs"
+folder = "../dataset/cats"
 
 raw_file_names = os.listdir(folder)
 if not os.path.isdir(f"{folder}/normalized"):

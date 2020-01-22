@@ -29,13 +29,17 @@ tf.get_logger().setLevel('ERROR')
 colorama.init()
 
 class DCGAN:
-	CONTROL_THRESHOLD = 500
+	CONTROL_THRESHOLD = 1_000
 	AGREGATE_STAT_INTERVAL = 100
 	TUNING_STATS_LENGTH = 10
 
-	BOOST_GEN_DISC_ACC = 78
+	BOOST_GEN_DISC_ACC = 90
+	BOOST_GEN_GEN_LOSS = 5.0
 	BOOST_DISC_GEN_LOSS = 1
 	BOOST_DISC_DISC_ACC = 55
+
+	DISC_BOOST_AM = 3
+	GEN_BOOST_AM = 3
 
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, disc_mod_name: str,
@@ -105,8 +109,8 @@ class DCGAN:
 
 		# Combine models
 		# Train generator to fool discriminator
-		self.combined_model = Model(noise_input, valid, name="dcgan_model")
-		self.combined_model.compile(loss="binary_crossentropy", optimizer=generator_optimizer)
+		self.combined_generator_model = Model(noise_input, valid, name="dcgan_model")
+		self.combined_generator_model.compile(loss="binary_crossentropy", optimizer=generator_optimizer)
 
 		# Load weights
 		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
@@ -263,7 +267,7 @@ class DCGAN:
 				else:
 					gen_labels = np.ones(shape=(batch_size, 1))
 
-				self.combined_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
+				self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
 
 			self.epoch_counter += 1
 
@@ -275,7 +279,7 @@ class DCGAN:
 				# Evaluate models state
 				disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
 				disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-				gen_loss = self.combined_model.test_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
+				gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), np.ones(shape=(batch_size, 1)))
 
 				# Convert accuracy to percents
 				disc_real_acc *= 100
@@ -293,12 +297,12 @@ class DCGAN:
 						t_mean_gen_loss = np.mean(t_stats[:, 4])
 
 						# Change numbers of training steps for each model
-						if t_mean_disc_fake_acc > self.BOOST_GEN_DISC_ACC and (generator_lr_loops != 2 or discriminator_lr_loops != 1):
-							generator_lr_loops = 2
+						if (t_mean_disc_fake_acc > self.BOOST_GEN_DISC_ACC or t_mean_gen_loss >= self.BOOST_GEN_GEN_LOSS) and (generator_lr_loops != 2 or discriminator_lr_loops != 1):
+							generator_lr_loops = self.GEN_BOOST_AM
 							discriminator_lr_loops = 1
 						elif (t_mean_disc_fake_acc < self.BOOST_DISC_DISC_ACC or t_mean_gen_loss < self.BOOST_DISC_GEN_LOSS) and (generator_lr_loops != 1 or discriminator_lr_loops != 2):
 							generator_lr_loops = 1
-							discriminator_lr_loops = 2
+							discriminator_lr_loops = self.DISC_BOOST_AM
 						elif discriminator_lr_loops != 1 or generator_lr_loops != 1:
 							generator_lr_loops = 1
 							discriminator_lr_loops = 1
@@ -327,8 +331,8 @@ class DCGAN:
 				eval_labels = np.ones(shape=(batch_size, 1))
 
 				# Create gradient function and evaluate based on eval noise and labels
-				get_gradients = self.gradient_norm_generator(self.combined_model)
-				gen_loss = self.combined_model.train_on_batch(eval_noise, eval_labels)
+				get_gradients = self.gradient_norm_generator(self.combined_generator_model)
+				gen_loss = self.combined_generator_model.train_on_batch(eval_noise, eval_labels)
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
 				if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
@@ -474,7 +478,7 @@ class DCGAN:
 	def save_models_structure_images(self, save_path:str=None):
 		if save_path is None: save_path = self.training_progress_save_path + "/model_structures"
 		if not os.path.exists(save_path): os.makedirs(save_path)
-		plot_model(self.combined_model, os.path.join(save_path,"combined.png"), expand_nested=True, show_shapes=True)
+		plot_model(self.combined_generator_model, os.path.join(save_path, "combined.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.discriminator, os.path.join(save_path, "discriminator.png"), expand_nested=True, show_shapes=True)
 

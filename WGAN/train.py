@@ -6,6 +6,7 @@ Generators:
 	mod_base_3upscl - New high capacity
 	mod_min_3upscl  - Min version
 	mod_ext_3upscl
+	mod_base_4upscl
 	
 Discriminators:
 	mod_base_5layers
@@ -24,9 +25,9 @@ if __name__ == '__main__':
 	             batch_size=64,
 	             latent_dim=128, gen_mod_name="mod_min_3upscl", critic_mod_name="mod_min_5layers",
 	             generator_optimizer=optimizers.RMSprop(0.00005), critic_optimizer=optimizers.RMSprop(0.00005), # Adam(0.0001, beta_1=0.5, beta_2=0.9), RMSprop(0.00005)
-	             generator_weights=None, critic_weights=None,
+	             generator_weights="training_data/weights/60000", critic_weights="training_data/weights/60000",
 	             critic_gradient_penalty_weight=10,
-	             start_episode=0)
+	             start_episode=60_000)
 	if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 	gan.save_models_structure_images()
 	# gan.show_sample_of_dataset(10)
@@ -35,7 +36,7 @@ if __name__ == '__main__':
 	# This is loop training, you can do it at ones but meh, I dont like it
 	while True:
 		try:
-			gan.train(10_000, progress_images_save_interval=100, save_training_stats=True, buffered_batches=10,
+			gan.train(20_000, progress_images_save_interval=100, save_training_stats=True, buffered_batches=10,
 			          weights_save_interval=None,
 			          critic_train_multip=5)
 			gan.save_weights()
@@ -54,5 +55,5 @@ if __name__ == '__main__':
 
 		if input("Continue?\n") == "n": break
 
-	if input("Make progress gif?\n") == "y": gan.make_progress_gif(save_path="training_data", framerate=15)
+	if input("Make progress gif?\n") == "y": gan.make_progress_gif(save_path="training_data", framerate=5)
 	if input("Generate collage?\n") == "y": gan.generate_collage(save_path="training_data", collage_dims=(16, 9))
