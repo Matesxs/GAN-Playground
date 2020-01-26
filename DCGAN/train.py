@@ -23,7 +23,7 @@ Settings testing:
 '''
 
 if __name__ == '__main__':
-	gan = DCGAN("../dataset/cats/normalized", training_progress_save_path="training_data", progress_image_dim=(16, 9),
+	gan = DCGAN("../dataset/normalized_cats", training_progress_save_path="training_data", progress_image_dim=(16, 9),
 	            latent_dim=128, gen_mod_name="mod_min_3upscl", disc_mod_name="mod_min_5layers",
 	            generator_optimizer=Adam(0.0002, 0.5), discriminator_optimizer=Adam(0.0002, 0.5),
 	            generator_weights="training_data/weights/480000", discriminator_weights="training_data/weights/480000",

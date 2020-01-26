@@ -10,10 +10,11 @@ from threading import Thread
 import time
 from collections import deque
 
+# Script for scraping generators
 # Format: (url, save_path, num_of_images_to_keep, is_straight_image)
 PARAMS = [
-	("https://thispersondoesnotexist.com", "../dataset/faces", 20_000, False),
-	("https://thiscatdoesnotexist.com", "../dataset/cats", 20_000, True)
+	("https://thispersondoesnotexist.com", "dataset/faces", 30_000, False),
+	("https://thiscatdoesnotexist.com", "dataset/cats", 50_000, True)
 ]
 
 class Scraper:
@@ -26,12 +27,15 @@ class Scraper:
 
 	def visit_url(self, url):
 		content = self.session.get(url, verify=False).content
-		soup = BeautifulSoup(content.decode('ascii', 'ignore'), "lxml")
+		soup = BeautifulSoup(content, "lxml")
 
 		for img in soup.select("img[src]"):
 			image_url = img["src"]
 			if not image_url.startswith(("data:image", "javascript")):
-				self.download_image(urljoin(url, image_url))
+				if "http://" in image_url:
+					self.download_image(image_url)
+				else:
+					self.download_image(urljoin(url, image_url))
 
 	def find_free_name(self):
 		for i in range(len(os.listdir(self.save_folder_path)) + 1):
@@ -71,9 +75,9 @@ class Downloader(Thread):
 					self.scraper.visit_url(self.url)
 				time.sleep(2)
 			except Exception:
-				time.sleep(10)
+				time.sleep(5)
 				self.scraper = Scraper(self.save_path)
-		print(f"Downloader {self.idx} finished")
+		print(f"Downloader {self.idx} finished - {self.url}")
 
 if __name__ == '__main__':
 	workers = deque()
