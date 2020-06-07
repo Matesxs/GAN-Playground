@@ -25,7 +25,7 @@ from functools import partial
 from modules.batch_maker import BatchMaker
 from modules.statsaver import StatSaver
 from modules import generator_models_spreadsheet
-from modules import critic_models_spreadsheet
+from modules import discriminator_models_spreadsheet
 
 tf.get_logger().setLevel('ERROR')
 colorama.init()
@@ -75,6 +75,9 @@ class WGANGC:
 		self.epoch_counter = start_episode
 		self.training_progress_save_path = training_progress_save_path
 		self.batch_size = batch_size
+
+		if self.training_progress_save_path:
+			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 
 		if type(train_images) == list:
 			self.train_data = np.array(train_images)
@@ -212,7 +215,7 @@ class WGANGC:
 		img_input = Input(shape=self.image_shape)
 
 		try:
-			m = getattr(critic_models_spreadsheet, model_name)(img_input, self.kernel_initializer)
+			m = getattr(discriminator_models_spreadsheet, model_name)(img_input, self.kernel_initializer)
 		except Exception as e:
 			raise Exception(f"Critic model not found!\n{e}")
 
@@ -225,14 +228,6 @@ class WGANGC:
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          save_training_stats:bool=True,
 	          critic_train_multip:int=5):
-
-		# Function for replacing new generated images with old generated images
-		def replace_random_images(orig_images: np.ndarray, repl_images: deque, perc_ammount:float=0.20):
-			repl_images = np.array(repl_images)
-			for idx in range(orig_images.shape[0]):
-				if random.random() < perc_ammount:
-					orig_images[idx] = repl_images[random.randint(0, repl_images.shape[0] - 1)]
-			return orig_images
 
 		# Check arguments and input data
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
@@ -330,7 +325,7 @@ class WGANGC:
 		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
 		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
 
-	def generate_collage(self, collage_dims:tuple=(16, 9), save_path: str = ".", blur: bool = False):
+	def generate_collage(self, collage_dims:tuple=(16, 9), save_path: str = "."):
 		gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(collage_dims[0] * collage_dims[1], self.latent_dim)))
 
 		# Rescale images 0 to 255

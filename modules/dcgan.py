@@ -57,6 +57,9 @@ class DCGAN:
 		self.epoch_counter = start_episode
 		self.training_progress_save_path = training_progress_save_path
 
+		if self.training_progress_save_path:
+			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+
 		if type(train_images) == list:
 			self.train_data = np.array(train_images)
 			self.data_length = self.train_data.shape[0]
@@ -119,7 +122,8 @@ class DCGAN:
 		self.tuning_stats = deque(maxlen=self.TUNING_STATS_LENGTH)
 
 	# Function for creating gradient generator
-	def gradient_norm_generator(self, model:Model):
+	@staticmethod
+	def gradient_norm_generator(model:Model):
 		grads = K.gradients(model.total_loss, model.trainable_weights)
 		summed_squares = [K.sum(K.square(g)) for g in grads]
 		norm = K.sqrt(sum(summed_squares))
@@ -178,7 +182,7 @@ class DCGAN:
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, discriminator_label_noise:float=None,
 	          save_training_stats:bool=True,
-	          half_batch_discriminator:bool=False, auto_training_balancing:bool=False):
+	          auto_training_balancing:bool=False):
 
 		# Function for adding random noise to labels (flipping them)
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
@@ -206,12 +210,8 @@ class DCGAN:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
-		# Batch size for discriminator
-		disc_batch = batch_size
-		if half_batch_discriminator: disc_batch = batch_size // 2
-
 		# Create batchmaker and start it
-		batch_maker = BatchMaker(self.train_data, self.data_length, disc_batch, buffered_batches=buffered_batches)
+		batch_maker = BatchMaker(self.train_data, self.data_length, batch_size, buffered_batches=buffered_batches)
 		batch_maker.start()
 
 		# Create statsaver and start it
@@ -221,7 +221,7 @@ class DCGAN:
 		else: stat_saver = None
 
 		# Training variables
-		prev_gen_images = deque(maxlen=3*disc_batch)
+		prev_gen_images = deque(maxlen=3*batch_size)
 		generator_lr_loops = 1
 		discriminator_lr_loops = 1
 
@@ -232,15 +232,15 @@ class DCGAN:
 				imgs = batch_maker.get_batch()
 
 				# Sample noise and generate new images
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
+				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
 
 				# Train discriminator (real as ones and fake as zeros)
 				if discriminator_smooth_labels:
-					disc_real_labels = np.random.uniform(0.85, 0.95, size=(disc_batch, 1))
-					disc_fake_labels = np.random.uniform(0.0, 0.15, size=(disc_batch, 1))
+					disc_real_labels = np.random.uniform(0.9, 0.95, size=(batch_size, 1))
+					disc_fake_labels = np.random.uniform(0.05, 0.15, size=(batch_size, 1))
 				else:
-					disc_real_labels = np.ones(shape=(disc_batch, 1))
-					disc_fake_labels = np.zeros(shape=(disc_batch, 1))
+					disc_real_labels = np.ones(shape=(batch_size, 1))
+					disc_fake_labels = np.zeros(shape=(batch_size, 1))
 
 				if feed_prev_gen_batch:
 					if len(prev_gen_images) > 0:
@@ -274,7 +274,7 @@ class DCGAN:
 			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
 				# Generate images for statistics
 				imgs = batch_maker.get_batch()
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (disc_batch, self.latent_dim)))
+				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
 
 				# Evaluate models state
 				disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
@@ -332,7 +332,7 @@ class DCGAN:
 
 				# Create gradient function and evaluate based on eval noise and labels
 				get_gradients = self.gradient_norm_generator(self.combined_generator_model)
-				gen_loss = self.combined_generator_model.train_on_batch(eval_noise, eval_labels)
+				# gen_loss = self.combined_generator_model.train_on_batch(eval_noise, eval_labels)
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
 				if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
@@ -380,7 +380,7 @@ class DCGAN:
 		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
 		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
 
-	def generate_collage(self, collage_dims:tuple=(16, 9), save_path: str = ".", blur: bool = False):
+	def generate_collage(self, collage_dims:tuple=(16, 9)):
 		gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(collage_dims[0] * collage_dims[1], self.latent_dim)))
 
 		# Rescale images 0 to 255
@@ -397,7 +397,7 @@ class DCGAN:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
 				cnt += 1
 		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
-		cv.imwrite(f"{save_path}/collage.png", final_image)
+		cv.imwrite(f"{self.training_progress_save_path}/collage.png", final_image)
 
 	def show_current_state(self, num_of_states:int=1, progress_image_num:int=3):
 		for _ in range(num_of_states):
@@ -441,7 +441,7 @@ class DCGAN:
 		plt.show()
 		plt.close()
 
-	def show_training_stats(self, save_path:str=None):
+	def show_training_stats(self, save:bool=False):
 		if not os.path.exists(f"{self.training_progress_save_path}/training_stats.csv"): return
 
 		try:
@@ -469,14 +469,14 @@ class DCGAN:
 		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
 		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=2)
 
-		if not save_path:
+		if not save:
 			plt.show()
 		else:
-			plt.savefig(f"{save_path}/training_stats.png")
+			plt.savefig(f"{self.training_progress_save_path}/training_stats.png")
 		plt.close()
 
-	def save_models_structure_images(self, save_path:str=None):
-		if save_path is None: save_path = self.training_progress_save_path + "/model_structures"
+	def save_models_structure_images(self):
+		save_path = self.training_progress_save_path + "/model_structures"
 		if not os.path.exists(save_path): os.makedirs(save_path)
 		plot_model(self.combined_generator_model, os.path.join(save_path, "combined.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
@@ -500,10 +500,9 @@ class DCGAN:
 		self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
 		self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
 
-	def make_progress_gif(self, save_path:str=None, framerate:int=30):
+	def make_progress_gif(self, framerate:int=30):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
-		if not save_path: save_path = self.training_progress_save_path
-		if not os.path.exists(save_path): os.makedirs(save_path)
+		if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 
 		frames = []
 		img_file_names = os.listdir(self.training_progress_save_path + "/progress_images")
@@ -514,4 +513,4 @@ class DCGAN:
 				frames.append(Image.open(self.training_progress_save_path + "/progress_images/" + im_file))
 
 		if len(frames) > 2:
-			frames[0].save(f"{save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, optimize=False, duration=duration, loop=0)
+			frames[0].save(f"{self.training_progress_save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, optimize=False, duration=duration, loop=0)

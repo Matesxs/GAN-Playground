@@ -104,31 +104,33 @@ def mod_base_8layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stdd
 
 	m = Conv2D(64, kernel_size=(3, 3), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
-	m = BatchNormalization(momentum=0.8)
+	m = BatchNormalization(momentum=0.8)(m)
 
 	m = Conv2D(128, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
-	m = BatchNormalization(momentum=0.8)
+	m = BatchNormalization(momentum=0.8)(m)
 
 	m = Conv2D(128, kernel_size=(3, 3), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
-	m = BatchNormalization(momentum=0.8)
+	m = BatchNormalization(momentum=0.8)(m)
 
 	m = Conv2D(256, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
-	m = BatchNormalization(momentum=0.8)
+	m = BatchNormalization(momentum=0.8)(m)
 
 	m = Conv2D(256, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
-	m = BatchNormalization(momentum=0.8)
+	m = BatchNormalization(momentum=0.8)(m)
 
 	m = Conv2D(512, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
-	m = BatchNormalization(momentum=0.8)
+	m = BatchNormalization(momentum=0.8)(m)
 
 	m = Conv2D(512, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer=kernel_initializer)(m)
 	m = LeakyReLU(0.2)(m)
-	m = BatchNormalization(momentum=0.8)
+	m = BatchNormalization(momentum=0.8)(m)
+
+	m = Flatten()(m)
 
 	m = Dense(1024)(m)
 	return m
