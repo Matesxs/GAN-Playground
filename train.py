@@ -40,10 +40,10 @@ if __name__ == '__main__':
 			gan.save_models_structure_images()
 			# gan.show_sample_of_dataset(10)
 
-			gan.train(20_000, batch_size=16, progress_images_save_interval=200, save_training_stats=True, buffered_batches=20,
+			gan.train(50_000, batch_size=16, progress_images_save_interval=200, save_training_stats=True, buffered_batches=40,
 			          weights_save_interval=200,
 			          discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.06,
-			          feed_prev_gen_batch=True, feed_amount=0.15, auto_training_balancing=True)
+			          feed_prev_gen_batch=True, feed_amount=0.15)
 		elif gan_selection == 1:
 			gan = WGANGC("dataset/normalized_dogs", training_progress_save_path="training_data/wgan", progress_image_dim=(16, 9),
 			             batch_size=16,
@@ -57,7 +57,7 @@ if __name__ == '__main__':
 			gan.save_models_structure_images()
 			# gan.show_sample_of_dataset(10)
 
-			gan.train(20_000, progress_images_save_interval=100, save_training_stats=True, buffered_batches=20,
+			gan.train(50_000, progress_images_save_interval=200, save_training_stats=True, buffered_batches=40,
 			          weights_save_interval=None,
 			          critic_train_multip=5)
 

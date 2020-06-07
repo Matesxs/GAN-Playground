@@ -33,14 +33,6 @@ class DCGAN:
 	AGREGATE_STAT_INTERVAL = 100
 	TUNING_STATS_LENGTH = 10
 
-	BOOST_GEN_DISC_ACC = 90
-	BOOST_GEN_GEN_LOSS = 5.0
-	BOOST_DISC_GEN_LOSS = 1
-	BOOST_DISC_DISC_ACC = 55
-
-	DISC_BOOST_AM = 3
-	GEN_BOOST_AM = 3
-
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, disc_mod_name: str,
 	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
@@ -122,12 +114,11 @@ class DCGAN:
 		self.tuning_stats = deque(maxlen=self.TUNING_STATS_LENGTH)
 
 	# Function for creating gradient generator
-	@staticmethod
-	def gradient_norm_generator(model:Model):
-		grads = K.gradients(model.total_loss, model.trainable_weights)
+	def gradient_norm_generator(self):
+		grads = K.gradients(self.combined_generator_model.total_loss, self.combined_generator_model.trainable_weights)
 		summed_squares = [K.sum(K.square(g)) for g in grads]
 		norm = K.sqrt(sum(summed_squares))
-		inputs = model._feed_inputs + model._feed_targets + model._feed_sample_weights
+		inputs = self.combined_generator_model._feed_inputs + self.combined_generator_model._feed_targets + self.combined_generator_model._feed_sample_weights
 		func = K.function(inputs, [norm])
 		return func
 
@@ -181,8 +172,7 @@ class DCGAN:
 	def train(self, epochs:int=500000, batch_size:int=32, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, discriminator_label_noise:float=None,
-	          save_training_stats:bool=True,
-	          auto_training_balancing:bool=False):
+	          save_training_stats:bool=True):
 
 		# Function for adding random noise to labels (flipping them)
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
@@ -222,52 +212,48 @@ class DCGAN:
 
 		# Training variables
 		prev_gen_images = deque(maxlen=3*batch_size)
-		generator_lr_loops = 1
-		discriminator_lr_loops = 1
 
 		for _ in tqdm(range(epochs), unit="ep"):
 			### Train Discriminator ###
-			for _ in range(discriminator_lr_loops):
-				# Select batch of valid images
-				imgs = batch_maker.get_batch()
+			# Select batch of valid images
+			imgs = batch_maker.get_batch()
 
-				# Sample noise and generate new images
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
+			# Sample noise and generate new images
+			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)))
 
-				# Train discriminator (real as ones and fake as zeros)
-				if discriminator_smooth_labels:
-					disc_real_labels = np.random.uniform(0.9, 0.95, size=(batch_size, 1))
-					disc_fake_labels = np.random.uniform(0.05, 0.15, size=(batch_size, 1))
+			# Train discriminator (real as ones and fake as zeros)
+			if discriminator_smooth_labels:
+				disc_real_labels = np.random.uniform(0.9, 0.95, size=(batch_size, 1))
+				disc_fake_labels = np.random.uniform(0.05, 0.15, size=(batch_size, 1))
+			else:
+				disc_real_labels = np.ones(shape=(batch_size, 1))
+				disc_fake_labels = np.zeros(shape=(batch_size, 1))
+
+			if feed_prev_gen_batch:
+				if len(prev_gen_images) > 0:
+					tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_amount)
+					prev_gen_images += deque(gen_imgs)
+					gen_imgs = tmp_imgs
 				else:
-					disc_real_labels = np.ones(shape=(batch_size, 1))
-					disc_fake_labels = np.zeros(shape=(batch_size, 1))
-
-				if feed_prev_gen_batch:
-					if len(prev_gen_images) > 0:
-						tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_amount)
-						prev_gen_images += deque(gen_imgs)
-						gen_imgs = tmp_imgs
-					else:
-						prev_gen_images += deque(gen_imgs)
+					prev_gen_images += deque(gen_imgs)
 
 				# Adding random noise to discriminator labels
-				if discriminator_label_noise and discriminator_label_noise > 0:
-					discriminator_label_noise /= 2
-					disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
-					disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
+			if discriminator_label_noise and discriminator_label_noise > 0:
+				discriminator_label_noise /= 2
+				disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
+				disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
 
-				self.discriminator.train_on_batch(imgs, disc_real_labels)
-				self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+			self.discriminator.train_on_batch(imgs, disc_real_labels)
+			self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
 
 			### Train Generator ###
 			# Train generator (wants discriminator to recognize fake images as valid)
-			for _ in range(generator_lr_loops):
-				if generator_smooth_labels:
-					gen_labels = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
-				else:
-					gen_labels = np.ones(shape=(batch_size, 1))
+			if generator_smooth_labels:
+				gen_labels = np.random.uniform(0.7, 1.2, size=(batch_size, 1))
+			else:
+				gen_labels = np.ones(shape=(batch_size, 1))
 
-				self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
+			self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (batch_size, self.latent_dim)), gen_labels)
 
 			self.epoch_counter += 1
 
@@ -289,32 +275,14 @@ class DCGAN:
 				self.tuning_stats.append([disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
 				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
 
-				# TODO: Need to monitor and improve
-				if auto_training_balancing:
-					if len(self.tuning_stats) == self.TUNING_STATS_LENGTH:
-						t_stats = np.array(self.tuning_stats)
-						t_mean_disc_fake_acc = np.mean(t_stats[:, 3])
-						t_mean_gen_loss = np.mean(t_stats[:, 4])
-
-						# Change numbers of training steps for each model
-						if (t_mean_disc_fake_acc > self.BOOST_GEN_DISC_ACC or t_mean_gen_loss >= self.BOOST_GEN_GEN_LOSS) and (generator_lr_loops != 2 or discriminator_lr_loops != 1):
-							generator_lr_loops = self.GEN_BOOST_AM
-							discriminator_lr_loops = 1
-						elif (t_mean_disc_fake_acc < self.BOOST_DISC_DISC_ACC or t_mean_gen_loss < self.BOOST_DISC_GEN_LOSS) and (generator_lr_loops != 1 or discriminator_lr_loops != 2):
-							generator_lr_loops = 1
-							discriminator_lr_loops = self.DISC_BOOST_AM
-						elif discriminator_lr_loops != 1 or generator_lr_loops != 1:
-							generator_lr_loops = 1
-							discriminator_lr_loops = 1
-
 				# Change color of log according to state of training
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] LS:[{discriminator_lr_loops}:{generator_lr_loops}]" + Fore.RESET)
+					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
 				elif 0.5 * (disc_fake_acc + disc_real_acc) == 100 or disc_fake_acc == 100:
-					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] LS:[{discriminator_lr_loops}:{generator_lr_loops}]" + Fore.RESET)
+					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 				else:
-					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] LS:[{discriminator_lr_loops}:{generator_lr_loops}]" + Fore.RESET)
+					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
