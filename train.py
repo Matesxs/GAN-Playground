@@ -9,17 +9,12 @@ Generators:
 	mod_min_3upscl  - Min version
 	
 Discriminators:
-	mod_base_4layers
-	mod_base_5layers
 	mod_ext_5layers
-	mod_min_5layers - Min version of ext
+	mod_ext_5layers_test
 	mod_base_8layers - Experimental model from stylegan
 	
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
-	mod_base_2upscl     mod_base_4layers    100        100000   D      Not enough capacity of models
-	mod_min_3upscl      mod_min_5layers     100        500000   B
-	mod_min_3upscl      mod_min_5layers     128        500000   B+
 	mod_base_3upscl     mod_ext_5layers     100   --- Maybe the best combination, but models are too large for me ---
 '''
 
@@ -31,18 +26,19 @@ if __name__ == '__main__':
 		gan_selection = int(input("GAN selection\n0 - DCGAN\n1 - WGAN\nSelected GAN: "))
 		if gan_selection == 0:
 			gan = DCGAN("dataset/normalized_dogs", training_progress_save_path="training_data/dcgan", progress_image_dim=(16, 9),
-			            latent_dim=128, gen_mod_name="mod_base_3upscl", disc_mod_name="mod_ext_5layers",
+			            batch_size=16,
+			            latent_dim=128, gen_mod_name="mod_base_3upscl", disc_mod_name="mod_ext_5layers_test",
 			            generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.0002, 0.5),
-			            generator_weights=None, discriminator_weights=None,
-			            start_episode=0)
+			            generator_weights="training_data/dcgan/weights/100", discriminator_weights="training_data/dcgan/weights/100",
+			            start_episode=100)
 
 			if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 			gan.save_models_structure_images()
 			# gan.show_sample_of_dataset(10)
 
-			gan.train(50_000, batch_size=16, progress_images_save_interval=200, save_training_stats=True, buffered_batches=40,
-			          weights_save_interval=200,
-			          discriminator_smooth_labels=True, generator_smooth_labels=True, discriminator_label_noise=0.06,
+			gan.train(1_000, progress_images_save_interval=50, save_training_stats=True, buffered_batches=40,
+			          weights_save_interval=50,
+			          discriminator_smooth_labels=True, discriminator_label_noise=0.06,
 			          feed_prev_gen_batch=True, feed_amount=0.15)
 		elif gan_selection == 1:
 			gan = WGANGC("dataset/normalized_dogs", training_progress_save_path="training_data/wgan", progress_image_dim=(16, 9),
@@ -57,8 +53,8 @@ if __name__ == '__main__':
 			gan.save_models_structure_images()
 			# gan.show_sample_of_dataset(10)
 
-			gan.train(50_000, progress_images_save_interval=200, save_training_stats=True, buffered_batches=40,
-			          weights_save_interval=None,
+			gan.train(1_000, progress_images_save_interval=50, save_training_stats=True, buffered_batches=40,
+			          weights_save_interval=50,
 			          critic_train_multip=5)
 
 		gan.save_weights()

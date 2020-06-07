@@ -30,8 +30,8 @@ colorama.init()
 
 class DCGAN:
 	CONTROL_THRESHOLD = 1_000
-	AGREGATE_STAT_INTERVAL = 100
-	TUNING_STATS_LENGTH = 10
+	AGREGATE_STAT_INTERVAL = 10
+	GRADIENT_CHECK_INTERVAL = 100
 
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name: str, disc_mod_name: str,
@@ -113,7 +113,7 @@ class DCGAN:
 		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
 		if discriminator_weights: self.discriminator.load_weights(f"{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
 
-		self.tuning_stats = deque(maxlen=self.TUNING_STATS_LENGTH)
+		self.gen_labels = np.ones(shape=(self.batch_size, 1))
 
 	# Function for creating gradient generator
 	def gradient_norm_generator(self):
@@ -173,7 +173,7 @@ class DCGAN:
 
 	def train(self, epochs:int=500000, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
-	          generator_smooth_labels:bool=False, discriminator_smooth_labels:bool=False, discriminator_label_noise:float=None,
+	          discriminator_smooth_labels:bool=False, discriminator_label_noise:float=None,
 	          save_training_stats:bool=True):
 
 		# Function for adding random noise to labels (flipping them)
@@ -216,46 +216,46 @@ class DCGAN:
 		prev_gen_images = deque(maxlen=3*self.batch_size)
 
 		for _ in tqdm(range(epochs), unit="ep"):
-			### Train Discriminator ###
-			# Select batch of valid images
-			imgs = batch_maker.get_batch()
 
-			# Sample noise and generate new images
-			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
+			# Ep is 100 steps
+			for _ in range(100):
+				### Train Discriminator ###
+				# Select batch of valid images
+				imgs = batch_maker.get_batch()
 
-			# Train discriminator (real as ones and fake as zeros)
-			if discriminator_smooth_labels:
-				disc_real_labels = np.random.uniform(0.9, 0.95, size=(self.batch_size, 1))
-				disc_fake_labels = np.random.uniform(0.05, 0.15, size=(self.batch_size, 1))
-			else:
-				disc_real_labels = np.ones(shape=(self.batch_size, 1))
-				disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
+				# Sample noise and generate new images
+				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
 
-			if feed_prev_gen_batch:
-				if len(prev_gen_images) > 0:
-					tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_amount)
-					prev_gen_images += deque(gen_imgs)
-					gen_imgs = tmp_imgs
+				# Train discriminator (real as ones and fake as zeros)
+				if discriminator_smooth_labels:
+					disc_real_labels = np.random.uniform(0.9, 0.95, size=(self.batch_size, 1))
+					disc_fake_labels = np.random.uniform(0, 0.15, size=(self.batch_size, 1))
 				else:
-					prev_gen_images += deque(gen_imgs)
+					disc_real_labels = np.ones(shape=(self.batch_size, 1))
+					disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
+
+				if feed_prev_gen_batch:
+					if len(prev_gen_images) > 0:
+						tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_amount)
+						prev_gen_images += deque(gen_imgs)
+						gen_imgs = tmp_imgs
+					else:
+						prev_gen_images += deque(gen_imgs)
 
 				# Adding random noise to discriminator labels
-			if discriminator_label_noise and discriminator_label_noise > 0:
-				discriminator_label_noise /= 2
-				disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
-				disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
+				if discriminator_label_noise and discriminator_label_noise > 0:
+					discriminator_label_noise /= 2
+					disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
+					disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
 
-			self.discriminator.train_on_batch(imgs, disc_real_labels)
-			self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+				self.discriminator.train_on_batch(imgs, disc_real_labels)
+				self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+				del disc_real_labels
+				del disc_fake_labels
 
-			### Train Generator ###
-			# Train generator (wants discriminator to recognize fake images as valid)
-			if generator_smooth_labels:
-				gen_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
-			else:
-				gen_labels = np.ones(shape=(self.batch_size, 1))
-
-			self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), gen_labels)
+				### Train Generator ###
+				# Train generator (wants discriminator to recognize fake images as valid)
+				self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.gen_labels)
 
 			self.epoch_counter += 1
 
@@ -274,7 +274,6 @@ class DCGAN:
 				disc_fake_acc *= 100
 
 				# Save stats
-				self.tuning_stats.append([disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
 				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
 
 				# Change color of log according to state of training
@@ -294,8 +293,8 @@ class DCGAN:
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
 
-			# Gradient checking and reseed every 10000 epochs
-			if self.epoch_counter % 10_000 == 0:
+			# Gradient checking and reseed every 100 epochs
+			if self.epoch_counter % self.GRADIENT_CHECK_INTERVAL == 0:
 				# Generate evaluation noise and labels
 				eval_noise = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 				eval_labels = np.ones(shape=(self.batch_size, 1))

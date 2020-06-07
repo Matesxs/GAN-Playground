@@ -19,7 +19,6 @@ from tqdm import tqdm
 from typing import Union
 import colorama
 from colorama import Fore
-from collections import deque
 from functools import partial
 
 from modules.batch_maker import BatchMaker
@@ -55,7 +54,7 @@ class RandomWeightedAverage(_Merge):
 		return (weights * inputs[0]) + ((1 - weights) * inputs[1])
 
 class WGANGC:
-	SAMPLE_INTERVAL = 100
+	AGREGATE_STAT_INTERVAL = 10
 
 	def __init__(self, train_images:Union[np.ndarray, list, None, str],
 	             gen_mod_name:str, critic_mod_name:str,
@@ -251,34 +250,33 @@ class WGANGC:
 			stat_saver.start()
 		else: stat_saver = None
 
-		# Training variables
-		critic_losses = deque(maxlen=critic_train_multip)
-
 		for _ in tqdm(range(epochs), unit="ep"):
-			### Train Critic ###
-			for _ in range(critic_train_multip):
-				# Load image batch and generate new latent noise
-				image_batch = batch_maker.get_batch()
-				critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
+			for _ in range(100):
+				### Train Critic ###
+				for _ in range(critic_train_multip):
+					# Load image batch and generate new latent noise
+					image_batch = batch_maker.get_batch()
+					critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
-				critic_losses.append(self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels]))
+					self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
 
-			### Train Generator ###
-			# Generate new latent noise
-			generator_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
-
-			gen_loss = self.combined_generator_model.train_on_batch(generator_noise_batch, self.valid_labels)
-
-			# Calculate critic statistics
-			critic_loss = np.mean(np.array(critic_losses)[:, 0])
-
-			# Save stats
-			if stat_saver: stat_saver.apptend_stats([self.epoch_counter, critic_loss, gen_loss])
+				### Train Generator ###
+				# Generate new latent noise
+				self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
 
 			self.epoch_counter += 1
 
 			# Show stats
-			if self.epoch_counter % self.SAMPLE_INTERVAL == 0:
+			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
+				image_batch = batch_maker.get_batch()
+				critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
+
+				critic_loss = self.combined_critic_model.test_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
+				gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
+
+				# Save stats
+				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, critic_loss, gen_loss])
+
 				print(Fore.GREEN + f"\n[Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
