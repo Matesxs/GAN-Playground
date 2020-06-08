@@ -15,10 +15,11 @@ import random
 import shutil
 import pandas as pd
 from tqdm import tqdm
-from typing import Union
 import colorama
 from colorama import Fore
 from collections import deque
+from typing import Union
+import json
 
 from modules.batch_maker import BatchMaker
 from modules.statsaver import StatSaver
@@ -30,53 +31,50 @@ colorama.init()
 
 class DCGAN:
 	CONTROL_THRESHOLD = 1_000
-	AGREGATE_STAT_INTERVAL = 10
-	GRADIENT_CHECK_INTERVAL = 100
+	AGREGATE_STAT_INTERVAL = 100
+	GRADIENT_CHECK_INTERVAL = 1_000
+	CHECKPOINT_SAVE_INTERVAL = 100
 
-	def __init__(self, train_images:Union[np.ndarray, list, None, str],
+	def __init__(self, train_images:str,
 	             gen_mod_name: str, disc_mod_name: str,
 	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
 	             generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
+	             discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
 	             batch_size: int = 32,
-	             generator_weights:str=None, discriminator_weights:str=None,
-	             start_episode:int=0):
+	             generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
+	             start_episode:int=0, load_from_checkpoint:bool=False):
 
 		self.disc_mod_name = disc_mod_name
 		self.gen_mod_name = gen_mod_name
 
 		self.batch_size = batch_size
 		self.latent_dim = latent_dim
+		self.discriminator_label_noise = discriminator_label_noise
+		self.discriminator_label_noise_decay = discriminator_label_noise_decay
+		self.discriminator_label_noise_min = discriminator_label_noise_min
+
 		self.progress_image_dim = progress_image_dim
+
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
+
 		self.training_progress_save_path = training_progress_save_path
 
 		if self.training_progress_save_path:
-			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}")
 
-		if type(train_images) == list:
-			self.train_data = np.array(train_images)
-			self.data_length = self.train_data.shape[0]
-		elif type(train_images) == str:
-			self.train_data = [os.path.join(train_images, file) for file in os.listdir(train_images)]
-			self.data_length = len(self.train_data)
-		elif type(train_images) == np.ndarray:
-			self.train_data = train_images
-			self.data_length = self.train_data.shape[0]
+		self.train_data = [os.path.join(train_images, file) for file in os.listdir(train_images)]
+		self.data_length = len(self.train_data)
 
-		if train_images is not None:
-			if type(train_images) == str:
-				tmp_image = cv.imread(self.train_data[0])
-				self.image_shape = tmp_image.shape
-			else:
-				self.image_shape = self.train_data[0].shape
-			self.image_channels = self.image_shape[2]
+		tmp_image = cv.imread(self.train_data[0])
+		self.image_shape = tmp_image.shape
+		self.image_channels = self.image_shape[2]
 
-			# Check image size validity
-			if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
+		# Check image size validity
+		if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
 
-			# Check validity of dataset
-			self.validate_dataset()
+		# Check validity of dataset
+		self.validate_dataset()
 
 		# Define static vars
 		if os.path.exists(f"{self.training_progress_save_path}/static_noise.npy"):
@@ -110,8 +108,11 @@ class DCGAN:
 		self.combined_generator_model.compile(loss="binary_crossentropy", optimizer=generator_optimizer)
 
 		# Load weights
-		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
-		if discriminator_weights: self.discriminator.load_weights(f"{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
+		if generator_weights: self.generator.load_weights(f"{self.training_progress_save_path}/weights/{generator_weights}/generator_{self.gen_mod_name}.h5")
+		if discriminator_weights: self.discriminator.load_weights(f"{self.training_progress_save_path}/weights/{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
+
+		# Load checkpoint
+		if load_from_checkpoint: self.load_checkpoint()
 
 		self.gen_labels = np.ones(shape=(self.batch_size, 1))
 
@@ -126,15 +127,10 @@ class DCGAN:
 
 	# Check if dataset have consistent shapes
 	def validate_dataset(self):
-		if type(self.train_data) == list:
-			for im_path in self.train_data:
-				im_shape = cv.imread(im_path).shape
-				if im_shape != self.image_shape:
-					raise Exception("Inconsistent dataset")
-		else:
-			for image in self.train_data:
-				if image.shape != self.image_shape:
-					raise Exception("Inconsistent dataset")
+		for im_path in self.train_data:
+			im_shape = cv.imread(im_path).shape
+			if im_shape != self.image_shape:
+				raise Exception("Inconsistent dataset")
 		print("Dataset valid")
 
 	# Create generator based on template selected by name
@@ -173,14 +169,17 @@ class DCGAN:
 
 	def train(self, epochs:int=500000, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
-	          discriminator_smooth_labels:bool=False, discriminator_label_noise:float=None,
+	          discriminator_smooth_labels:bool=False,
 	          save_training_stats:bool=True):
 
 		# Function for adding random noise to labels (flipping them)
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
+			array = np.zeros(labels.shape)
 			for idx in range(labels.shape[0]):
 				if random.random() < noise_ammount:
-					labels[idx] = 1 - labels[idx]
+					array[idx] = 1 - labels[idx]
+				else:
+					array[idx] = labels[idx]
 			return labels
 
 		# Function for replacing new generated images with old generated images
@@ -216,9 +215,7 @@ class DCGAN:
 		prev_gen_images = deque(maxlen=3*self.batch_size)
 
 		for _ in tqdm(range(epochs), unit="ep"):
-
-			# Ep is 100 steps
-			for _ in range(100):
+			for _ in range(10):
 				### Train Discriminator ###
 				# Select batch of valid images
 				imgs = batch_maker.get_batch()
@@ -228,8 +225,8 @@ class DCGAN:
 
 				# Train discriminator (real as ones and fake as zeros)
 				if discriminator_smooth_labels:
-					disc_real_labels = np.random.uniform(0.9, 0.95, size=(self.batch_size, 1))
-					disc_fake_labels = np.random.uniform(0, 0.15, size=(self.batch_size, 1))
+					disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
+					disc_fake_labels = np.random.uniform(0, 0.3, size=(self.batch_size, 1))
 				else:
 					disc_real_labels = np.ones(shape=(self.batch_size, 1))
 					disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
@@ -243,15 +240,14 @@ class DCGAN:
 						prev_gen_images += deque(gen_imgs)
 
 				# Adding random noise to discriminator labels
-				if discriminator_label_noise and discriminator_label_noise > 0:
-					discriminator_label_noise /= 2
-					disc_real_labels = noising_labels(disc_real_labels, discriminator_label_noise)
-					disc_fake_labels = noising_labels(disc_fake_labels, discriminator_label_noise)
+				if self.discriminator_label_noise and self.discriminator_label_noise > 0:
+					disc_real_labels = noising_labels(disc_real_labels, self.discriminator_label_noise / 2)
+					disc_fake_labels = noising_labels(disc_fake_labels, self.discriminator_label_noise / 2)
+					if self.discriminator_label_noise_decay:
+						self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
 				self.discriminator.train_on_batch(imgs, disc_real_labels)
 				self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-				del disc_real_labels
-				del disc_fake_labels
 
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
@@ -293,14 +289,17 @@ class DCGAN:
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
 
-			# Gradient checking and reseed every 100 epochs
+			# Save checkpoint
+			if self.epoch_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
+				self.save_checkpoint()
+
 			if self.epoch_counter % self.GRADIENT_CHECK_INTERVAL == 0:
 				# Generate evaluation noise and labels
 				eval_noise = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 				eval_labels = np.ones(shape=(self.batch_size, 1))
 
 				# Create gradient function and evaluate based on eval noise and labels
-				get_gradients = self.gradient_norm_generator(self.combined_generator_model)
+				get_gradients = self.gradient_norm_generator()
 				# gen_loss = self.combined_generator_model.train_on_batch(eval_noise, eval_labels)
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
@@ -315,7 +314,7 @@ class DCGAN:
 				else:
 					print(Fore.BLUE + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
 
-				# Change seed for keeping as low number of constants as possible
+				# Change seed
 				np.random.seed(None)
 				random.seed()
 
@@ -462,6 +461,37 @@ class DCGAN:
 					shutil.rmtree(f"{self.training_progress_save_path}/{it}", ignore_errors=True)
 			except:
 				pass
+
+	def load_checkpoint(self):
+		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
+		if not os.path.exists(os.path.join(checkpoint_base_path, "checkpoint_data.json")): return
+
+		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "rb") as f:
+			data = json.load(f)
+
+			if data:
+				self.epoch_counter = int(data["episode"])
+				self.generator.load_weights(data["gen_path"])
+				self.discriminator.load_weights(data["disc_path"])
+				if data["disc_label_noise"]:
+					self.discriminator_label_noise = float(data["disc_label_noise"])
+
+	def save_checkpoint(self):
+		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
+		if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
+
+		self.generator.save_weights(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5")
+		self.discriminator.save_weights(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5")
+
+		data = {
+			"episode": self.epoch_counter,
+			"gen_path": f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5",
+			"disc_path": f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5",
+			"disc_label_noise": self.discriminator_label_noise
+		}
+
+		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "w", encoding='utf-8') as f:
+			json.dump(data, f)
 
 	def save_weights(self):
 		save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter)

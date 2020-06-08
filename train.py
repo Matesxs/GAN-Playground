@@ -4,19 +4,31 @@ from modules.wasserstein_gan import WGANGC
 
 '''
 Generators:
-	mod_base_2upscl
 	mod_base_3upscl - New high capacity
-	mod_min_3upscl  - Min version
+	mod_base_3upscl_test
 	
 Discriminators:
 	mod_ext_5layers
 	mod_ext_5layers_test
+	mod_base_6layers
 	mod_base_8layers - Experimental model from stylegan
 	
 Settings testing:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
-	mod_base_3upscl     mod_ext_5layers     100   --- Maybe the best combination, but models are too large for me ---
+	mod_base_3upscl     mod_ext_5layers     128   --- Maybe the best combination, but models are too large for me ---
 '''
+
+DATASET = "dataset/normalized_dogs"
+LATENT_DIM = 128
+
+GEN_MODEL = "mod_base_3upscl"
+DISC_MODEL = "mod_ext_5layers_test"
+
+NUM_OF_EPISODES = 1_000
+
+WEIGHTS_SAVE_INTERVAL = 200
+PROGRESS_IMAGE_SAVE_INTERVAL = 100
+SAVE_TRAINING_STATS = True
 
 if __name__ == '__main__':
 	# Training with showing progress
@@ -25,37 +37,42 @@ if __name__ == '__main__':
 	try:
 		gan_selection = int(input("GAN selection\n0 - DCGAN\n1 - WGAN\nSelected GAN: "))
 		if gan_selection == 0:
-			gan = DCGAN("dataset/normalized_dogs", training_progress_save_path="training_data/dcgan", progress_image_dim=(16, 9),
+			gan = DCGAN(DATASET, training_progress_save_path="training_data/dcgan", progress_image_dim=(16, 9),
 			            batch_size=16,
-			            latent_dim=128, gen_mod_name="mod_base_3upscl", disc_mod_name="mod_ext_5layers_test",
+			            latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
 			            generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.0002, 0.5),
-			            generator_weights="training_data/dcgan/weights/100", discriminator_weights="training_data/dcgan/weights/100",
-			            start_episode=100)
+			            discriminator_label_noise=0.1, discriminator_label_noise_decay=0.99995, discriminator_label_noise_min=0.01,
+			            generator_weights=None, discriminator_weights=None,
+			            start_episode=0, load_from_checkpoint=True)
 
 			if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 			gan.save_models_structure_images()
 			# gan.show_sample_of_dataset(10)
 
-			gan.train(1_000, progress_images_save_interval=50, save_training_stats=True, buffered_batches=40,
-			          weights_save_interval=50,
-			          discriminator_smooth_labels=True, discriminator_label_noise=0.06,
-			          feed_prev_gen_batch=True, feed_amount=0.15)
+			while True:
+				gan.train(NUM_OF_EPISODES, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_training_stats=SAVE_TRAINING_STATS, buffered_batches=50,
+			            weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+			            discriminator_smooth_labels=True,
+			            feed_prev_gen_batch=True, feed_amount=0.15)
+				if input("Continue? ") == "n": break
 		elif gan_selection == 1:
-			gan = WGANGC("dataset/normalized_dogs", training_progress_save_path="training_data/wgan", progress_image_dim=(16, 9),
+			gan = WGANGC(DATASET, training_progress_save_path="training_data/wgan", progress_image_dim=(16, 9),
 			             batch_size=16,
-			             latent_dim=128, gen_mod_name="mod_base_3upscl", critic_mod_name="mod_ext_5layers",
+			             latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, critic_mod_name=DISC_MODEL,
 			             generator_optimizer=optimizers.RMSprop(0.00005), critic_optimizer=optimizers.RMSprop(0.00005),  # Adam(0.0001, beta_1=0.5, beta_2=0.9), RMSprop(0.00005)
 			             generator_weights=None, critic_weights=None,
 			             critic_gradient_penalty_weight=10,
-			             start_episode=0)
+			             start_episode=0, load_from_checkpoint=False)
 
 			if input("Clear progress folder?\n") == "y": gan.clear_training_progress_folder()
 			gan.save_models_structure_images()
 			# gan.show_sample_of_dataset(10)
 
-			gan.train(1_000, progress_images_save_interval=50, save_training_stats=True, buffered_batches=40,
-			          weights_save_interval=50,
-			          critic_train_multip=5)
+			while True:
+				gan.train(NUM_OF_EPISODES, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_training_stats=SAVE_TRAINING_STATS, buffered_batches=50,
+			            weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+			            critic_train_multip=5)
+				if input("Continue? ") == "n": break
 
 		gan.save_weights()
 	except KeyboardInterrupt:
@@ -65,13 +82,12 @@ if __name__ == '__main__':
 	except Exception as e:
 		if gan:
 			print(f"Exception on epoch: {gan.epoch_counter}\n{e}")
-			if input("Save weights?\n") == "y": gan.save_weights()
 		else:
 			print(f"Creating GAN failed\n{e}")
 
 	if gan:
-		gan.show_current_state(3, 5)
-		gan.show_training_stats()
+		# gan.show_current_state(2, 5)
+		# gan.show_training_stats()
 		gan.show_training_stats(save=True)
 
 		if input("Make progress gif?\n") == "y": gan.make_progress_gif(framerate=10)

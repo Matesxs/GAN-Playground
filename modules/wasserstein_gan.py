@@ -1,3 +1,4 @@
+import json
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,10 +17,10 @@ import random
 import shutil
 import pandas as pd
 from tqdm import tqdm
-from typing import Union
 import colorama
 from colorama import Fore
 from functools import partial
+from typing import Union
 
 from modules.batch_maker import BatchMaker
 from modules.statsaver import StatSaver
@@ -54,16 +55,18 @@ class RandomWeightedAverage(_Merge):
 		return (weights * inputs[0]) + ((1 - weights) * inputs[1])
 
 class WGANGC:
-	AGREGATE_STAT_INTERVAL = 10
+	AGREGATE_STAT_INTERVAL = 100
+	RESET_SEEDS_INTERVAL = 1_000
+	CHECKPOINT_SAVE_INTERVAL = 100
 
-	def __init__(self, train_images:Union[np.ndarray, list, None, str],
+	def __init__(self, train_images:str,
 	             gen_mod_name:str, critic_mod_name:str,
 	             latent_dim:int, training_progress_save_path:str=None, progress_image_dim:tuple=(16, 9),
 	             generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
 	             batch_size:int=32,
-	             generator_weights:str=None, critic_weights:str=None,
+	             generator_weights:Union[str, None, int]=None, critic_weights:Union[str, None, int]=None,
 	             critic_gradient_penalty_weight:float=10,
-	             start_episode:int=0):
+	             start_episode:int=0, load_from_checkpoint:bool= False):
 
 		self.critic_mod_name = critic_mod_name
 		self.gen_mod_name = gen_mod_name
@@ -76,31 +79,20 @@ class WGANGC:
 		self.batch_size = batch_size
 
 		if self.training_progress_save_path:
-			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.critic_mod_name}")
 
-		if type(train_images) == list:
-			self.train_data = np.array(train_images)
-			self.data_length = self.train_data.shape[0]
-		elif type(train_images) == str:
-			self.train_data = [os.path.join(train_images, file) for file in os.listdir(train_images)]
-			self.data_length = len(self.train_data)
-		elif type(train_images) == np.ndarray:
-			self.train_data = train_images
-			self.data_length = self.train_data.shape[0]
+		self.train_data = [os.path.join(train_images, file) for file in os.listdir(train_images)]
+		self.data_length = len(self.train_data)
 
-		if train_images is not None:
-			if type(train_images) == str:
-				tmp_image = cv.imread(self.train_data[0])
-				self.image_shape = tmp_image.shape
-			else:
-				self.image_shape = self.train_data[0].shape
-			self.image_channels = self.image_shape[2]
+		tmp_image = cv.imread(self.train_data[0])
+		self.image_shape = tmp_image.shape
+		self.image_channels = self.image_shape[2]
 
-			# Check image size validity
-			if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
+		# Check image size validity
+		if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
 
-			# Check validity of dataset
-			self.validate_dataset()
+		# Check validity of dataset
+		self.validate_dataset()
 
 		# Define static vars
 		if os.path.exists(f"{self.training_progress_save_path}/static_noise.npy"):
@@ -182,20 +174,18 @@ class WGANGC:
 		self.combined_critic_model.summary()
 
 		# Load weights
-		if critic_weights: self.critic.load_weights(f"{critic_weights}/critic_{self.critic_mod_name}.h5")
-		if generator_weights: self.generator.load_weights(f"{generator_weights}/generator_{self.gen_mod_name}.h5")
+		if critic_weights: self.critic.load_weights(f"{self.training_progress_save_path}/weights/{critic_weights}/critic_{self.critic_mod_name}.h5")
+		if generator_weights: self.generator.load_weights(f"{self.training_progress_save_path}/weights/{generator_weights}/generator_{self.gen_mod_name}.h5")
+
+		# Load checkpoint
+		if load_from_checkpoint: self.load_checkpoint()
 
 	# Check if dataset have consistent shapes
 	def validate_dataset(self):
-		if type(self.train_data) == list:
-			for im_path in self.train_data:
-				im_shape = cv.imread(im_path).shape
-				if im_shape != self.image_shape:
-					raise Exception("Inconsistent dataset")
-		else:
-			for image in self.train_data:
-				if image.shape != self.image_shape:
-					raise Exception("Inconsistent dataset")
+		for im_path in self.train_data:
+			im_shape = cv.imread(im_path).shape
+			if im_shape != self.image_shape:
+				raise Exception("Inconsistent dataset")
 		print("Dataset valid")
 
 	# Create generator based on template selected by name
@@ -251,7 +241,7 @@ class WGANGC:
 		else: stat_saver = None
 
 		for _ in tqdm(range(epochs), unit="ep"):
-			for _ in range(100):
+			for _ in range(10):
 				### Train Critic ###
 				for _ in range(critic_train_multip):
 					# Load image batch and generate new latent noise
@@ -287,8 +277,12 @@ class WGANGC:
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
 				self.save_weights()
 
-			# Reseed every 2000 epochs
-			if self.epoch_counter % 2_000 == 0:
+			# Save checkpoint
+			if self.epoch_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
+				self.save_checkpoint()
+
+			# Reset seeds
+			if self.epoch_counter % self.RESET_SEEDS_INTERVAL == 0:
 				# Change seed for keeping as low number of constants as possible
 				np.random.seed(None)
 				random.seed()
@@ -428,6 +422,34 @@ class WGANGC:
 					shutil.rmtree(f"{self.training_progress_save_path}/{it}", ignore_errors=True)
 			except:
 				pass
+
+	def load_checkpoint(self):
+		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
+		if not os.path.exists(os.path.join(checkpoint_base_path, "checkpoint_data.json")): return
+
+		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "rb") as f:
+			data = json.load(f)
+
+			if data:
+				self.epoch_counter = int(data["episode"])
+				self.generator.load_weights(data["gen_path"])
+				self.critic.load_weights(data["critic_path"])
+
+	def save_checkpoint(self):
+		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
+		if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
+
+		self.generator.save_weights(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5")
+		self.critic.save_weights(f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5")
+
+		data = {
+			"episode": self.epoch_counter,
+			"gen_path": f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5",
+			"critic_path": f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5"
+		}
+
+		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json", encoding='utf-8'), "w") as f:
+			json.dump(data, f)
 
 	def save_weights(self):
 		save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter)

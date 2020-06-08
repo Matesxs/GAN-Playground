@@ -10,7 +10,7 @@ latent_dim = 128
 img_shape = (64, 64, 3)
 final_size = (256, 256)
 generator_model_name = "mod_min_3upscl"
-generator_weights_path = "training_data/weights/400000/generator_mod_min_3upscl.h5"
+generator_weights_path = ""
 
 num_of_images = 300
 image_save_path = "generated_images"
