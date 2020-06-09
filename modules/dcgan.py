@@ -12,7 +12,6 @@ import tensorflow as tf
 from PIL import Image
 import cv2 as cv
 import random
-import shutil
 import pandas as pd
 from tqdm import tqdm
 import colorama
@@ -140,7 +139,7 @@ class DCGAN:
 		try:
 			m = getattr(generator_models_spreadsheet, model_name)(noise, self.image_shape, self.image_channels, self.kernel_initializer)
 		except Exception as e:
-			raise Exception(f"Generator model not found!\n{e.__traceback__}")
+			raise Exception(f"Generator model not found!\n{e}")
 
 		model = Model(noise, m, name="generator_model")
 
@@ -156,7 +155,7 @@ class DCGAN:
 		try:
 			m = getattr(discriminator_models_spreadsheet, model_name)(img, self.kernel_initializer)
 		except Exception as e:
-			raise Exception(f"Discriminator model not found!\n{e.__traceback__}")
+			raise Exception(f"Discriminator model not found!\n{e}")
 
 		m = Dense(1, activation="sigmoid")(m)
 
@@ -300,7 +299,6 @@ class DCGAN:
 
 				# Create gradient function and evaluate based on eval noise and labels
 				get_gradients = self.gradient_norm_generator()
-				# gen_loss = self.combined_generator_model.train_on_batch(eval_noise, eval_labels)
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
 				if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
@@ -449,18 +447,6 @@ class DCGAN:
 		plot_model(self.combined_generator_model, os.path.join(save_path, "combined.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.discriminator, os.path.join(save_path, "discriminator.png"), expand_nested=True, show_shapes=True)
-
-	def clear_training_progress_folder(self):
-		if not os.path.exists(self.training_progress_save_path): return
-		content = os.listdir(self.training_progress_save_path)
-		for it in content:
-			try:
-				if os.path.isfile(f"{self.training_progress_save_path}/{it}"):
-					os.remove(f"{self.training_progress_save_path}/{it}")
-				else:
-					shutil.rmtree(f"{self.training_progress_save_path}/{it}", ignore_errors=True)
-			except:
-				pass
 
 	def load_checkpoint(self):
 		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")

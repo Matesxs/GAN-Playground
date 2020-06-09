@@ -14,7 +14,6 @@ import tensorflow as tf
 from PIL import Image
 import cv2 as cv
 import random
-import shutil
 import pandas as pd
 from tqdm import tqdm
 import colorama
@@ -410,18 +409,6 @@ class WGANGC:
 		plot_model(self.combined_critic_model, os.path.join(save_path, "combined_critic.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
 		plot_model(self.critic, os.path.join(save_path, "critic.png"), expand_nested=True, show_shapes=True)
-
-	def clear_training_progress_folder(self):
-		if not os.path.exists(self.training_progress_save_path): return
-		content = os.listdir(self.training_progress_save_path)
-		for it in content:
-			try:
-				if os.path.isfile(f"{self.training_progress_save_path}/{it}"):
-					os.remove(f"{self.training_progress_save_path}/{it}")
-				else:
-					shutil.rmtree(f"{self.training_progress_save_path}/{it}", ignore_errors=True)
-			except:
-				pass
 
 	def load_checkpoint(self):
 		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
