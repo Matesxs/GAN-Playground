@@ -29,7 +29,7 @@ tf.get_logger().setLevel('ERROR')
 colorama.init()
 
 class DCGAN:
-	CONTROL_THRESHOLD = 1_000
+	CONTROL_THRESHOLD = 5_000
 	AGREGATE_STAT_INTERVAL = 100
 	GRADIENT_CHECK_INTERVAL = 1_000
 	CHECKPOINT_SAVE_INTERVAL = 100
@@ -275,7 +275,7 @@ class DCGAN:
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
 					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
-				elif 0.5 * (disc_fake_acc + disc_real_acc) == 100 or disc_fake_acc == 100:
+				elif (disc_real_acc < 20 or disc_fake_acc >= 100) and self.epoch_counter > self.CONTROL_THRESHOLD:
 					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 				else:
 					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)

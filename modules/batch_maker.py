@@ -20,16 +20,27 @@ class BatchMaker(Thread):
 		self.data_length = data_length
 		self.batch_size = batch_size
 
+		self.max_index = (self.data_length // self.batch_size) - 2
+
 	def run(self):
+		index = 0
+		np.random.shuffle(self.train_data)
+
 		while not self.terminate:
 			if len(self.batches) < self.batches_in_buffer:
 				if type(self.train_data) == list:
 					# Load and normalize images if train_data is list of paths
-					self.batches.append(np.array([cv.cvtColor(cv.imread(im_p), cv.COLOR_BGR2RGB) / 127.5 - 1.0 for im_p in np.array(self.train_data)[np.random.randint(0, self.data_length, self.batch_size)]]).astype(np.float32))
+					self.batches.append(np.array([cv.cvtColor(cv.imread(im_p), cv.COLOR_BGR2RGB) / 127.5 - 1.0 for im_p in np.array(self.train_data)[range(index * self.batch_size, (index + 1) * self.batch_size)]]).astype(np.float32))
 				else:
-					self.batches.append(np.array(self.train_data[np.random.randint(0, self.data_length, self.batch_size)] / 127.5 - 1.0).astype(np.float32))
+					self.batches.append(np.array(self.train_data[range(index, index + self.batch_size)] / 127.5 - 1.0).astype(np.float32))
+
+				index += 1
+				if index >= self.max_index:
+					np.random.shuffle(self.train_data)
+					index = 0
+
 			time.sleep(0.01)
 
 	def get_batch(self) -> np.ndarray:
-		while not self.batches: time.sleep(0.02)
-		return self.batches.pop()
+		while not self.batches: time.sleep(0.01)
+		return self.batches.popleft()

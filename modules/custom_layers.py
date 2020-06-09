@@ -1,5 +1,6 @@
 from keras import layers
 from keras.initializers import Initializer, RandomNormal
+from keras.layers.advanced_activations import LeakyReLU
 
 def deconvolutional_block(X, k, filters, s=2, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	"""
@@ -24,25 +25,25 @@ def deconvolutional_block(X, k, filters, s=2, kernel_initializer:Initializer=Ran
 	##### MAIN PATH #####
 	# First component of main path
 	X = layers.Conv2DTranspose(F1, (1, 1), strides=(s, s), kernel_initializer=kernel_initializer)(X)
-	X = layers.BatchNormalization(axis=3)(X)
-	X = layers.Activation('relu')(X)
+	X = layers.BatchNormalization(momentum=0.8)(X)
+	X = LeakyReLU(0.2)(X)
 
 	# Second component of main path (≈3 lines)
 	X = layers.Conv2DTranspose(filters=F2, kernel_size=(k, k), strides=(1, 1), padding='same', kernel_initializer=kernel_initializer)(X)
-	X = layers.BatchNormalization(axis=3)(X)
-	X = layers.Activation('relu')(X)
+	X = layers.BatchNormalization(momentum=0.8)(X)
+	X = LeakyReLU(0.2)(X)
 
 	# Third component of main path (≈2 lines)
 	X = layers.Conv2DTranspose(filters=F3, kernel_size=(1, 1), strides=(1, 1), padding='valid', kernel_initializer=kernel_initializer)(X)
-	X = layers.BatchNormalization(axis=3)(X)
+	X = layers.BatchNormalization(momentum=0.8)(X)
 
 	##### SHORTCUT PATH #### (≈2 lines)
 	X_shortcut = layers.Conv2DTranspose(filters=F3, kernel_size=(1, 1), strides=(s, s), padding='valid', kernel_initializer=kernel_initializer)(X_shortcut)
-	X_shortcut = layers.BatchNormalization(axis=3)(X_shortcut)
+	X_shortcut = layers.BatchNormalization(momentum=0.8)(X_shortcut)
 
 	# Final step: Add shortcut value to main path, and pass it through a RELU activation (≈2 lines)
 	X = layers.Add()([X, X_shortcut])
-	X = layers.Activation('relu')(X)
+	X = LeakyReLU(0.2)(X)
 
 	return X
 
@@ -70,21 +71,21 @@ def convolutional_block(X, k, filters, s=2, kernel_initializer:Initializer=Rando
 	##### MAIN PATH #####
 	# First component of main path
 	X = layers.Conv2D(F1, (1, 1), strides=(s, s), kernel_initializer=kernel_initializer)(X)
-	X = layers.BatchNormalization(axis=3)(X)
+	X = layers.BatchNormalization(momentum=0.8)(X)
 	X = layers.LeakyReLU()(X)
 
 	# Second component of main path (≈3 lines)
 	X = layers.Conv2D(filters=F2, kernel_size=(k, k), strides=(1, 1), padding='same', kernel_initializer=kernel_initializer)(X)
-	X = layers.BatchNormalization(axis=3)(X)
+	X = layers.BatchNormalization(momentum=0.8)(X)
 	X = layers.LeakyReLU()(X)
 
 	# Third component of main path (≈2 lines)
 	X = layers.Conv2D(filters=F3, kernel_size=(1, 1), strides=(1, 1), padding='valid', kernel_initializer=kernel_initializer)(X)
-	X = layers.BatchNormalization(axis=3)(X)
+	X = layers.BatchNormalization(momentum=0.8)(X)
 
 	##### SHORTCUT PATH #### (≈2 lines)
 	X_shortcut = layers.Conv2D(filters=F3, kernel_size=(1, 1), strides=(s, s), padding='valid', kernel_initializer=kernel_initializer)(X_shortcut)
-	X_shortcut = layers.BatchNormalization(axis=3)(X_shortcut)
+	X_shortcut = layers.BatchNormalization(momentum=0.8)(X_shortcut)
 
 	# Final step: Add shortcut value to main path, and pass it through a RELU activation (≈2 lines)
 	X = layers.Add()([X, X_shortcut])
@@ -92,7 +93,7 @@ def convolutional_block(X, k, filters, s=2, kernel_initializer:Initializer=Rando
 
 	return X
 
-def identity_block(X, k, filters, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def identity_block_skip(X, k, filters, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	# Retrieve Filters
 	F1, F2, F3 = filters
 
@@ -101,15 +102,15 @@ def identity_block(X, k, filters, kernel_initializer:Initializer=RandomNormal(st
 
 	# First component of main path
 	X = layers.Conv2DTranspose(filters=F1, kernel_size=(1, 1), strides=(1, 1), padding='valid', kernel_initializer=kernel_initializer)(X)
-	X = layers.BatchNormalization(axis=3)(X)
+	X = layers.BatchNormalization(momentum=0.8)(X)
 
 	# Second component of main path (≈3 lines)
 	X = layers.Conv2DTranspose(filters=F2, kernel_size=(k, k), strides=(1, 1), padding='same', kernel_initializer=kernel_initializer)(X)
-	X = layers.BatchNormalization(axis=3)(X)
+	X = layers.BatchNormalization(momentum=0.8)(X)
 
 	# Third component of main path (≈2 lines)
 	X = layers.Conv2DTranspose(filters=F3, kernel_size=(1, 1), strides=(1, 1), padding='valid', kernel_initializer=kernel_initializer)(X)
-	X = layers.BatchNormalization(axis=3)(X)
+	X = layers.BatchNormalization(momentum=0.8)(X)
 
 	# Final step: Add shortcut value to main path, and pass it through a RELU activation (≈2 lines)
 	X = layers.Add()([X, X_shortcut])
