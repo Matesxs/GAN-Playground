@@ -63,7 +63,7 @@ class DCGAN:
 		self.training_progress_save_path = training_progress_save_path
 
 		if self.training_progress_save_path:
-			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}")
+			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{pretrain}pt")
 
 		self.train_data = [os.path.join(train_images, file) for file in os.listdir(train_images)]
 		self.data_length = len(self.train_data)
