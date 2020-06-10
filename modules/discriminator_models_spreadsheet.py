@@ -79,6 +79,4 @@ def mod_base_8layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stdd
 	m = LeakyReLU(0.2)(m)
 
 	m = Flatten()(m)
-
-	m = Dense(256)(m)
 	return m

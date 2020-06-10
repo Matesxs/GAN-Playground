@@ -41,13 +41,16 @@ class DCGAN:
 	             discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
 	             batch_size: int = 32,
 	             generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
-	             start_episode:int=0, load_from_checkpoint:bool=False):
+	             start_episode:int=0, load_from_checkpoint:bool=False,
+	             pretrain:int=None):
 
 		self.disc_mod_name = disc_mod_name
 		self.gen_mod_name = gen_mod_name
+		self.generator_optimizer = generator_optimizer
 
 		self.batch_size = batch_size
 		self.latent_dim = latent_dim
+
 		self.discriminator_label_noise = discriminator_label_noise
 		self.discriminator_label_noise_decay = discriminator_label_noise_decay
 		self.discriminator_label_noise_min = discriminator_label_noise_min
@@ -82,13 +85,25 @@ class DCGAN:
 			self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
+		# Load checkpoint
+		if load_from_checkpoint: self.load_checkpoint()
+
+		# Pretrain generator
+		gen_warmed_weights = None
+		if (self.epoch_counter == 0) and pretrain:
+			gen_warmed_weights = self.pretrain_generator(pretrain)
+
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_mod_name)
 		self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['binary_accuracy'])
+		print("\nDiscriminator Sumary:")
+		self.discriminator.summary()
 
 		# Build generator
 		self.generator = self.build_generator(gen_mod_name)
 		if self.generator.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
+		print("\nGenerator Sumary:")
+		self.generator.summary()
 
 		# Generator takes noise and generates images
 		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
@@ -104,23 +119,59 @@ class DCGAN:
 		# Combine models
 		# Train generator to fool discriminator
 		self.combined_generator_model = Model(noise_input, valid, name="dcgan_model")
-		self.combined_generator_model.compile(loss="binary_crossentropy", optimizer=generator_optimizer)
+		self.combined_generator_model.compile(loss="binary_crossentropy", optimizer=self.generator_optimizer)
 
 		# Load weights
+		if gen_warmed_weights: self.generator.set_weights(gen_warmed_weights)
 		if generator_weights: self.generator.load_weights(f"{self.training_progress_save_path}/weights/{generator_weights}/generator_{self.gen_mod_name}.h5")
 		if discriminator_weights: self.discriminator.load_weights(f"{self.training_progress_save_path}/weights/{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
 
-		# Load checkpoint
-		if load_from_checkpoint: self.load_checkpoint()
-
 		self.gen_labels = np.ones(shape=(self.batch_size, 1))
+
+	def pretrain_generator(self, num_of_episodes):
+		dec = self.build_generator(self.gen_mod_name)
+		if dec.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
+		enc = self.build_discriminator(self.disc_mod_name)
+		enc._layers.pop(0)
+
+		image_input = Input(shape=self.image_shape, name="image_input")
+		last_layer = enc(image_input)
+		latent_output = Dense(self.latent_dim, activation="hard_sigmoid")(last_layer)
+		image_output = dec(latent_output)
+
+		encdec = Model(inputs=image_input, outputs=image_output)
+		encdec.compile(loss="mse", optimizer=self.generator_optimizer, metrics=["accuracy"])
+		print("\nWarmup model summary:")
+		encdec.summary()
+
+		# Create batchmaker and start it
+		batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=50)
+		batch_maker.start()
+
+		failed = False
+		print(Fore.GREEN + "Generator warmup started" + Fore.RESET)
+		try:
+			for _ in tqdm(range(num_of_episodes), unit="ep"):
+				for _ in range(10):
+					images = batch_maker.get_batch()
+					encdec.train_on_batch(images, images)
+		except Exception as e:
+			print(Fore.RED + f"Failed to pretrain generator\n{e}" + Fore.RESET)
+			failed = True
+		finally:
+			batch_maker.terminate = True
+			batch_maker.join()
+
+		if failed:
+			return None
+		return dec.get_weights()
 
 	# Function for creating gradient generator
 	def gradient_norm_generator(self):
-		grads = K.gradients(self.combined_generator_model.total_loss, self.combined_generator_model.trainable_weights)
+		grads = K.gradients(self.generator.total_loss, self.generator.trainable_weights)
 		summed_squares = [K.sum(K.square(g)) for g in grads]
 		norm = K.sqrt(sum(summed_squares))
-		inputs = self.combined_generator_model._feed_inputs + self.combined_generator_model._feed_targets + self.combined_generator_model._feed_sample_weights
+		inputs = self.generator._feed_inputs + self.generator._feed_targets + self.generator._feed_sample_weights
 		func = K.function(inputs, [norm])
 		return func
 
@@ -141,12 +192,7 @@ class DCGAN:
 		except Exception as e:
 			raise Exception(f"Generator model not found!\n{e}")
 
-		model = Model(noise, m, name="generator_model")
-
-		print("\nGenerator Sumary:")
-		model.summary()
-
-		return model
+		return Model(noise, m, name="generator_model")
 
 	# Create discriminator based on teplate selected by name
 	def build_discriminator(self, model_name:str):
@@ -159,12 +205,7 @@ class DCGAN:
 
 		m = Dense(1, activation="sigmoid")(m)
 
-		model = Model(img, m, name="discriminator_model")
-
-		print("\nDiscriminator Sumary:")
-		model.summary()
-
-		return model
+		return Model(img, m, name="discriminator_model")
 
 	def train(self, epochs:int=500000, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,

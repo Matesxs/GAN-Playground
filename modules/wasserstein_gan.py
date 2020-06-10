@@ -195,7 +195,6 @@ class WGANGC:
 			m = getattr(generator_models_spreadsheet, model_name)(noise_input, self.image_shape, self.image_channels, self.kernel_initializer)
 		except Exception as e:
 			raise Exception(f"Generator model not found!\n{e}")
-
 		return Model(noise_input, m, name="generator_model")
 
 	# Create critic based on teplate selected by name
@@ -209,7 +208,6 @@ class WGANGC:
 
 		# Linear output for critic
 		m = Dense(1)(m)
-
 		return Model(img_input, m, name="critic_model")
 
 	def train(self, epochs:int=500000, buffered_batches:int=10,

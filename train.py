@@ -50,10 +50,11 @@ if __name__ == '__main__':
 			gan = DCGAN(DATASET, training_progress_save_path="training_data/dcgan", progress_image_dim=(16, 9),
 			            batch_size=32,
 			            latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
-			            generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.00018, 0.5),
-			            discriminator_label_noise=0.1, discriminator_label_noise_decay=0.99996, discriminator_label_noise_min=0.01,
+			            generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.0002, 0.5),
+			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.99985, discriminator_label_noise_min=0.01,
 			            generator_weights=None, discriminator_weights=None,
-			            start_episode=0, load_from_checkpoint=True)
+			            start_episode=0, load_from_checkpoint=True,
+			            pretrain=1_000)
 
 			gan.save_models_structure_images()
 			# gan.show_sample_of_dataset(10)
