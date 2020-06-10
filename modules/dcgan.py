@@ -131,15 +131,14 @@ class DCGAN:
 	def pretrain_generator(self, num_of_episodes):
 		dec = self.build_generator(self.gen_mod_name)
 		if dec.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
-		enc = self.build_discriminator(self.disc_mod_name)
-		enc._layers.pop(0)
+		enc = self.build_discriminator(self.disc_mod_name, classification=False)
 
 		image_input = Input(shape=self.image_shape, name="image_input")
 		last_layer = enc(image_input)
 		latent_output = Dense(self.latent_dim, activation="hard_sigmoid")(last_layer)
 		image_output = dec(latent_output)
 
-		encdec = Model(inputs=image_input, outputs=image_output)
+		encdec = Model(inputs=image_input, outputs=image_output, name="Enc-Dec")
 		encdec.compile(loss="mse", optimizer=self.generator_optimizer, metrics=["accuracy"])
 		print("\nWarmup model summary:")
 		encdec.summary()
@@ -159,6 +158,7 @@ class DCGAN:
 			print(Fore.RED + f"Failed to pretrain generator\n{e}" + Fore.RESET)
 			failed = True
 		finally:
+			print(Fore.GREEN + "Generator warmup finished" + Fore.RESET)
 			batch_maker.terminate = True
 			batch_maker.join()
 
@@ -195,7 +195,7 @@ class DCGAN:
 		return Model(noise, m, name="generator_model")
 
 	# Create discriminator based on teplate selected by name
-	def build_discriminator(self, model_name:str):
+	def build_discriminator(self, model_name:str, classification:bool=True):
 		img = Input(shape=self.image_shape)
 
 		try:
@@ -203,7 +203,8 @@ class DCGAN:
 		except Exception as e:
 			raise Exception(f"Discriminator model not found!\n{e}")
 
-		m = Dense(1, activation="sigmoid")(m)
+		if classification:
+			m = Dense(1, activation="sigmoid")(m)
 
 		return Model(img, m, name="discriminator_model")
 
