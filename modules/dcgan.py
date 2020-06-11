@@ -211,7 +211,7 @@ class DCGAN:
 
 	def train(self, epochs:int, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
-	          discriminator_smooth_labels:bool=False,
+	          discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
 	          save_training_stats:bool=True):
 
 		# Function for adding random noise to labels (flipping them)
@@ -267,11 +267,14 @@ class DCGAN:
 				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
 
 				# Train discriminator (real as ones and fake as zeros)
-				if discriminator_smooth_labels:
+				if discriminator_smooth_real_labels:
 					disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
-					disc_fake_labels = np.random.uniform(0, 0.3, size=(self.batch_size, 1))
 				else:
 					disc_real_labels = np.ones(shape=(self.batch_size, 1))
+
+				if discriminator_smooth_fake_labels:
+					disc_fake_labels = np.random.uniform(0, 0.3, size=(self.batch_size, 1))
+				else:
 					disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
 
 				if feed_prev_gen_batch:

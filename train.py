@@ -71,9 +71,9 @@ if __name__ == '__main__':
 
 			while True:
 				gan.train(NUM_OF_EPISODES, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_training_stats=SAVE_TRAINING_STATS, buffered_batches=100,
-			            weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-			            discriminator_smooth_labels=True,
-			            feed_prev_gen_batch=True, feed_amount=0.1)
+				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=False,
+				          feed_prev_gen_batch=True, feed_amount=0.1)
 				if input("Continue? ") == "n": break
 		elif gan_selection == 1:
 			gan = WGANGC(DATASET_PATH, training_progress_save_path="training_data/wgan", progress_image_dim=(16, 9),

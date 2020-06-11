@@ -5,7 +5,7 @@ GAN Diagnostics - https://machinelearningmastery.com/practical-guide-to-gan-fail
 GAN Checkerboard artifacts - https://distill.pub/2016/deconv-checkerboard/
 
 Basic DCGAN - https://github.com/mitchelljy/DCGAN-Keras
-	    - https://arxiv.org/pdf/1511.06434.pdf
+	    	- https://arxiv.org/pdf/1511.06434.pdf
 
 WGAN - https://machinelearningmastery.com/how-to-code-a-wasserstein-generative-adversarial-network-wgan-from-scratch/
      - https://arxiv.org/pdf/1704.00028.pdf
