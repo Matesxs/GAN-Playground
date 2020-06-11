@@ -13,8 +13,8 @@ from collections import deque
 # Script for scraping generators
 # Format: (url, save_path, num_of_images_to_keep, is_straight_image)
 PARAMS = [
-	("https://thispersondoesnotexist.com", "dataset/faces2", 20_000, False, 30_000),
-	("https://thiscatdoesnotexist.com", "dataset/cats2", 20_000, True, 50_000)
+	("https://thispersondoesnotexist.com", "dataset/unfiltered_faces", 20_000, False, 30_000),
+	("https://thiscatdoesnotexist.com", "dataset/unfiltered_cats", 20_000, True, 50_000)
 ]
 
 class Scraper:
