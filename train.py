@@ -51,8 +51,6 @@ PROGRESS_IMAGE_SAVE_INTERVAL = 1
 SAVE_TRAINING_STATS = True
 
 if __name__ == '__main__':
-	# Training with showing progress
-	# This is loop training, you can do it at ones but meh, I dont like it
 	gan = None
 	try:
 		gan_selection = int(input("GAN selection\n0 - DCGAN\n1 - WGAN\nSelected GAN: "))
