@@ -54,9 +54,9 @@ class RandomWeightedAverage(_Merge):
 		return (weights * inputs[0]) + ((1 - weights) * inputs[1])
 
 class WGANGC:
-	AGREGATE_STAT_INTERVAL = 100
-	RESET_SEEDS_INTERVAL = 1_000
-	CHECKPOINT_SAVE_INTERVAL = 100
+	AGREGATE_STAT_INTERVAL = 5
+	RESET_SEEDS_INTERVAL = 10
+	CHECKPOINT_SAVE_INTERVAL = 5
 
 	def __init__(self, train_images:str,
 	             gen_mod_name:str, critic_mod_name:str,
@@ -237,8 +237,9 @@ class WGANGC:
 			stat_saver.start()
 		else: stat_saver = None
 
+		num_of_batches = self.data_length // self.batch_size
 		for _ in tqdm(range(epochs), unit="ep"):
-			for _ in range(10):
+			for _ in range(num_of_batches):
 				### Train Critic ###
 				for _ in range(critic_train_multip):
 					# Load image batch and generate new latent noise
@@ -353,27 +354,6 @@ class WGANGC:
 					cnt += 1
 			plt.show()
 			plt.close()
-
-	def show_sample_of_dataset(self, progress_image_num:int=5):
-		fig, axs = plt.subplots(progress_image_num, progress_image_num)
-
-		cnt = 0
-		for i in range(progress_image_num):
-			for j in range(progress_image_num):
-				if type(self.train_data) != list:
-					if self.image_channels == 3:
-						axs[i, j].imshow(self.train_data[np.random.randint(0, self.data_length, size=1)][0])
-					else:
-						axs[i, j].imshow(self.train_data[np.random.randint(0, self.data_length, size=1), :, :, 0][0], cmap="gray")
-				else:
-					if self.image_channels == 3:
-						axs[i, j].imshow(cv.cvtColor(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]]), cv.COLOR_BGR2RGB))
-					else:
-						axs[i, j].imshow(cv.cvtColor(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]]), cv.COLOR_BGR2RGB)[:, :, 0], cmap="gray")
-				axs[i, j].axis('off')
-				cnt += 1
-		plt.show()
-		plt.close()
 
 	def show_training_stats(self, save_path:str=None):
 		if not os.path.exists(f"{self.training_progress_save_path}/training_stats.csv"): return

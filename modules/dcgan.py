@@ -29,10 +29,10 @@ tf.get_logger().setLevel('ERROR')
 colorama.init()
 
 class DCGAN:
-	CONTROL_THRESHOLD = 5_000
-	AGREGATE_STAT_INTERVAL = 100
-	GRADIENT_CHECK_INTERVAL = 1_000
-	CHECKPOINT_SAVE_INTERVAL = 100
+	CONTROL_THRESHOLD = 50
+	AGREGATE_STAT_INTERVAL = 1
+	GRADIENT_CHECK_INTERVAL = 10
+	CHECKPOINT_SAVE_INTERVAL = 1
 
 	def __init__(self, train_images:str,
 	             gen_mod_name: str, disc_mod_name: str,
@@ -85,14 +85,6 @@ class DCGAN:
 			self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
-		# Load checkpoint
-		if load_from_checkpoint: self.load_checkpoint()
-
-		# Pretrain generator
-		gen_warmed_weights = None
-		if (self.epoch_counter == 0) and pretrain:
-			gen_warmed_weights = self.pretrain_generator(pretrain)
-
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_mod_name)
 		self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['binary_accuracy'])
@@ -121,8 +113,16 @@ class DCGAN:
 		self.combined_generator_model = Model(noise_input, valid, name="dcgan_model")
 		self.combined_generator_model.compile(loss="binary_crossentropy", optimizer=self.generator_optimizer)
 
+		# Load checkpoint
+		if load_from_checkpoint: self.load_checkpoint()
+
+		# Pretrain generator
+		if (self.epoch_counter == 0) and pretrain:
+			gen_warmed_weights = self.pretrain_generator(pretrain)
+			if gen_warmed_weights:
+				self.generator.set_weights(gen_warmed_weights)
+
 		# Load weights
-		if gen_warmed_weights: self.generator.set_weights(gen_warmed_weights)
 		if generator_weights: self.generator.load_weights(f"{self.training_progress_save_path}/weights/{generator_weights}/generator_{self.gen_mod_name}.h5")
 		if discriminator_weights: self.discriminator.load_weights(f"{self.training_progress_save_path}/weights/{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
 
@@ -149,9 +149,10 @@ class DCGAN:
 
 		failed = False
 		print(Fore.GREEN + "Generator warmup started" + Fore.RESET)
+		num_batches = self.data_length // self.batch_size
 		try:
 			for _ in tqdm(range(num_of_episodes), unit="ep"):
-				for _ in range(10):
+				for _ in range(num_batches):
 					images = batch_maker.get_batch()
 					encdec.train_on_batch(images, images)
 		except Exception as e:
@@ -168,10 +169,10 @@ class DCGAN:
 
 	# Function for creating gradient generator
 	def gradient_norm_generator(self):
-		grads = K.gradients(self.generator.total_loss, self.generator.trainable_weights)
+		grads = K.gradients(self.combined_generator_model.total_loss, self.combined_generator_model.trainable_weights)
 		summed_squares = [K.sum(K.square(g)) for g in grads]
 		norm = K.sqrt(sum(summed_squares))
-		inputs = self.generator._feed_inputs + self.generator._feed_targets + self.generator._feed_sample_weights
+		inputs = self.combined_generator_model._feed_inputs + self.combined_generator_model._feed_targets + self.combined_generator_model._feed_sample_weights
 		func = K.function(inputs, [norm])
 		return func
 
@@ -255,8 +256,9 @@ class DCGAN:
 		# Training variables
 		prev_gen_images = deque(maxlen=3*self.batch_size)
 
+		num_of_batches = self.data_length // self.batch_size
 		for _ in tqdm(range(epochs), unit="ep"):
-			for _ in range(10):
+			for _ in range(num_of_batches):
 				### Train Discriminator ###
 				# Select batch of valid images
 				imgs = batch_maker.get_batch()
@@ -427,27 +429,6 @@ class DCGAN:
 					cnt += 1
 			plt.show()
 			plt.close()
-
-	def show_sample_of_dataset(self, progress_image_num:int=5):
-		fig, axs = plt.subplots(progress_image_num, progress_image_num)
-
-		cnt = 0
-		for i in range(progress_image_num):
-			for j in range(progress_image_num):
-				if type(self.train_data) != list:
-					if self.image_channels == 3:
-						axs[i, j].imshow(self.train_data[np.random.randint(0, self.data_length, size=1)][0])
-					else:
-						axs[i, j].imshow(self.train_data[np.random.randint(0, self.data_length, size=1), :, :, 0][0], cmap="gray")
-				else:
-					if self.image_channels == 3:
-						axs[i, j].imshow(cv.cvtColor(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]]), cv.COLOR_BGR2RGB))
-					else:
-						axs[i, j].imshow(cv.cvtColor(cv.imread(self.train_data[np.random.randint(0, self.data_length, size=1)[0]]), cv.COLOR_BGR2RGB)[:, :, 0], cmap="gray")
-				axs[i, j].axis('off')
-				cnt += 1
-		plt.show()
-		plt.close()
 
 	def show_training_stats(self, save:bool=False):
 		if not os.path.exists(f"{self.training_progress_save_path}/training_stats.csv"): return
