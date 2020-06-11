@@ -34,9 +34,9 @@ class DCGAN:
 	GRADIENT_CHECK_INTERVAL = 10
 	CHECKPOINT_SAVE_INTERVAL = 1
 
-	def __init__(self, train_images:str,
+	def __init__(self, dataset_path:str,
 	             gen_mod_name: str, disc_mod_name: str,
-	             latent_dim:int=100, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
+	             latent_dim:int=128, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
 	             generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
 	             discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
 	             batch_size: int = 32,
@@ -65,7 +65,7 @@ class DCGAN:
 		if self.training_progress_save_path:
 			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{pretrain}pt")
 
-		self.train_data = [os.path.join(train_images, file) for file in os.listdir(train_images)]
+		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
 		self.data_length = len(self.train_data)
 
 		tmp_image = cv.imread(self.train_data[0])
@@ -209,7 +209,7 @@ class DCGAN:
 
 		return Model(img, m, name="discriminator_model")
 
-	def train(self, epochs:int=500000, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
+	def train(self, epochs:int, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          discriminator_smooth_labels:bool=False,
 	          save_training_stats:bool=True):
@@ -257,7 +257,7 @@ class DCGAN:
 		prev_gen_images = deque(maxlen=3*self.batch_size)
 
 		num_of_batches = self.data_length // self.batch_size
-		for _ in tqdm(range(epochs), unit="ep"):
+		for _ in tqdm(range(epochs), unit="ep", initial=self.epoch_counter, total=epochs + self.epoch_counter):
 			for _ in range(num_of_batches):
 				### Train Discriminator ###
 				# Select batch of valid images

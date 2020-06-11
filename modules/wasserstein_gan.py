@@ -54,11 +54,11 @@ class RandomWeightedAverage(_Merge):
 		return (weights * inputs[0]) + ((1 - weights) * inputs[1])
 
 class WGANGC:
-	AGREGATE_STAT_INTERVAL = 5
+	AGREGATE_STAT_INTERVAL = 1
 	RESET_SEEDS_INTERVAL = 10
-	CHECKPOINT_SAVE_INTERVAL = 5
+	CHECKPOINT_SAVE_INTERVAL = 1
 
-	def __init__(self, train_images:str,
+	def __init__(self, dataset_path:str,
 	             gen_mod_name:str, critic_mod_name:str,
 	             latent_dim:int, training_progress_save_path:str=None, progress_image_dim:tuple=(16, 9),
 	             generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
@@ -80,7 +80,7 @@ class WGANGC:
 		if self.training_progress_save_path:
 			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.critic_mod_name}")
 
-		self.train_data = [os.path.join(train_images, file) for file in os.listdir(train_images)]
+		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
 		self.data_length = len(self.train_data)
 
 		tmp_image = cv.imread(self.train_data[0])

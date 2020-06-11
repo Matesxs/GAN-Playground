@@ -1,5 +1,15 @@
-import tensorflow as tf
+import os
+import sys
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+stdin = sys.stdin
+sys.stdin = open(os.devnull, 'w')
+stderr = sys.stderr
+sys.stderr = open(os.devnull, 'w')
+sys.stdin = stdin
+sys.stderr = stderr
+
+import tensorflow as tf
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
 	try:

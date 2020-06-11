@@ -1,6 +1,24 @@
+import os
+import sys
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+stdin = sys.stdin
+sys.stdin = open(os.devnull, 'w')
+stderr = sys.stderr
+sys.stderr = open(os.devnull, 'w')
+sys.stdin = stdin
+sys.stderr = stderr
+
+import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+	try:
+			tf.config.experimental.set_memory_growth(gpus[0], True)
+	except:
+		pass
+
 from keras.models import Model
 from keras.layers import Input
-import os
 import numpy as np
 import cv2 as cv
 
