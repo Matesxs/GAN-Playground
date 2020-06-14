@@ -12,6 +12,7 @@ import tensorflow as tf
 from PIL import Image
 import cv2 as cv
 import random
+import time
 import pandas as pd
 from tqdm import tqdm
 import colorama
@@ -39,7 +40,7 @@ class DCGAN:
 	             latent_dim:int=128, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
 	             generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
 	             discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
-	             batch_size: int = 32,
+	             batch_size: int = 32, buffered_batches:int=20, test_batches:int=1,
 	             generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
 	             start_episode:int=0, load_from_checkpoint:bool=False,
 	             pretrain:int=None):
@@ -49,6 +50,7 @@ class DCGAN:
 		self.generator_optimizer = generator_optimizer
 
 		self.batch_size = batch_size
+		self.test_batches = test_batches
 		self.latent_dim = latent_dim
 
 		self.discriminator_label_noise = discriminator_label_noise
@@ -128,6 +130,10 @@ class DCGAN:
 
 		self.gen_labels = np.ones(shape=(self.batch_size, 1))
 
+		# Create batchmaker and start it
+		self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
+		self.batch_maker.start()
+
 	def pretrain_generator(self, num_of_episodes):
 		dec = self.build_generator(self.gen_mod_name)
 		if dec.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
@@ -143,25 +149,19 @@ class DCGAN:
 		print("\nWarmup model summary:")
 		encdec.summary()
 
-		# Create batchmaker and start it
-		batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=50)
-		batch_maker.start()
-
 		failed = False
 		print(Fore.GREEN + "Generator warmup started" + Fore.RESET)
 		num_batches = self.data_length // self.batch_size
 		try:
 			for _ in tqdm(range(num_of_episodes), unit="ep"):
 				for _ in range(num_batches):
-					images = batch_maker.get_batch()
+					images = self.batch_maker.get_batch()
 					encdec.train_on_batch(images, images)
 		except Exception as e:
 			print(Fore.RED + f"Failed to pretrain generator\n{e}" + Fore.RESET)
 			failed = True
 		finally:
 			print(Fore.GREEN + "Generator warmup finished" + Fore.RESET)
-			batch_maker.terminate = True
-			batch_maker.join()
 
 		if failed:
 			return None
@@ -209,7 +209,7 @@ class DCGAN:
 
 		return Model(img, m, name="discriminator_model")
 
-	def train(self, epochs:int, feed_prev_gen_batch:bool=False, feed_amount:float=0.2, buffered_batches:int=10,
+	def train(self, epochs:int, feed_prev_gen_batch:bool=False, feed_amount:float=0.2,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
 	          save_training_stats:bool=True):
@@ -243,10 +243,6 @@ class DCGAN:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
-		# Create batchmaker and start it
-		batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
-		batch_maker.start()
-
 		# Create statsaver and start it
 		if self.training_progress_save_path is not None and save_training_stats:
 			stat_saver = StatSaver(self.training_progress_save_path)
@@ -255,13 +251,14 @@ class DCGAN:
 
 		# Training variables
 		prev_gen_images = deque(maxlen=3*self.batch_size)
+		get_gradients = self.gradient_norm_generator()
 
 		num_of_batches = self.data_length // self.batch_size
 		for _ in tqdm(range(epochs), unit="ep", initial=self.epoch_counter, total=epochs + self.epoch_counter):
 			for _ in range(num_of_batches):
 				### Train Discriminator ###
 				# Select batch of valid images
-				imgs = batch_maker.get_batch()
+				imgs = self.batch_maker.get_batch()
 
 				# Sample noise and generate new images
 				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
@@ -289,8 +286,6 @@ class DCGAN:
 				if self.discriminator_label_noise and self.discriminator_label_noise > 0:
 					disc_real_labels = noising_labels(disc_real_labels, self.discriminator_label_noise / 2)
 					disc_fake_labels = noising_labels(disc_fake_labels, self.discriminator_label_noise / 2)
-					if self.discriminator_label_noise_decay:
-						self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
 				self.discriminator.train_on_batch(imgs, disc_real_labels)
 				self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
@@ -299,12 +294,21 @@ class DCGAN:
 				# Train generator (wants discriminator to recognize fake images as valid)
 				self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.gen_labels)
 
+			time.sleep(0.5)
 			self.epoch_counter += 1
 
+			# Decay label noise
+			if self.discriminator_label_noise_decay:
+				self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
+
+				if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.005):
+					self.discriminator_label_noise = 0
+
+			# Seve stats and print them to console
 			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
 				# Generate images for statistics
-				imgs = batch_maker.get_batch()
-				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
+				imgs = self.batch_maker.get_larger_batch(self.test_batches)
+				gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size * self.test_batches, self.latent_dim)))
 
 				# Evaluate models state
 				disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
@@ -320,12 +324,12 @@ class DCGAN:
 
 				# Change color of log according to state of training
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
 				elif (disc_real_acc < 20 or disc_fake_acc >= 100) and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
 				else:
-					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
@@ -338,6 +342,7 @@ class DCGAN:
 			# Save checkpoint
 			if self.epoch_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
 				self.save_checkpoint()
+				print(Fore.BLUE + "Checkpoint created" + Fore.RESET)
 
 			if self.epoch_counter % self.GRADIENT_CHECK_INTERVAL == 0:
 				# Generate evaluation noise and labels
@@ -345,9 +350,9 @@ class DCGAN:
 				eval_labels = np.ones(shape=(self.batch_size, 1))
 
 				# Create gradient function and evaluate based on eval noise and labels
-				get_gradients = self.gradient_norm_generator()
 				norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
+				# Check norm gradient
 				if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
 					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
 					print("Gradient too high!" + Fore.RESET)
@@ -365,11 +370,11 @@ class DCGAN:
 
 		# Shutdown helper threads
 		print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
-		batch_maker.terminate = True
+		self.batch_maker.terminate = True
 		if stat_saver:
 			stat_saver.terminate = True
 			stat_saver.join()
-		batch_maker.join()
+		self.batch_maker.join()
 		print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
 	# Function for saving progress images

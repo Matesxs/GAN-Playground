@@ -14,6 +14,7 @@ import tensorflow as tf
 from PIL import Image
 import cv2 as cv
 import random
+import time
 import pandas as pd
 from tqdm import tqdm
 import colorama
@@ -62,7 +63,7 @@ class WGANGC:
 	             gen_mod_name:str, critic_mod_name:str,
 	             latent_dim:int, training_progress_save_path:str=None, progress_image_dim:tuple=(16, 9),
 	             generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
-	             batch_size:int=32,
+	             batch_size:int=32, buffered_batches:int=20,
 	             generator_weights:Union[str, None, int]=None, critic_weights:Union[str, None, int]=None,
 	             critic_gradient_penalty_weight:float=10,
 	             start_episode:int=0, load_from_checkpoint:bool= False):
@@ -75,6 +76,7 @@ class WGANGC:
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
 		self.training_progress_save_path = training_progress_save_path
+
 		self.batch_size = batch_size
 
 		if self.training_progress_save_path:
@@ -179,6 +181,10 @@ class WGANGC:
 		# Load checkpoint
 		if load_from_checkpoint: self.load_checkpoint()
 
+		# Create batchmaker and start it
+		self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
+		self.batch_maker.start()
+
 	# Check if dataset have consistent shapes
 	def validate_dataset(self):
 		for im_path in self.train_data:
@@ -210,7 +216,7 @@ class WGANGC:
 		m = Dense(1)(m)
 		return Model(img_input, m, name="critic_model")
 
-	def train(self, epochs:int=500000, buffered_batches:int=10,
+	def train(self, epochs:int=500000,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          save_training_stats:bool=True,
 	          critic_train_multip:int=5):
@@ -227,10 +233,6 @@ class WGANGC:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
-		# Create batchmaker and start it
-		batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
-		batch_maker.start()
-
 		# Create statsaver and start it
 		if self.training_progress_save_path is not None and save_training_stats:
 			stat_saver = StatSaver(self.training_progress_save_path)
@@ -243,7 +245,7 @@ class WGANGC:
 				### Train Critic ###
 				for _ in range(critic_train_multip):
 					# Load image batch and generate new latent noise
-					image_batch = batch_maker.get_batch()
+					image_batch = self.batch_maker.get_batch()
 					critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
 					self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
@@ -252,11 +254,12 @@ class WGANGC:
 				# Generate new latent noise
 				self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
 
+			time.sleep(0.5)
 			self.epoch_counter += 1
 
 			# Show stats
 			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
-				image_batch = batch_maker.get_batch()
+				image_batch = self.batch_maker.get_batch()
 				critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
 				critic_loss = self.combined_critic_model.test_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
@@ -287,11 +290,11 @@ class WGANGC:
 
 		# Shutdown helper threads
 		print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
-		batch_maker.terminate = True
+		self.batch_maker.terminate = True
 		if stat_saver:
 			stat_saver.terminate = True
 			stat_saver.join()
-		batch_maker.join()
+		self.batch_maker.join()
 		print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
 	# Function for saving progress images
