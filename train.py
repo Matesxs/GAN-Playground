@@ -60,7 +60,7 @@ if __name__ == '__main__':
 			            batch_size=16, buffered_batches=50, test_batches=5,
 			            latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
 			            generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.00018, 0.5),
-			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.99, discriminator_label_noise_min=0.02,
+			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.995, discriminator_label_noise_min=0.01,
 			            generator_weights=None, discriminator_weights=None,
 			            start_episode=0,
 			            load_from_checkpoint=True,
@@ -110,5 +110,5 @@ if __name__ == '__main__':
 		# gan.show_training_stats()
 		gan.show_training_stats(save=True)
 
-		if input("Make progress gif?\n") == "y": gan.make_progress_gif(framerate=10)
+		if input("Make progress gif?\n") == "y": gan.make_progress_gif(framerate=30)
 		if input("Generate collage?\n") == "y": gan.generate_collage(collage_dims=(16, 9))

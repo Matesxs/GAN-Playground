@@ -522,7 +522,7 @@ class DCGAN:
 
 		frames = []
 		img_file_names = os.listdir(self.training_progress_save_path + "/progress_images")
-		duration = len(img_file_names) // framerate
+		duration = (len(img_file_names) // framerate) * 1000
 
 		for im_file in img_file_names:
 			if os.path.isfile(self.training_progress_save_path + "/progress_images/" + im_file):
