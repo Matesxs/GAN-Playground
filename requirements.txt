@@ -1,6 +1,5 @@
 beautifulsoup4==4.9.1
 requests==2.23.0
-pandas==1.0.4
 colorama==0.4.3
 tqdm==4.46.1
 opencv-python==4.2.0.34

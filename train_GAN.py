@@ -39,7 +39,7 @@ Settings testing DCGAN:
 	mod_base_4upscl     mod_ext_5layers     128
 '''
 
-DATASET_PATH = "dataset/normalized_dogs"
+DATASET_PATH = "dataset/dogs_normalized__64x64"
 LATENT_DIM = 128
 
 GEN_MODEL = "mod_base_4upscl"

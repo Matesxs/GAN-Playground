@@ -15,7 +15,6 @@ from PIL import Image
 import cv2 as cv
 import random
 import time
-import pandas as pd
 from tqdm import tqdm
 import colorama
 from colorama import Fore
@@ -70,15 +69,15 @@ class WGANGC:
 
 		self.critic_mod_name = critic_mod_name
 		self.gen_mod_name = gen_mod_name
-
 		self.latent_dim = latent_dim
-		self.progress_image_dim = progress_image_dim
-		if start_episode < 0: start_episode = 0
-		self.epoch_counter = start_episode
-		self.training_progress_save_path = training_progress_save_path
-
 		self.batch_size = batch_size
 
+		self.progress_image_dim = progress_image_dim
+
+		if start_episode < 0: start_episode = 0
+		self.epoch_counter = start_episode
+
+		self.training_progress_save_path = training_progress_save_path
 		self.tensorboard = None
 		if self.training_progress_save_path:
 			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.critic_mod_name}")

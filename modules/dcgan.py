@@ -13,7 +13,6 @@ from PIL import Image
 import cv2 as cv
 import random
 import time
-import pandas as pd
 from tqdm import tqdm
 import colorama
 from colorama import Fore
@@ -58,8 +57,6 @@ class DCGAN:
 		self.discriminator_label_noise_min = discriminator_label_noise_min
 
 		self.progress_image_dim = progress_image_dim
-
-		self.tensorboard = None
 
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
