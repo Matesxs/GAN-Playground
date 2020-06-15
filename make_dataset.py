@@ -4,11 +4,11 @@ import hashlib
 import shutil
 from multiprocessing.pool import ThreadPool
 
-dataset_folder = "dataset"
+datasets_folder = "datasets"
 
-assert os.path.exists(dataset_folder) and os.path.isdir(dataset_folder), "Invalid dataset folder"
+assert os.path.exists(datasets_folder) and os.path.isdir(datasets_folder), "Invalid datasets folder"
 
-dataset_list = [x for x in os.listdir(dataset_folder) if os.path.isdir(os.path.join(dataset_folder, x)) and "normalized" not in x]
+dataset_list = [x for x in os.listdir(datasets_folder) if os.path.isdir(os.path.join(datasets_folder, x)) and "normalized" not in x]
 output_folder = None
 input_folder = None
 scaled_dim = None
@@ -18,7 +18,7 @@ while True:
 		print(f"{i} - {dataset_name}")
 
 	try:
-		selected_dataset_index = int(input("Selected dataset: "))
+		selected_dataset_index = int(input("Selected datasets: "))
 		if selected_dataset_index >= len(dataset_list):
 			print("")
 			continue

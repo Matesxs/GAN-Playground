@@ -77,7 +77,7 @@ class DCGAN:
 		# Check image size validity
 		if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
 
-		# Check validity of dataset
+		# Check validity of datasets
 		self.validate_dataset()
 
 		# Define static vars
@@ -186,12 +186,12 @@ class DCGAN:
 		func = K.function(inputs, [norm])
 		return func
 
-	# Check if dataset have consistent shapes
+	# Check if datasets have consistent shapes
 	def validate_dataset(self):
 		for im_path in self.train_data:
 			im_shape = cv.imread(im_path).shape
 			if im_shape != self.image_shape:
-				raise Exception("Inconsistent dataset")
+				raise Exception("Inconsistent datasets")
 		print("Dataset valid")
 
 	# Create generator based on template selected by name
@@ -245,7 +245,7 @@ class DCGAN:
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if self.data_length < self.batch_size or self.batch_size%2 != 0 or self.batch_size < 4: raise Exception("Invalid batch size")
-		if self.train_data is None: raise Exception("No dataset loaded")
+		if self.train_data is None: raise Exception("No datasets loaded")
 
 		# Save noise for progress consistency
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None:
