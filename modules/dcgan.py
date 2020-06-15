@@ -22,9 +22,9 @@ from typing import Union
 import json
 
 from modules.batch_maker import BatchMaker
-from modules.statsaver import StatSaver
 from modules import generator_models_spreadsheet
 from modules import discriminator_models_spreadsheet
+from modules.custom_tensorboard import TensorBoardCustom
 
 tf.get_logger().setLevel('ERROR')
 colorama.init()
@@ -59,13 +59,16 @@ class DCGAN:
 
 		self.progress_image_dim = progress_image_dim
 
+		self.tensorboard = None
+
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
 
 		self.training_progress_save_path = training_progress_save_path
-
+		self.tensorboard = None
 		if self.training_progress_save_path:
 			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{pretrain}pt")
+			self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
 		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
 		self.data_length = len(self.train_data)
@@ -221,8 +224,7 @@ class DCGAN:
 
 	def train(self, epochs:int, feed_prev_gen_batch:bool=False, feed_amount:float=0.2,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
-	          discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
-	          save_training_stats:bool=True):
+	          discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
 
 		# Function for adding random noise to labels (flipping them)
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
@@ -252,12 +254,6 @@ class DCGAN:
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
-
-		# Create statsaver and start it
-		if self.training_progress_save_path is not None and save_training_stats:
-			stat_saver = StatSaver(self.training_progress_save_path)
-			stat_saver.start()
-		else: stat_saver = None
 
 		# Training variables
 		prev_gen_images = deque(maxlen=3*self.batch_size)
@@ -306,6 +302,8 @@ class DCGAN:
 
 			time.sleep(0.5)
 			self.epoch_counter += 1
+			if self.tensorboard:
+				self.tensorboard.step = self.epoch_counter
 
 			# Decay label noise
 			if self.discriminator_label_noise_decay:
@@ -329,8 +327,9 @@ class DCGAN:
 				disc_real_acc *= 100
 				disc_fake_acc *= 100
 
-				# Save stats
-				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, disc_real_loss, disc_real_acc, disc_fake_loss, disc_fake_acc, gen_loss])
+				if self.tensorboard:
+					self.tensorboard.log_weights(self.combined_generator_model)
+					self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss)
 
 				# Change color of log according to state of training
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
@@ -381,9 +380,6 @@ class DCGAN:
 		# Shutdown helper threads
 		print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
 		self.batch_maker.terminate = True
-		if stat_saver:
-			stat_saver.terminate = True
-			stat_saver.join()
 		self.batch_maker.join()
 		print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
@@ -447,40 +443,6 @@ class DCGAN:
 					cnt += 1
 			plt.show()
 			plt.close()
-
-	def show_training_stats(self, save:bool=False):
-		if not os.path.exists(f"{self.training_progress_save_path}/training_stats.csv"): return
-
-		try:
-			loaded_stats = pd.read_csv(f"{self.training_progress_save_path}/training_stats.csv", header=None)
-		except:
-			print(Fore.RED + f"Unable to load statistics!" + Fore.RESET)
-			return
-
-		epochs = loaded_stats[0].values
-
-		# Loss graph
-		ax = plt.subplot(2, 1, 1)
-		plt.plot(epochs, loaded_stats[5].values, label="Gen Loss")
-		plt.plot(epochs, loaded_stats[3].values, label="Disc Fake Loss")
-		plt.plot(epochs, loaded_stats[1].values, label="Disc Real Loss")
-		box = ax.get_position()
-		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
-		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=3)
-
-		# Acc graph
-		ax = plt.subplot(2, 1, 2)
-		plt.plot(epochs, loaded_stats[4].values, label="Disc Fake Acc")
-		plt.plot(epochs, loaded_stats[2].values, label="Disc Real Acc")
-		box = ax.get_position()
-		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
-		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=2)
-
-		if not save:
-			plt.show()
-		else:
-			plt.savefig(f"{self.training_progress_save_path}/training_stats.png")
-		plt.close()
 
 	def save_models_structure_images(self):
 		save_path = self.training_progress_save_path + "/model_structures"

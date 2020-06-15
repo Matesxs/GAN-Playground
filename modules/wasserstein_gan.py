@@ -23,9 +23,9 @@ from functools import partial
 from typing import Union
 
 from modules.batch_maker import BatchMaker
-from modules.statsaver import StatSaver
 from modules import generator_models_spreadsheet
 from modules import discriminator_models_spreadsheet
+from modules.custom_tensorboard import TensorBoardCustom
 
 tf.get_logger().setLevel('ERROR')
 colorama.init()
@@ -79,8 +79,10 @@ class WGANGC:
 
 		self.batch_size = batch_size
 
+		self.tensorboard = None
 		if self.training_progress_save_path:
 			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.critic_mod_name}")
+			self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
 		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
 		self.data_length = len(self.train_data)
@@ -218,7 +220,6 @@ class WGANGC:
 
 	def train(self, epochs:int=500000,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
-	          save_training_stats:bool=True,
 	          critic_train_multip:int=5):
 
 		# Check arguments and input data
@@ -232,12 +233,6 @@ class WGANGC:
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
-
-		# Create statsaver and start it
-		if self.training_progress_save_path is not None and save_training_stats:
-			stat_saver = StatSaver(self.training_progress_save_path)
-			stat_saver.start()
-		else: stat_saver = None
 
 		num_of_batches = self.data_length // self.batch_size
 		for _ in tqdm(range(epochs), unit="ep"):
@@ -256,6 +251,8 @@ class WGANGC:
 
 			time.sleep(0.5)
 			self.epoch_counter += 1
+			if self.tensorboard:
+				self.tensorboard.step = self.epoch_counter
 
 			# Show stats
 			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
@@ -266,7 +263,9 @@ class WGANGC:
 				gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
 
 				# Save stats
-				if stat_saver: stat_saver.apptend_stats([self.epoch_counter, critic_loss, gen_loss])
+				if self.tensorboard:
+					self.tensorboard.log_weights(self.combined_generator_model)
+					self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
 				print(Fore.GREEN + f"\n[Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
@@ -291,9 +290,6 @@ class WGANGC:
 		# Shutdown helper threads
 		print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
 		self.batch_maker.terminate = True
-		if stat_saver:
-			stat_saver.terminate = True
-			stat_saver.join()
 		self.batch_maker.join()
 		print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
@@ -357,31 +353,6 @@ class WGANGC:
 					cnt += 1
 			plt.show()
 			plt.close()
-
-	def show_training_stats(self, save_path:str=None):
-		if not os.path.exists(f"{self.training_progress_save_path}/training_stats.csv"): return
-
-		try:
-			loaded_stats = pd.read_csv(f"{self.training_progress_save_path}/training_stats.csv", header=None)
-		except:
-			print(Fore.RED + f"Unable to load statistics!" + Fore.RESET)
-			return
-
-		epochs = loaded_stats[0].values
-
-		# Loss graph
-		ax = plt.subplot(1, 1, 1)
-		plt.plot(epochs, loaded_stats[2].values, label="Gen Loss")
-		plt.plot(epochs, loaded_stats[1].values, label="Critic Loss")
-		box = ax.get_position()
-		ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
-		ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), fancybox=True, shadow=False, ncol=3)
-
-		if not save_path:
-			plt.show()
-		else:
-			plt.savefig(f"{save_path}/training_stats.png")
-		plt.close()
 
 	def save_models_structure_images(self, save_path:str=None):
 		if save_path is None: save_path = self.training_progress_save_path + "/model_structures"
