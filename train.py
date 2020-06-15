@@ -24,26 +24,26 @@ from modules.wasserstein_gan import WGANGC
 '''
 Generators:
 	mod_base_3upscl - New high capacity
-	mod_base_3upscl_test - added leaky
 	mod_ext_3upscl
-	mod_ext_3upscl_test - added 1024 layer at start without upscale
+	mod_ext_3upscl_test - ext3 with leaky
+	mod_base_4upscl
 	
 Discriminators:
+	mod_base_5layers
 	mod_ext_5layers
 	mod_base_8layers - Experimental model from stylegan
 	
-Settings testing:
+Settings testing DCGAN:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
-	mod_base_3upscl     mod_ext_5layers     128
-	mod_ext_3upscl      mod_base_8layers    128       
-	mod_ext_3upscl_test mod_base_8layers    128       
+	mod_ext_3upscl_test mod_base_8layers    128       300       B
+	mod_base_4upscl     mod_ext_5layers     128
 '''
 
 DATASET_PATH = "dataset/normalized_dogs"
 LATENT_DIM = 128
 
-GEN_MODEL = "mod_ext_3upscl_test"
-DISC_MODEL = "mod_base_8layers"
+GEN_MODEL = "mod_base_4upscl"
+DISC_MODEL = "mod_ext_5layers"
 
 NUM_OF_EPISODES = 100
 
@@ -60,7 +60,7 @@ if __name__ == '__main__':
 			            batch_size=16, buffered_batches=50, test_batches=5,
 			            latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
 			            generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.00018, 0.5),
-			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.995, discriminator_label_noise_min=0.01,
+			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.992, discriminator_label_noise_min=0.01,
 			            generator_weights=None, discriminator_weights=None,
 			            start_episode=0,
 			            load_from_checkpoint=True,
@@ -110,5 +110,4 @@ if __name__ == '__main__':
 		# gan.show_training_stats()
 		gan.show_training_stats(save=True)
 
-		if input("Make progress gif?\n") == "y": gan.make_progress_gif(framerate=30)
 		if input("Generate collage?\n") == "y": gan.generate_collage(collage_dims=(16, 9))

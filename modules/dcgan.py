@@ -87,6 +87,22 @@ class DCGAN:
 			self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
+		# Load checkpoint
+		loaded_gen_weights_path = None
+		loaded_disc_weights_path = None
+		if load_from_checkpoint:
+			loaded_gen_weights_path, loaded_disc_weights_path = self.load_checkpoint()
+
+		# Create batchmaker and start it
+		self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
+		self.batch_maker.start()
+
+		# Pretrain generator
+		gen_warmed_weights = None
+		if (self.epoch_counter == 0) and pretrain:
+			gen_warmed_weights = self.pretrain_generator(pretrain)
+			K.clear_session()
+
 		# Build discriminator
 		self.discriminator = self.build_discriminator(disc_mod_name)
 		self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['binary_accuracy'])
@@ -115,24 +131,18 @@ class DCGAN:
 		self.combined_generator_model = Model(noise_input, valid, name="dcgan_model")
 		self.combined_generator_model.compile(loss="binary_crossentropy", optimizer=self.generator_optimizer)
 
-		# Load checkpoint
-		if load_from_checkpoint: self.load_checkpoint()
+		if gen_warmed_weights:
+			self.generator.set_weights(gen_warmed_weights)
 
-		# Pretrain generator
-		if (self.epoch_counter == 0) and pretrain:
-			gen_warmed_weights = self.pretrain_generator(pretrain)
-			if gen_warmed_weights:
-				self.generator.set_weights(gen_warmed_weights)
+		# Load weights from checkpoint
+		if loaded_gen_weights_path: self.generator.load_weights(loaded_gen_weights_path)
+		if loaded_disc_weights_path: self.discriminator.load_weights(loaded_disc_weights_path)
 
-		# Load weights
+		# Load weights from param and override checkpoint weights
 		if generator_weights: self.generator.load_weights(f"{self.training_progress_save_path}/weights/{generator_weights}/generator_{self.gen_mod_name}.h5")
 		if discriminator_weights: self.discriminator.load_weights(f"{self.training_progress_save_path}/weights/{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
 
 		self.gen_labels = np.ones(shape=(self.batch_size, 1))
-
-		# Create batchmaker and start it
-		self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
-		self.batch_maker.start()
 
 	def pretrain_generator(self, num_of_episodes):
 		dec = self.build_generator(self.gen_mod_name)
@@ -481,17 +491,17 @@ class DCGAN:
 
 	def load_checkpoint(self):
 		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
-		if not os.path.exists(os.path.join(checkpoint_base_path, "checkpoint_data.json")): return
+		if not os.path.exists(os.path.join(checkpoint_base_path, "checkpoint_data.json")): return None, None
 
 		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "rb") as f:
 			data = json.load(f)
 
 			if data:
 				self.epoch_counter = int(data["episode"])
-				self.generator.load_weights(data["gen_path"])
-				self.discriminator.load_weights(data["disc_path"])
 				if data["disc_label_noise"]:
 					self.discriminator_label_noise = float(data["disc_label_noise"])
+				return data["gen_path"], data["disc_path"]
+			return None, None
 
 	def save_checkpoint(self):
 		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
@@ -516,17 +526,16 @@ class DCGAN:
 		self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
 		self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
 
-	def make_progress_gif(self, framerate:int=30):
+	def make_progress_gif(self, frame_duration:int=16):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
 		if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 
 		frames = []
 		img_file_names = os.listdir(self.training_progress_save_path + "/progress_images")
-		duration = (len(img_file_names) // framerate) * 1000
 
 		for im_file in img_file_names:
 			if os.path.isfile(self.training_progress_save_path + "/progress_images/" + im_file):
 				frames.append(Image.open(self.training_progress_save_path + "/progress_images/" + im_file))
 
 		if len(frames) > 2:
-			frames[0].save(f"{self.training_progress_save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, optimize=False, duration=duration, loop=0)
+			frames[0].save(f"{self.training_progress_save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, optimize=False, duration=frame_duration, loop=0)

@@ -425,18 +425,16 @@ class WGANGC:
 		self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
 		self.critic.save_weights(f"{save_dir}/critic_{self.critic_mod_name}.h5")
 
-	def make_progress_gif(self, save_path:str=None, framerate:int=10):
+	def make_progress_gif(self, frame_duration:int=16):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
-		if not save_path: save_path = self.training_progress_save_path
-		if not os.path.exists(save_path): os.makedirs(save_path)
+		if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 
 		frames = []
 		img_file_names = os.listdir(self.training_progress_save_path + "/progress_images")
-		duration = (len(img_file_names) // framerate) * 1000
 
 		for im_file in img_file_names:
 			if os.path.isfile(self.training_progress_save_path + "/progress_images/" + im_file):
 				frames.append(Image.open(self.training_progress_save_path + "/progress_images/" + im_file))
 
 		if len(frames) > 2:
-			frames[0].save(f"{save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, optimize=False, duration=duration, loop=0)
+			frames[0].save(f"{self.training_progress_save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, optimize=False, duration=frame_duration, loop=0)
