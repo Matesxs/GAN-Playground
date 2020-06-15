@@ -34,8 +34,8 @@ while True:
 				continue
 
 		selected_dataset_name = dataset_list[selected_dataset_index]
-		input_folder = os.path.join(dataset_folder, selected_dataset_name)
-		output_folder = os.path.join(dataset_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}")
+		input_folder = os.path.join(datasets_folder, selected_dataset_name)
+		output_folder = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}")
 		scaled_dim = (selected_x_dimension, selected_y_dimension)
 		print(f"Dataset {selected_dataset_name} was selected with target dimensions: {scaled_dim}")
 		break
@@ -90,7 +90,10 @@ def resize_and_save_file(args):
 				image = cv.resize(image, (scaled_dim[0], scaled_dim[1]), interpolation=cv.INTER_CUBIC)
 				cv.imwrite(f"{output_folder}/{args[0]}.png", image)
 		except:
-			pass
+			try:
+				os.remove(f"{output_folder}/{args[0]}.png")
+			except:
+				pass
 
 worker_pool.map(resize_and_save_file, enumerate(raw_file_names))
 worker_pool.close()
