@@ -257,8 +257,8 @@ class DCGAN:
 		get_gradients = self.gradient_norm_generator()
 
 		num_of_batches = self.data_length // self.batch_size
-		for _ in tqdm(range(epochs), unit="ep", initial=self.epoch_counter, total=epochs + self.epoch_counter):
-			for _ in range(num_of_batches):
+		for _ in range(epochs):
+			for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
 				### Train Discriminator ###
 				# Select batch of valid images
 				imgs = self.batch_maker.get_batch()
@@ -330,12 +330,12 @@ class DCGAN:
 
 				# Change color of log according to state of training
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\n__FAIL__\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
+					print(Fore.RED + f"\n__FAIL__\n{self.epoch_counter}: [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
 				elif (disc_real_acc < 20 or disc_fake_acc >= 100) and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.YELLOW + f"\n!!Warning!!\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
+					print(Fore.YELLOW + f"\n!!Warning!!\n{self.epoch_counter}: [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
 				else:
-					print(Fore.GREEN + f"\n[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
+					print(Fore.GREEN + f"\n{self.epoch_counter}: [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:

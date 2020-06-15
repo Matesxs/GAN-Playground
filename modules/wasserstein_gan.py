@@ -234,8 +234,8 @@ class WGANGC:
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
 		num_of_batches = self.data_length // self.batch_size
-		for _ in tqdm(range(epochs), unit="ep"):
-			for _ in range(num_of_batches):
+		for _ in range(epochs):
+			for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
 				### Train Critic ###
 				for _ in range(critic_train_multip):
 					# Load image batch and generate new latent noise
@@ -266,7 +266,7 @@ class WGANGC:
 					self.tensorboard.log_weights(self.combined_generator_model)
 					self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
-				print(Fore.GREEN + f"\n[Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+				print(Fore.GREEN + f"\n{self.epoch_counter}: [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:

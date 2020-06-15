@@ -59,7 +59,7 @@ if __name__ == '__main__':
 			            batch_size=16, buffered_batches=50, test_batches=5,
 			            latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
 			            generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.00018, 0.5),
-			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.992, discriminator_label_noise_min=0.01,
+			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.985, discriminator_label_noise_min=0.01,
 			            generator_weights=None, discriminator_weights=None,
 			            start_episode=0,
 			            load_from_checkpoint=True,
