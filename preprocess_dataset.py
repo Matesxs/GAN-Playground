@@ -46,7 +46,7 @@ while True:
 assert input_folder is not None and output_folder is not None and scaled_dim is not None, "Invalid settings"
 assert os.path.exists(input_folder), "Input folder doesnt exist"
 
-worker_pool = ThreadPool(processes=16)
+worker_pool = ThreadPool(processes=8)
 
 raw_file_names = os.listdir(input_folder)
 if os.path.exists(output_folder): shutil.rmtree(output_folder)
@@ -87,7 +87,12 @@ def resize_and_save_file(args):
 		try:
 			image = cv.imread(file_path)
 			if image is not None:
-				image = cv.resize(image, (scaled_dim[0], scaled_dim[1]), interpolation=cv.INTER_CUBIC)
+				orig_shape = image.shape[:-1]
+				interpolation = cv.INTER_AREA
+				if orig_shape[0] <= scaled_dim[0] or orig_shape[1] <= scaled_dim[1]:
+					interpolation = cv.INTER_CUBIC
+
+				image = cv.resize(image, (scaled_dim[0], scaled_dim[1]), interpolation=interpolation)
 				cv.imwrite(f"{output_folder}/{args[0]}.png", image)
 		except:
 			try:
