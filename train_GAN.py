@@ -31,7 +31,7 @@ if __name__ == '__main__':
 			            batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES, test_batches=5,
 			            latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
 			            generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.00018, 0.5),
-			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.988, discriminator_label_noise_min=0.02,
+			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.995, discriminator_label_noise_min=0.03,
 			            generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
 			            start_episode=START_EPISODE,
 			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
@@ -43,7 +43,7 @@ if __name__ == '__main__':
 				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=False,
-				          feed_prev_gen_batch=True, feed_old_perc_amount=0.1)
+				          feed_prev_gen_batch=True, feed_old_perc_amount=0.15)
 				if input("Continue? ") == "n": break
 
 		elif gan_selection == 1:
