@@ -23,30 +23,32 @@ from modules.wasserstein_gan import WGANGC
 
 '''
 Generators:
-	mod_base_3upscl - New high capacity
+	mod_base_3upscl
 	mod_ext_3upscl
-	mod_ext_3upscl_test - ext3 with leaky
 	mod_base_4upscl
 	
 Discriminators:
 	mod_base_5layers
 	mod_ext_5layers
-	mod_base_8layers - Experimental model from stylegan
+	mod_base_6layers
 	
 Settings testing DCGAN:
 	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
-	mod_ext_3upscl_test mod_base_8layers    128       300       B
-	mod_base_4upscl     mod_ext_5layers     128
+	mod_base_3upscl     mod_base_5layers    128
+	mod_ext_3upscl      mod_base_6layers    128
+	mod_base_4upscl     mod_ext_5layers     128        150
 '''
 
 DATASET_PATH = "datasets/dogs_normalized__64x64"
 LATENT_DIM = 128
 BATCH_SIZE = 16
+BUFFERED_BATCHES = 20
+
 START_EPISODE = 0
 
-GEN_MODEL = "mod_base_4upscl"
+GEN_MODEL = "mod_ext_3upscl"
 GEN_WEIGHTS = None
-DISC_MODEL = "mod_ext_5layers"
+DISC_MODEL = "mod_base_6layers"
 DICS_WEIGHTS = None
 LOAD_FROM_CHECKPOINTS = True
 
@@ -61,10 +63,10 @@ if __name__ == '__main__':
 		gan_selection = int(input("GAN selection\n0 - DCGAN\n1 - WGAN\nSelected GAN: "))
 		if gan_selection == 0:
 			gan = DCGAN(DATASET_PATH, training_progress_save_path="training_data/dcgan", progress_image_dim=(16, 9),
-			            batch_size=BATCH_SIZE, buffered_batches=50, test_batches=5,
+			            batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES, test_batches=5,
 			            latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
 			            generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.00018, 0.5),
-			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.985, discriminator_label_noise_min=0.01,
+			            discriminator_label_noise=0.2, discriminator_label_noise_decay=0.988, discriminator_label_noise_min=0.02,
 			            generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
 			            start_episode=START_EPISODE,
 			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
@@ -81,7 +83,7 @@ if __name__ == '__main__':
 
 		elif gan_selection == 1:
 			gan = WGANGC(DATASET_PATH, training_progress_save_path="training_data/wgan", progress_image_dim=(16, 9),
-			             batch_size=BATCH_SIZE, buffered_batches=100,
+			             batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
 			             latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, critic_mod_name=DISC_MODEL,
 			             generator_optimizer=optimizers.RMSprop(0.00005), critic_optimizer=optimizers.RMSprop(0.00005),  # Adam(0.0001, beta_1=0.5, beta_2=0.9), RMSprop(0.00005)
 			             generator_weights=GEN_WEIGHTS, critic_weights=DICS_WEIGHTS,
