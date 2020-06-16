@@ -319,7 +319,7 @@ class DCGAN:
 				# Evaluate models state
 				disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
 				disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-				gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), np.ones(shape=(self.batch_size, 1)))
+				gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size * self.test_batches, self.latent_dim)), np.ones(shape=(self.batch_size * self.test_batches, 1)))
 
 				# Convert accuracy to percents
 				disc_real_acc *= 100
@@ -361,15 +361,15 @@ class DCGAN:
 
 				# Check norm gradient
 				if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
+					print(Fore.RED + f"Current generator norm gradient: {norm_gradient}")
 					print("Gradient too high!" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
 				elif norm_gradient < 0.2 and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"\nCurrent generator norm gradient: {norm_gradient}")
+					print(Fore.RED + f"Current generator norm gradient: {norm_gradient}")
 					print("Gradient vanished!" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
 				else:
-					print(Fore.BLUE + f"\nCurrent generator norm gradient: {norm_gradient}" + Fore.RESET)
+					print(Fore.BLUE + f"Current generator norm gradient: {norm_gradient}" + Fore.RESET)
 
 				# Change seed
 				np.random.seed(None)
