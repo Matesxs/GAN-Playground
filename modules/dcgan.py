@@ -85,6 +85,10 @@ class DCGAN:
 		# Define static vars
 		if os.path.exists(f"{self.training_progress_save_path}/static_noise.npy"):
 			self.static_noise = np.load(f"{self.training_progress_save_path}/static_noise.npy")
+			if self.static_noise.shape[0] != (self.progress_image_dim[0] * self.progress_image_dim[1]):
+				print(Fore.YELLOW + "Progress image dim changed, restarting static noise!" + Fore.RESET)
+				os.remove(f"{self.training_progress_save_path}/static_noise.npy")
+				self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		else:
 			self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
