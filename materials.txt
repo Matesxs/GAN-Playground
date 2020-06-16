@@ -19,3 +19,5 @@ Progressive Growing GAN - https://machinelearningmastery.com/how-to-implement-pr
 						- https://machinelearningmastery.com/how-to-train-a-progressive-growing-gan-in-keras-for-synthesizing-faces/
 
 AC-GAN - https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/
+
+DATASETS - From Kaggle
