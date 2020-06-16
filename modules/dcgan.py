@@ -166,7 +166,7 @@ class DCGAN:
 		print(Fore.GREEN + "Generator warmup started" + Fore.RESET)
 		num_batches = self.data_length // self.batch_size
 		try:
-			for _ in tqdm(range(num_of_episodes), unit="ep"):
+			for _ in tqdm(range(num_of_episodes), unit="epoch"):
 				for _ in range(num_batches):
 					images = self.batch_maker.get_batch()
 					encdec.train_on_batch(images, images)
@@ -222,7 +222,7 @@ class DCGAN:
 
 		return Model(img, m, name="discriminator_model")
 
-	def train(self, epochs:int, feed_prev_gen_batch:bool=False, feed_amount:float=0.2,
+	def train(self, epochs:int, feed_prev_gen_batch:bool=False, feed_old_perc_amount:float=0.2,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
 
@@ -260,6 +260,7 @@ class DCGAN:
 		get_gradients = self.gradient_norm_generator()
 
 		num_of_batches = self.data_length // self.batch_size
+		end_epoch = self.epoch_counter + epochs
 		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
 		for _ in range(epochs):
 			for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
@@ -283,7 +284,7 @@ class DCGAN:
 
 				if feed_prev_gen_batch:
 					if len(prev_gen_images) > 0:
-						tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_amount)
+						tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_old_perc_amount)
 						prev_gen_images += deque(gen_imgs)
 						gen_imgs = tmp_imgs
 					else:
@@ -334,12 +335,12 @@ class DCGAN:
 
 				# Change color of log according to state of training
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.RED + f"__FAIL__\n{self.epoch_counter}: [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
+					print(Fore.RED + f"__FAIL__\n{self.epoch_counter}/{end_epoch}: [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
 					if input("Do you want exit training?\n") == "y": return
 				elif (disc_real_acc < 20 or disc_fake_acc >= 100) and self.epoch_counter > self.CONTROL_THRESHOLD:
-					print(Fore.YELLOW + f"!!Warning!!\n{self.epoch_counter}: [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
+					print(Fore.YELLOW + f"!!Warning!!\n{self.epoch_counter}/{end_epoch}: [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
 				else:
-					print(Fore.GREEN + f"{self.epoch_counter}: [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
+					print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}: [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:

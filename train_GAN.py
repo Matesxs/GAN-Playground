@@ -20,24 +20,7 @@ if gpus:
 from keras import optimizers
 from modules.dcgan import DCGAN
 from modules.wasserstein_gan import WGANGC
-
-DATASET_PATH = "datasets/dogs_normalized__64x64"
-LATENT_DIM = 128
-BATCH_SIZE = 16
-BUFFERED_BATCHES = 20
-
-START_EPISODE = 0
-
-GEN_MODEL = "mod_ext_3upscl"
-GEN_WEIGHTS = None
-DISC_MODEL = "mod_base_6layers"
-DICS_WEIGHTS = None
-LOAD_FROM_CHECKPOINTS = True
-
-NUM_OF_TRAINING_EPOCHS = 100
-
-WEIGHTS_SAVE_INTERVAL = 5
-PROGRESS_IMAGE_SAVE_INTERVAL = 1
+from settings import *
 
 if __name__ == '__main__':
 	gan = None
@@ -60,7 +43,7 @@ if __name__ == '__main__':
 				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=False,
-				          feed_prev_gen_batch=True, feed_amount=0.1)
+				          feed_prev_gen_batch=True, feed_old_perc_amount=0.1)
 				if input("Continue? ") == "n": break
 
 		elif gan_selection == 1:

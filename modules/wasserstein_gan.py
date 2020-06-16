@@ -233,6 +233,7 @@ class WGANGC:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
+		end_epoch = self.epoch_counter + epochs
 		num_of_batches = self.data_length // self.batch_size
 		for _ in range(epochs):
 			for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
@@ -266,7 +267,7 @@ class WGANGC:
 					self.tensorboard.log_kernels_and_biases(self.generator)
 					self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
-				print(Fore.GREEN + f"{self.epoch_counter}: [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}: [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
