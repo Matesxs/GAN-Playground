@@ -25,7 +25,7 @@ def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropo
 
 	return x
 
-def conv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:float=0.8, leaky:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def conv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:float=None, leaky:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	assert filters > 0, "Invalid filter number"
 	assert kernel_size > 0, "Invalid kernel size"
 	assert strides > 0, "Invalid stride size"

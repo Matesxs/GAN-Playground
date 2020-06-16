@@ -19,19 +19,19 @@ def mod_base_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 	m = BatchNormalization(momentum=0.8)(m)
 
 	# (st_s, st_s, 64) -> (2*st_s, 2*st_s, 512)
-	m = deconv_layer(m, 512, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 512, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (2*st_s, 2*st_s, 512) -> (4*st_s, 4*st_s, 256)
-	m = deconv_layer(m, 256, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 256, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (4*st_s, 4*st_s, 256) -> (8*st_s, 8*st_s, 128)
-	m = deconv_layer(m, 128, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 128, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (8*st_s, 8*st_s, 128) -> (8*st_s, 8*st_s, 64)
-	m = deconv_layer(m, 64, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 64, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (8*st_s, 8*st_s, 64) -> (8*st_s, 8*st_s, 32)
-	m = deconv_layer(m, 32, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 32, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (8*st_s, 8*st_s, 32) -> (8*st_s, 8*st_s, num_ch)
 	m = Conv2D(image_channels, kernel_size=(3, 3), padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
@@ -47,22 +47,22 @@ def mod_ext_3upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_init
 	m = BatchNormalization(momentum=0.8)(m)
 
 	# (st_s, st_s, 64) -> (2*st_s, 2*st_s, 1024)
-	m = deconv_layer(m, 1024, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 1024, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (2*st_s, 2*st_s, 1024) -> (4*st_s, 4*st_s, 512)
-	m = deconv_layer(m, 512, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 512, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (4*st_s, 4*st_s, 512) -> (4*st_s, 4*st_s, 512)
-	m = deconv_layer(m, 512, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 512, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (4*st_s, 4*st_s, 512) -> (8*st_s, 8*st_s, 256)
-	m = deconv_layer(m, 256, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 256, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (8*st_s, 8*st_s, 256) -> (8*st_s, 8*st_s, 256)
-	m = deconv_layer(m, 256, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 256, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (8*st_s, 8*st_s, 256) -> (8*st_s, 8*st_s, 128)
-	m = deconv_layer(m, 128, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 128, kernel_size=3, strides=1, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (8*st_s, 8*st_s, 128) -> (8*st_s, 8*st_s, image_channels)
 	m = Conv2D(image_channels, kernel_size=(3, 3), padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
@@ -78,16 +78,16 @@ def mod_base_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
 	m = BatchNormalization(momentum=0.8)(m)
 
 	# (st_s, st_s, 64) -> (2*st_s, 2*st_s, 1024)
-	m = deconv_layer(m, 1024, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 1024, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (2*st_s, 2*st_s, 1024) -> (4*st_s, 4*st_s, 512)
-	m = deconv_layer(m, 512, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 512, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (4*st_s, 4*st_s, 512) -> (8*st_s, 8*st_s, 256)
-	m = deconv_layer(m, 256, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 256, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (8*st_s, 8*st_s, 256) -> (16*st_s, 16*st_s, 128)
-	m = deconv_layer(m, 128, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8)
+	m = deconv_layer(m, 128, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
 	# (16*st_s, 16*st_s, 128) -> (16*st_s, 16*st_s, image_channels)
 	m = Conv2D(image_channels, kernel_size=(3, 3), padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
