@@ -263,10 +263,10 @@ class WGANGC:
 
 				# Save stats
 				if self.tensorboard:
-					self.tensorboard.log_weights(self.combined_generator_model)
+					self.tensorboard.log_weights(self.generator)
 					self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
-				print(Fore.GREEN + f"\n{self.epoch_counter}: [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+				print(Fore.GREEN + f"{self.epoch_counter}: [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
