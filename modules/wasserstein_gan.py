@@ -175,12 +175,12 @@ class WGANGC:
 		self.combined_generator_model.summary()
 		self.combined_critic_model.summary()
 
-		# Load weights
-		if critic_weights: self.critic.load_weights(f"{self.training_progress_save_path}/weights/{critic_weights}/critic_{self.critic_mod_name}.h5")
-		if generator_weights: self.generator.load_weights(f"{self.training_progress_save_path}/weights/{generator_weights}/generator_{self.gen_mod_name}.h5")
-
 		# Load checkpoint
 		if load_from_checkpoint: self.load_checkpoint()
+
+		# Load weights and override checkpoint loaded weights
+		if critic_weights: self.critic.load_weights(critic_weights)
+		if generator_weights: self.generator.load_weights(generator_weights)
 
 		# Create batchmaker and start it
 		self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)

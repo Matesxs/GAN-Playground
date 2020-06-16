@@ -139,8 +139,8 @@ class DCGAN:
 		if loaded_disc_weights_path: self.discriminator.load_weights(loaded_disc_weights_path)
 
 		# Load weights from param and override checkpoint weights
-		if generator_weights: self.generator.load_weights(f"{self.training_progress_save_path}/weights/{generator_weights}/generator_{self.gen_mod_name}.h5")
-		if discriminator_weights: self.discriminator.load_weights(f"{self.training_progress_save_path}/weights/{discriminator_weights}/discriminator_{self.disc_mod_name}.h5")
+		if generator_weights: self.generator.load_weights(generator_weights)
+		if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
 
 		self.gen_labels = np.ones(shape=(self.batch_size, 1))
 
