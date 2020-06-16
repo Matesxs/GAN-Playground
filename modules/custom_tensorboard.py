@@ -24,7 +24,7 @@ class TensorBoardCustom(Callback):
 		if not self.writer:
 			self.writer = tf.summary.create_file_writer(self.log_dir)
 
-	def log_weights(self, model:keras.Model):
+	def log_kernels_and_biases(self, model:keras.Model):
 		self.init_writer_check()
 
 		with self.writer.as_default():

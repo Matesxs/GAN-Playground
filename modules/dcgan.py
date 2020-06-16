@@ -326,7 +326,7 @@ class DCGAN:
 				disc_fake_acc *= 100
 
 				if self.tensorboard:
-					self.tensorboard.log_weights(self.generator)
+					self.tensorboard.log_kernels_and_biases(self.generator)
 					self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss)
 
 				# Change color of log according to state of training

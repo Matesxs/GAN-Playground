@@ -263,7 +263,7 @@ class WGANGC:
 
 				# Save stats
 				if self.tensorboard:
-					self.tensorboard.log_weights(self.generator)
+					self.tensorboard.log_kernels_and_biases(self.generator)
 					self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
 				print(Fore.GREEN + f"{self.epoch_counter}: [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
