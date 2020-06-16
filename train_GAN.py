@@ -50,7 +50,7 @@ DISC_MODEL = "mod_ext_5layers"
 DICS_WEIGHTS = None
 LOAD_FROM_CHECKPOINTS = True
 
-NUM_OF_EPISODES = 100
+NUM_OF_TRAINING_EPOCHS = 100
 
 WEIGHTS_SAVE_INTERVAL = 5
 PROGRESS_IMAGE_SAVE_INTERVAL = 1
@@ -73,7 +73,7 @@ if __name__ == '__main__':
 			gan.save_models_structure_images()
 
 			while True:
-				gan.train(NUM_OF_EPISODES, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
+				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=False,
 				          feed_prev_gen_batch=True, feed_amount=0.1)
@@ -92,9 +92,9 @@ if __name__ == '__main__':
 			gan.save_models_structure_images()
 
 			while True:
-				gan.train(NUM_OF_EPISODES, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
-			            weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-			            critic_train_multip=5)
+				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
+				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+				          critic_train_multip=5)
 				if input("Continue? ") == "n": break
 
 		gan.save_weights()

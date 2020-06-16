@@ -29,10 +29,10 @@ tf.get_logger().setLevel('ERROR')
 colorama.init()
 
 class DCGAN:
-	CONTROL_THRESHOLD = 50
-	AGREGATE_STAT_INTERVAL = 1
-	GRADIENT_CHECK_INTERVAL = 10
-	CHECKPOINT_SAVE_INTERVAL = 1
+	CONTROL_THRESHOLD = 50 # Threshold when after whitch we will be testing training process
+	AGREGATE_STAT_INTERVAL = 1  # Interval of saving data
+	GRADIENT_CHECK_INTERVAL = 10  # Interval of checking norm gradient value of combined model
+	CHECKPOINT_SAVE_INTERVAL = 1  # Interval of saving checkpoint
 
 	def __init__(self, dataset_path:str,
 	             gen_mod_name: str, disc_mod_name: str,
@@ -67,9 +67,11 @@ class DCGAN:
 			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{pretrain}pt")
 			self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
+		# Create array of input image paths
 		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
 		self.data_length = len(self.train_data)
 
+		# Load one image to get shape of it
 		tmp_image = cv.imread(self.train_data[0])
 		self.image_shape = tmp_image.shape
 		self.image_channels = self.image_shape[2]
@@ -77,7 +79,7 @@ class DCGAN:
 		# Check image size validity
 		if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
 
-		# Check validity of datasets
+		# Check validity of whole datasets
 		self.validate_dataset()
 
 		# Define static vars
@@ -144,6 +146,7 @@ class DCGAN:
 
 		self.gen_labels = np.ones(shape=(self.batch_size, 1))
 
+	# Create basic encoder-decoder architecture and uset it to initialize generator network to not default values
 	def pretrain_generator(self, num_of_episodes):
 		dec = self.build_generator(self.gen_mod_name)
 		if dec.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
