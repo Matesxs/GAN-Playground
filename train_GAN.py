@@ -21,24 +21,6 @@ from keras import optimizers
 from modules.dcgan import DCGAN
 from modules.wasserstein_gan import WGANGC
 
-'''
-Generators:
-	mod_base_3upscl
-	mod_ext_3upscl
-	mod_base_4upscl
-	
-Discriminators:
-	mod_base_5layers
-	mod_ext_5layers
-	mod_base_6layers
-	
-Settings testing DCGAN:
-	|       Gen       |       Disc        | Lat. Dim | Epochs | Rank | Description
-	mod_base_3upscl     mod_base_5layers    128
-	mod_ext_3upscl      mod_base_6layers    128
-	mod_base_4upscl     mod_ext_5layers     128        150
-'''
-
 DATASET_PATH = "datasets/dogs_normalized__64x64"
 LATENT_DIM = 128
 BATCH_SIZE = 16
