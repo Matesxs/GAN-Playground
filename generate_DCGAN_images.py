@@ -28,13 +28,13 @@ from modules import generator_models_spreadsheet, discriminator_models_spreadshe
 latent_dim = 128
 img_shape = (64, 64, 3)
 final_size = (256, 256)
-generator_model_name = "mod_base_3upscl"
-generator_weights_path = None
-discriminator_model_name = "mod_base_5layers"
-discriminator_weights_path = None
-discriminator_realness_threshold = 0.8
+generator_model_name = "mod_base_4upscl"
+generator_weights_path = r"training_data\dcgan\mod_base_4upscl__mod_ext_5layers__5pt\weights\410\generator_mod_base_4upscl.h5"
+discriminator_model_name = "mod_ext_5layers"
+discriminator_weights_path = r"training_data\dcgan\mod_base_4upscl__mod_ext_5layers__5pt\weights\410\discriminator_mod_ext_5layers.h5"
+discriminator_realness_threshold = 0.95
 
-num_of_images = 300
+num_of_images = 20
 image_save_path = "generated_images"
 
 lat_input = Input(shape=(latent_dim,))
@@ -59,11 +59,13 @@ def generate_images():
 		noise = np.random.normal(np.random.normal(0.0, 1.0, size=(missing_images, latent_dim)))
 		images = gen_mod.predict(noise)
 
-		for image in images:
-			if disc_mod:
-				if disc_mod.predict(image.reshape(-1, *image.shape))[0][0] >= discriminator_realness_threshold:
+		if disc_mod:
+			predicted_realnesses = disc_mod.predict(images)[0]
+			for image, realness in zip(images, predicted_realnesses):
+				if realness >= discriminator_realness_threshold:
 					gen_images.append(image)
-			else:
+		else:
+			for image in images:
 				gen_images.append(image)
 				
 generate_images()
@@ -75,5 +77,6 @@ os.makedirs(image_save_path)
 
 for idx, image in enumerate(gen_images):
 	image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-	image = cv.resize(image, final_size, cv.INTER_CUBIC)
+	if img_shape[0] != final_size[0] and img_shape[0] != final_size[1]:
+		image = cv.resize(image, final_size, cv.INTER_CUBIC)
 	cv.imwrite(f"{image_save_path}/img_{idx+1}.png", image)

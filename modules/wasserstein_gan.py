@@ -25,6 +25,7 @@ from modules.batch_maker import BatchMaker
 from modules import generator_models_spreadsheet
 from modules import discriminator_models_spreadsheet
 from modules.custom_tensorboard import TensorBoardCustom
+from modules.helpers import time_to_format
 
 tf.get_logger().setLevel('ERROR')
 colorama.init()
@@ -244,6 +245,7 @@ class WGANGC:
 		end_epoch = self.epoch_counter + epochs
 		num_of_batches = self.data_length // self.batch_size
 		for _ in range(epochs):
+			ep_start = time.time()
 			for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
 				### Train Critic ###
 				for _ in range(critic_train_multip):
@@ -275,7 +277,7 @@ class WGANGC:
 					self.tensorboard.log_kernels_and_biases(self.generator)
 					self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
-				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}: [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format((time.time() - ep_start) * (end_epoch - self.epoch_counter))} - [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
