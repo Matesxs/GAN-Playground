@@ -47,7 +47,7 @@ def identity_layer(inp:Layer, filters_number_list:Union[list, int], kernel_size:
 		for filters in filters_number_list:
 			assert filters > 0, "Invalid filter number"
 
-			x = Conv2D(filters, kernel_size=(kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)
+			x = Conv2D(filters, kernel_size=(kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(x)
 
 			if batch_norm: x = BatchNormalization(momentum=batch_norm)(x)
 			if leaky: x = LeakyReLU(0.2)(x)
@@ -56,7 +56,7 @@ def identity_layer(inp:Layer, filters_number_list:Union[list, int], kernel_size:
 	else:
 		assert filters_number_list > 0, "Invalid filter number"
 
-		x = Conv2D(filters_number_list, kernel_size=(kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)
+		x = Conv2D(filters_number_list, kernel_size=(kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(x)
 
 		if batch_norm: x = BatchNormalization(momentum=batch_norm)(x)
 		if leaky:
@@ -65,7 +65,5 @@ def identity_layer(inp:Layer, filters_number_list:Union[list, int], kernel_size:
 			x = Activation("relu")(x)
 		if dropout: x = Dropout(dropout)(x)
 
-	assert x.output_shape == inp.output_shape, "Invalid filters, input filters and output filters must be the same"
 	x = Add()([x, inp])
-
 	return x
