@@ -20,6 +20,8 @@ import colorama
 from colorama import Fore
 from functools import partial
 from typing import Union
+from collections import deque
+from statistics import mean
 
 from modules.batch_maker import BatchMaker
 from modules import generator_models_spreadsheet
@@ -244,6 +246,9 @@ class WGANGC:
 
 		end_epoch = self.epoch_counter + epochs
 		num_of_batches = self.data_length // self.batch_size
+		epochs_time_history = deque(maxlen=5)
+
+		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
 		for _ in range(epochs):
 			ep_start = time.time()
 			for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
@@ -261,6 +266,7 @@ class WGANGC:
 
 			time.sleep(0.5)
 			self.epoch_counter += 1
+			epochs_time_history.append(time.time() - ep_start)
 			if self.tensorboard:
 				self.tensorboard.step = self.epoch_counter
 
@@ -277,7 +283,7 @@ class WGANGC:
 					self.tensorboard.log_kernels_and_biases(self.generator)
 					self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
-				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format((time.time() - ep_start) * (end_epoch - self.epoch_counter))} - [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:

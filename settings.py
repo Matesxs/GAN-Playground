@@ -5,7 +5,7 @@ BUFFERED_BATCHES = 20
 
 START_EPISODE = 0
 
-GEN_MODEL = "mod_base_4upscl"
+GEN_MODEL = "mod_ext_4upscl"
 GEN_WEIGHTS = None
 DISC_MODEL = "mod_ext_5layers"
 DICS_WEIGHTS = None
