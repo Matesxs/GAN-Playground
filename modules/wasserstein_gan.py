@@ -54,9 +54,9 @@ class RandomWeightedAverage(_Merge):
 		return (weights * inputs[0]) + ((1 - weights) * inputs[1])
 
 class WGANGC:
-	AGREGATE_STAT_INTERVAL = 1
-	RESET_SEEDS_INTERVAL = 10
-	CHECKPOINT_SAVE_INTERVAL = 1
+	AGREGATE_STAT_INTERVAL = 1 # Interval of saving data
+	RESET_SEEDS_INTERVAL = 10 # Interval of reseting seeds for random generators
+	CHECKPOINT_SAVE_INTERVAL = 1 # Interval of saving checkpoint
 
 	def __init__(self, dataset_path:str,
 	             gen_mod_name:str, critic_mod_name:str,
@@ -77,15 +77,18 @@ class WGANGC:
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
 
+		# Initialize training data folder and logging
 		self.training_progress_save_path = training_progress_save_path
 		self.tensorboard = None
 		if self.training_progress_save_path:
 			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.critic_mod_name}")
 			self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
+		# Create array of input image paths
 		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
 		self.data_length = len(self.train_data)
 
+		# Load one image to get shape of it
 		tmp_image = cv.imread(self.train_data[0])
 		self.image_shape = tmp_image.shape
 		self.image_channels = self.image_shape[2]
@@ -106,10 +109,6 @@ class WGANGC:
 		else:
 			self.static_noise = np.random.normal(0.0, 1.0, size=(self.progress_image_dim[0] * self.progress_image_dim[1], self.latent_dim))
 		self.kernel_initializer = RandomNormal(stddev=0.02)
-
-		self.fake_labels = np.ones((self.batch_size, 1), dtype=np.float32)
-		self.valid_labels = -self.fake_labels
-		self.gradient_labels = np.zeros((self.batch_size, 1), dtype=np.float32)
 
 		# Build critic block
 		self.critic = self.build_critic(critic_mod_name)
@@ -175,7 +174,7 @@ class WGANGC:
 		                                         partial_gp_loss],
 		                                   loss_weights=[1, 1, critic_gradient_penalty_weight])
 
-		# Summarz of combined models
+		# Summary of combined models
 		self.combined_generator_model.summary()
 		self.combined_critic_model.summary()
 
@@ -189,6 +188,11 @@ class WGANGC:
 		# Create batchmaker and start it
 		self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
 		self.batch_maker.start()
+
+		# Create some proprietary objects
+		self.fake_labels = np.ones((self.batch_size, 1), dtype=np.float32)
+		self.valid_labels = -self.fake_labels
+		self.gradient_labels = np.zeros((self.batch_size, 1), dtype=np.float32)
 
 	# Check if datasets have consistent shapes
 	def validate_dataset(self):

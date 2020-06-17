@@ -61,6 +61,7 @@ class DCGAN:
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
 
+		# Initialize training data folder and logging
 		self.training_progress_save_path = training_progress_save_path
 		self.tensorboard = None
 		if self.training_progress_save_path:
@@ -109,19 +110,25 @@ class DCGAN:
 			gen_warmed_weights = self.pretrain_generator(pretrain)
 			K.clear_session()
 
-		# Build discriminator
+		#################################
+		###   Create discriminator    ###
+		#################################
 		self.discriminator = self.build_discriminator(disc_mod_name)
 		self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['binary_accuracy'])
 		print("\nDiscriminator Sumary:")
 		self.discriminator.summary()
 
-		# Build generator
+		#################################
+		###     Create generator      ###
+		#################################
 		self.generator = self.build_generator(gen_mod_name)
 		if self.generator.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
 		print("\nGenerator Sumary:")
 		self.generator.summary()
 
-		# Generator takes noise and generates images
+		#################################
+		### Create combined generator ###
+		#################################
 		noise_input = Input(shape=(self.latent_dim,), name="noise_input")
 		gen_images = self.generator(noise_input)
 
@@ -137,6 +144,7 @@ class DCGAN:
 		self.combined_generator_model = Model(noise_input, valid, name="dcgan_model")
 		self.combined_generator_model.compile(loss="binary_crossentropy", optimizer=self.generator_optimizer)
 
+		# When warming happened then load that weights
 		if gen_warmed_weights:
 			self.generator.set_weights(gen_warmed_weights)
 
@@ -148,6 +156,7 @@ class DCGAN:
 		if generator_weights: self.generator.load_weights(generator_weights)
 		if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
 
+		# Create some proprietary objects
 		self.gen_labels = np.ones(shape=(self.batch_size, 1))
 
 	# Create basic encoder-decoder architecture and uset it to initialize generator network to not default values
