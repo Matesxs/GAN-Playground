@@ -351,7 +351,7 @@ class DCGAN:
 
 				if self.tensorboard:
 					self.tensorboard.log_kernels_and_biases(self.generator)
-					self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss)
+					self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
 				# Change color of log according to state of training
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
