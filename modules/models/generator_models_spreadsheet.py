@@ -4,8 +4,8 @@ from keras.layers import Layer, Dense, BatchNormalization, Reshape, Conv2D, Acti
 from modules.models.custom_layers import deconv_layer, identity_layer
 
 # Calculate start image size based on final image size and number of upscales
-def count_upscaling_start_size(image_shape: tuple, num_of_upscales: int):
-	upsc = (image_shape[0] // (2 ** num_of_upscales), image_shape[1] // (2 ** num_of_upscales))
+def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
+	upsc = (target_image_shape[0] // (2 ** num_of_upscales), target_image_shape[1] // (2 ** num_of_upscales))
 	if upsc[0] < 1 or upsc[1] < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
 	return upsc
 
