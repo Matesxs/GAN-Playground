@@ -54,6 +54,15 @@ class BatchMaker(Thread):
 		while not self.batches: time.sleep(0.01)
 		return self.batches.popleft()
 
+	def get_batch_resized_and_original(self, final_size):
+		def resize_image(image):
+			return cv.resize(image, dsize=(final_size[0], final_size[1]), interpolation=(cv.INTER_AREA if (image.shape[0] > final_size[0] and image.shape[1] > final_size[1]) else cv.INTER_CUBIC))
+
+		while not self.batches: time.sleep(0.01)
+		batch = self.batches.popleft()
+		new_batch = self.worker_pool.map(resize_image, batch)
+		return batch, np.array(new_batch)
+
 	def get_larger_batch(self, num_of_batches_to_merge:int):
 		batch = []
 		for _ in range(num_of_batches_to_merge):
