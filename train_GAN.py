@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 stdin = sys.stdin
@@ -66,12 +67,12 @@ if __name__ == '__main__':
 				if input("Continue? ") == "n": break
 
 		elif gan_selection == 2:
-			gan = SRGAN(DATASET_PATH, num_of_upscales=3,
+			gan = SRGAN(DATASET_SR_PATH, num_of_upscales=2, training_progress_save_path="training_data/srgan",
 			            batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
-			            gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
+			            gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
 			            generator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08), discriminator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
 			            discriminator_label_noise=None, discriminator_label_noise_decay=0.997, discriminator_label_noise_min=0.03,
-			            generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
+			            generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
 			            start_episode=START_EPISODE,
 			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS)
 
@@ -95,3 +96,4 @@ if __name__ == '__main__':
 			gan.save_checkpoint()
 		else:
 			print(f"Creating GAN failed\n{e}")
+			traceback.print_exc()

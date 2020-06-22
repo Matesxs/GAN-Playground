@@ -10,12 +10,12 @@ def mod_srgan_base(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kern
 
 	skip = m
 
-	for _ in range(16):
+	for _ in range(4):
 		m = res_block(m, 64, 3, 1, kernel_initializer=kernel_initializer)
 
 	m = Conv2D(filters=64, kernel_size=3, strides=1, padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization(momentum=0.5)(m)
-	m = Add([skip, m])
+	m = Add()([skip, m])
 
 	for _ in range(num_of_upscales):
 		m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, kernel_initializer=kernel_initializer)

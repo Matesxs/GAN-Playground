@@ -20,6 +20,8 @@ from tqdm import tqdm
 import json
 import random
 import time
+import imagesize
+from multiprocessing.pool import ThreadPool
 
 from modules.models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet
 from modules.custom_tensorboard import TensorBoardCustom
@@ -43,7 +45,6 @@ class VGG_LOSS(object):
 	def vgg_loss(self, y_true, y_pred):
 		vgg19 = VGG19(include_top=False, weights='imagenet', input_shape=self.image_shape)
 		vgg19.trainable = False
-		# Make trainable as False
 		for l in vgg19.layers:
 			l.trainable = False
 		model = Model(inputs=vgg19.input, outputs=vgg19.get_layer('block5_conv4').output)
@@ -128,7 +129,6 @@ class SRGAN:
 		###     Create generator      ###
 		#################################
 		self.generator = self.build_generator(gen_mod_name)
-		self.discriminator.compile(loss=self.loss_object.vgg_loss, optimizer=generator_optimizer)
 		if self.generator.output_shape[1:] != self.target_image_shape: raise Exception("Invalid image input size for this generator model")
 		print("\nGenerator Sumary:")
 		self.generator.summary()
@@ -148,7 +148,7 @@ class SRGAN:
 
 		# Combine models
 		# Train generator to fool discriminator
-		self.combined_generator_model = Model(small_image_input, [gen_images, valid], name="srgan_model")
+		self.combined_generator_model = Model(small_image_input, outputs=[gen_images, valid], name="srgan_model")
 		self.combined_generator_model.compile(loss=[self.loss_object.vgg_loss, "binary_crossentropy"],
 		                                      loss_weights=[1., 1e-3],
 		                                      optimizer=generator_optimizer)
@@ -165,10 +165,17 @@ class SRGAN:
 
 	# Check if datasets have consistent shapes
 	def validate_dataset(self):
-		for im_path in self.train_data:
-			im_shape = cv.imread(im_path).shape
-			if im_shape != self.target_image_shape:
-				raise Exception("Inconsistent datasets")
+		def check_image(image_path):
+			im_shape = imagesize.get(image_path)
+			if im_shape[0] != self.target_image_shape[0] or im_shape[1] != self.target_image_shape[1]:
+				return False
+			return True
+
+		print("Checking dataset validity")
+		with ThreadPool(processes=8) as p:
+			res = p.map(check_image, self.train_data)
+			if not all(res): raise Exception("Inconsistent dataset")
+
 		print("Dataset valid")
 
 	# Create generator based on template selected by name
@@ -350,7 +357,7 @@ class SRGAN:
 			"test_image": self.progress_test_image_path
 		}
 
-		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json", encoding='utf-8'), "w") as f:
+		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "w", encoding='utf-8') as f:
 			json.dump(data, f)
 
 	def make_progress_gif(self, frame_duration:int=16):

@@ -21,6 +21,8 @@ from functools import partial
 from typing import Union
 from collections import deque
 from statistics import mean
+import imagesize
+from multiprocessing.pool import ThreadPool
 
 from modules.batch_maker import BatchMaker
 from modules.models import discriminator_models_spreadsheet, generator_models_spreadsheet
@@ -197,10 +199,17 @@ class WGANGC:
 
 	# Check if datasets have consistent shapes
 	def validate_dataset(self):
-		for im_path in self.train_data:
-			im_shape = cv.imread(im_path).shape
-			if im_shape != self.image_shape:
-				raise Exception("Inconsistent datasets")
+		def check_image(image_path):
+			im_shape = imagesize.get(image_path)
+			if im_shape[0] != self.image_shape[0] or im_shape[1] != self.image_shape[1]:
+				return False
+			return True
+
+		print("Checking dataset validity")
+		with ThreadPool(processes=8) as p:
+			res = p.map(check_image, self.train_data)
+			if not all(res): raise Exception("Inconsistent dataset")
+
 		print("Dataset valid")
 
 	# Create generator based on template selected by name
@@ -362,7 +371,7 @@ class WGANGC:
 			"critic_path": f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5"
 		}
 
-		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json", encoding='utf-8'), "w") as f:
+		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "w", encoding='utf-8') as f:
 			json.dump(data, f)
 
 	def save_weights(self):

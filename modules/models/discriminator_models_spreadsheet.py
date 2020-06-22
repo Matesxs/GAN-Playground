@@ -1,4 +1,4 @@
-from keras.layers import Layer, Conv2D, BatchNormalization, Flatten, Dropout, Dense
+from keras.layers import Layer, Conv2D, BatchNormalization, Flatten, Dropout
 from keras.layers.advanced_activations import LeakyReLU
 from keras.initializers import Initializer, RandomNormal
 
@@ -75,7 +75,8 @@ def mod_base_9layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stdd
 	m = conv_layer(m, 512, kernel_size=3, strides=1, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
 	m = conv_layer(m, 512, kernel_size=3, strides=2, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
 
-	m = Flatten()(m)
+	m = conv_layer(m, 1024, kernel_size=3, strides=1, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
+	m = conv_layer(m, 1024, kernel_size=3, strides=2, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
 
-	m = Dense(1024)(m)
+	m = Flatten()(m)
 	return m

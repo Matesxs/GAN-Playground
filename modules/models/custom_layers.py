@@ -53,7 +53,7 @@ def res_block(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, kernel_i
 	model = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer)(model)
 	model = BatchNormalization(momentum=0.5)(model)
 
-	model = Add([gen, model])
+	model = Add()([gen, model])
 
 	return model
 

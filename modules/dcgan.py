@@ -19,6 +19,8 @@ from collections import deque
 from typing import Union
 import json
 from statistics import mean
+import imagesize
+from multiprocessing.pool import ThreadPool
 
 from modules.batch_maker import BatchMaker
 from modules.models import discriminator_models_spreadsheet, generator_models_spreadsheet
@@ -204,10 +206,17 @@ class DCGAN:
 
 	# Check if datasets have consistent shapes
 	def validate_dataset(self):
-		for im_path in self.train_data:
-			im_shape = cv.imread(im_path).shape
-			if im_shape != self.image_shape:
-				raise Exception("Inconsistent datasets")
+		def check_image(image_path):
+			im_shape = imagesize.get(image_path)
+			if im_shape[0] != self.image_shape[0] or im_shape[1] != self.image_shape[1]:
+				return False
+			return True
+
+		print("Checking dataset validity")
+		with ThreadPool(processes=8) as p:
+			res = p.map(check_image, self.train_data)
+			if not all(res): raise Exception("Inconsistent dataset")
+
 		print("Dataset valid")
 
 	# Create generator based on template selected by name
