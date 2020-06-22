@@ -4,12 +4,17 @@ from typing import Union
 import tensorflow as tf
 import keras.backend as K
 from keras.optimizers import Optimizer, Adam
+from keras.layers import Input, Dense
 from keras.models import Model
+from keras.engine.network import Network
 from keras.applications.vgg19 import VGG19
 from keras.initializers import RandomNormal
 import cv2 as cv
+import json
 
+from modules.models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet
 from modules.custom_tensorboard import TensorBoardCustom
+from modules.batch_maker import BatchMaker
 
 tf.get_logger().setLevel('ERROR')
 colorama.init()
@@ -88,6 +93,57 @@ class SRGAN:
 		# Define static vars
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
+		# Create batchmaker and start it
+		self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
+		self.batch_maker.start()
+
+		# Loss object
+		self.loss_object = VGG_LOSS(self.target_image_shape)
+
+		#################################
+		###   Create discriminator    ###
+		#################################
+		self.discriminator = self.build_discriminator(disc_mod_name)
+		self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer)
+		print("\nDiscriminator Sumary:")
+		self.discriminator.summary()
+
+		#################################
+		###     Create generator      ###
+		#################################
+		self.generator = self.build_generator(gen_mod_name)
+		self.discriminator.compile(loss=self.loss_object.vgg_loss, optimizer=generator_optimizer)
+		if self.generator.output_shape[1:] != self.target_image_shape: raise Exception("Invalid image input size for this generator model")
+		print("\nGenerator Sumary:")
+		self.generator.summary()
+
+		#################################
+		### Create combined generator ###
+		#################################
+		small_image_input = Input(shape=self.start_image_shape, name="small_image_input")
+		gen_images = self.generator(small_image_input)
+
+		# Create frozen version of discriminator
+		frozen_discriminator = Network(self.discriminator.inputs, self.discriminator.outputs, name="frozen_discriminator")
+		frozen_discriminator.trainable = False
+
+		# Discriminator takes images and determinates validity
+		valid = frozen_discriminator(gen_images)
+
+		# Combine models
+		# Train generator to fool discriminator
+		self.combined_generator_model = Model(small_image_input, [gen_images, valid], name="srgan_model")
+		self.combined_generator_model.compile(loss=[self.loss_object.vgg_loss, "binary_crossentropy"],
+		                                      loss_weights=[1., 1e-3],
+		                                      optimizer=generator_optimizer)
+
+		# Load checkpoint
+		if load_from_checkpoint: self.load_checkpoint()
+
+		# Load weights from param and override checkpoint weights
+		if generator_weights: self.generator.load_weights(generator_weights)
+		if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
+
 	# Check if datasets have consistent shapes
 	def validate_dataset(self):
 		for im_path in self.train_data:
@@ -95,3 +151,56 @@ class SRGAN:
 			if im_shape != self.target_image_shape:
 				raise Exception("Inconsistent datasets")
 		print("Dataset valid")
+
+	# Create generator based on template selected by name
+	def build_generator(self, model_name:str):
+		small_image_input = Input(shape=self.start_image_shape)
+
+		try:
+			m = getattr(upscaling_generator_models_spreadsheet, model_name)(small_image_input, self.start_image_shape, self.num_of_upscales, self.kernel_initializer)
+		except Exception as e:
+			raise Exception(f"Generator model not found!\n{e}")
+
+		return Model(small_image_input, m, name="generator_model")
+
+	# Create discriminator based on teplate selected by name
+	def build_discriminator(self, model_name:str, classification:bool=True):
+		img = Input(shape=self.target_image_shape)
+
+		try:
+			m = getattr(discriminator_models_spreadsheet, model_name)(img, self.kernel_initializer)
+		except Exception as e:
+			raise Exception(f"Discriminator model not found!\n{e}")
+
+		if classification:
+			m = Dense(1, activation="sigmoid")(m)
+
+		return Model(img, m, name="discriminator_model")
+
+	def load_checkpoint(self):
+		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
+		if not os.path.exists(os.path.join(checkpoint_base_path, "checkpoint_data.json")): return
+
+		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "rb") as f:
+			data = json.load(f)
+
+			if data:
+				self.epoch_counter = int(data["episode"])
+				self.generator.load_weights(data["gen_path"])
+				self.discriminator.load_weights(data["disc_path"])
+
+	def save_checkpoint(self):
+		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
+		if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
+
+		self.generator.save_weights(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5")
+		self.discriminator.save_weights(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5")
+
+		data = {
+			"episode": self.epoch_counter,
+			"gen_path": f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5",
+			"disc_path": f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5"
+		}
+
+		with open(os.path.join(checkpoint_base_path, "checkpoint_data.json", encoding='utf-8'), "w") as f:
+			json.dump(data, f)
