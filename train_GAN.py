@@ -76,6 +76,3 @@ if __name__ == '__main__':
 			gan.save_checkpoint()
 		else:
 			print(f"Creating GAN failed\n{e}")
-
-	if gan:
-		if input("Generate collage?\n") == "y": gan.generate_collage(collage_dims=(16, 9))

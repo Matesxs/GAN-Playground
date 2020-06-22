@@ -1,6 +1,5 @@
 import json
 import os
-import matplotlib.pyplot as plt
 import numpy as np
 from keras.optimizers import RMSprop, Optimizer
 from keras.models import Model
@@ -227,14 +226,13 @@ class WGANGC:
 		m = Dense(1)(m)
 		return Model(img_input, m, name="critic_model")
 
-	def train(self, epochs:int=500000,
+	def train(self, epochs:int,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
 	          critic_train_multip:int=5):
 
 		# Check arguments and input data
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
-		if self.data_length < self.batch_size or self.batch_size%2 != 0 or self.batch_size < 4: raise Exception("Invalid batch size")
 		if self.train_data is None: raise Exception("No datasets loaded")
 		if critic_train_multip < 1: raise Exception("Invalid critic training multiplier")
 
@@ -305,6 +303,8 @@ class WGANGC:
 		# Shutdown helper threads
 		print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
 		self.batch_maker.terminate = True
+		self.save_checkpoint()
+		self.save_weights()
 		self.batch_maker.join()
 		print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
@@ -328,46 +328,6 @@ class WGANGC:
 				cnt += 1
 		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
 		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
-
-	def generate_collage(self, collage_dims:tuple=(16, 9), save_path: str = "."):
-		gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(collage_dims[0] * collage_dims[1], self.latent_dim)))
-
-		# Rescale images 0 to 255
-		gen_imgs = (0.5 * gen_imgs + 0.5) * 255
-
-		final_image = np.zeros(shape=(self.image_shape[0] * collage_dims[1], self.image_shape[1] * collage_dims[0], self.image_channels)).astype(np.float32)
-
-		cnt = 0
-		for i in range(collage_dims[1]):
-			for j in range(collage_dims[0]):
-				if self.image_channels == 3:
-					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), :] = gen_imgs[cnt]
-				else:
-					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
-				cnt += 1
-		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
-		cv.imwrite(f"{save_path}/collage.png", final_image)
-
-	def show_current_state(self, num_of_states:int=1, progress_image_num:int=3):
-		for _ in range(num_of_states):
-			gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, size=(progress_image_num * progress_image_num, self.latent_dim)))
-
-			# Rescale images 0 to 1
-			gen_imgs = 0.5 * gen_imgs + 0.5
-
-			fig, axs = plt.subplots(progress_image_num, progress_image_num)
-
-			cnt = 0
-			for i in range(progress_image_num):
-				for j in range(progress_image_num):
-					if self.image_channels == 3:
-						axs[i, j].imshow(gen_imgs[cnt])
-					else:
-						axs[i, j].imshow(gen_imgs[cnt, :, :, 0], cmap="gray")
-					axs[i, j].axis('off')
-					cnt += 1
-			plt.show()
-			plt.close()
 
 	def save_models_structure_images(self, save_path:str=None):
 		if save_path is None: save_path = self.training_progress_save_path + "/model_structures"
