@@ -299,7 +299,7 @@ class SRGAN:
 
 	def __save_img(self):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
-		gen_img = self.generator.predict(np.array([cv.cvtColor(cv.imread(self.progress_test_image_path), cv.COLOR_BGR2RGB) / 127.5 - 1.0]).astype(np.float32))
+		gen_img = self.generator.predict(cv.cvtColor(cv.imread(self.progress_test_image_path), cv.COLOR_BGR2RGB) / 127.5 - 1.0)
 
 		# Rescale images 0 to 255
 		gen_img = (0.5 * gen_img + 0.5) * 255

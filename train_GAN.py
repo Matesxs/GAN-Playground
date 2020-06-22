@@ -20,12 +20,13 @@ if gpus:
 from keras import optimizers
 from modules.dcgan import DCGAN
 from modules.wasserstein_gan import WGANGC
+from modules.srgan import SRGAN
 from settings import *
 
 if __name__ == '__main__':
 	gan = None
 	try:
-		gan_selection = int(input("GAN selection\n0 - DCGAN\n1 - WGAN\nSelected GAN: "))
+		gan_selection = int(input("GAN selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\nSelected GAN: "))
 		if gan_selection == 0:
 			gan = DCGAN(DATASET_PATH, training_progress_save_path="training_data/dcgan", progress_image_dim=(16, 9),
 			            batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES, test_batches=5,
@@ -62,6 +63,24 @@ if __name__ == '__main__':
 				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          critic_train_multip=5)
+				if input("Continue? ") == "n": break
+
+		elif gan_selection == 2:
+			gan = SRGAN(DATASET_PATH, num_of_upscales=3,
+			            batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
+			            gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
+			            generator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08), discriminator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
+			            discriminator_label_noise=None, discriminator_label_noise_decay=0.997, discriminator_label_noise_min=0.03,
+			            generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
+			            start_episode=START_EPISODE,
+			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS)
+
+			gan.save_models_structure_images()
+
+			while True:
+				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
+				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+				          discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False)
 				if input("Continue? ") == "n": break
 
 		gan.save_weights()
