@@ -2,7 +2,7 @@ from keras.layers import Layer, Conv2D, BatchNormalization, Flatten, Dropout
 from keras.layers.advanced_activations import LeakyReLU
 from keras.initializers import Initializer, RandomNormal
 
-from modules.custom_layers import conv_layer
+from modules.models.custom_layers import conv_layer
 
 def mod_base_5layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	m = conv_layer(inp, 32, kernel_size=3, strides=2, dropout=0.25, batch_norm=None, leaky=True, kernel_initializer=kernel_initializer)

@@ -22,8 +22,7 @@ import json
 from statistics import mean
 
 from modules.batch_maker import BatchMaker
-from modules import generator_models_spreadsheet
-from modules import discriminator_models_spreadsheet
+from modules.models import discriminator_models_spreadsheet, generator_models_spreadsheet
 from modules.custom_tensorboard import TensorBoardCustom
 from modules.helpers import time_to_format
 

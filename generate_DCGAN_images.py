@@ -23,7 +23,7 @@ from keras.layers import Input, Dense
 import numpy as np
 import cv2 as cv
 
-from modules import generator_models_spreadsheet, discriminator_models_spreadsheet
+from modules.models import discriminator_models_spreadsheet, generator_models_spreadsheet
 
 latent_dim = 128
 img_shape = (64, 64, 3)

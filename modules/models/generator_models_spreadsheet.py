@@ -1,7 +1,7 @@
 from keras.initializers import Initializer, RandomNormal
 from keras.layers import Layer, Dense, BatchNormalization, Reshape, Conv2D, Activation
 
-from modules.custom_layers import deconv_layer, identity_layer
+from modules.models.custom_layers import deconv_layer, identity_layer
 
 # Calculate start image size based on final image size and number of upscales
 def count_upscaling_start_size(image_shape: tuple, num_of_upscales: int):
