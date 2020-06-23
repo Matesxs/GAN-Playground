@@ -210,12 +210,12 @@ class WGANGC:
 				return False
 			return True
 
-		print("Checking dataset validity")
+		print(Fore.BLUE + "Checking dataset validity" + Fore.RESET)
 		with ThreadPool(processes=8) as p:
 			res = p.map(check_image, self.train_data)
 			if not all(res): raise Exception("Inconsistent dataset")
 
-		print("Dataset valid")
+		print(Fore.BLUE + "Dataset valid" + Fore.RESET)
 
 	# Create generator based on template selected by name
 	def build_generator(self, model_name:str):

@@ -20,4 +20,7 @@ Progressive Growing GAN - https://machinelearningmastery.com/how-to-implement-pr
 
 AC-GAN - https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/
 
+SRGAN - https://arxiv.org/pdf/1609.04802.pdf
+	  - https://github.com/deepak112/Keras-SRGAN/blob/master/Network.py
+
 DATASETS - From Kaggle

@@ -151,11 +151,11 @@ class SRGAN:
 		frozen_discriminator.trainable = False
 
 		# Discriminator takes images and determinates validity
-		valid = frozen_discriminator(gen_images)
+		validity = frozen_discriminator(gen_images)
 
 		# Combine models
 		# Train generator to fool discriminator
-		self.combined_generator_model = Model(small_image_input, outputs=[gen_images, valid], name="srgan_model")
+		self.combined_generator_model = Model(small_image_input, outputs=[gen_images, validity], name="srgan_model")
 		self.combined_generator_model.compile(loss=[self.loss_object.vgg_loss, "binary_crossentropy"],
 		                                      loss_weights=[1., 1e-3],
 		                                      optimizer=generator_optimizer)
@@ -178,12 +178,12 @@ class SRGAN:
 				return False
 			return True
 
-		print("Checking dataset validity")
+		print(Fore.BLUE + "Checking dataset validity" + Fore.RESET)
 		with ThreadPool(processes=8) as p:
 			res = p.map(check_image, self.train_data)
 			if not all(res): raise Exception("Inconsistent dataset")
 
-		print("Dataset valid")
+		print(Fore.BLUE + "Dataset valid" + Fore.RESET)
 
 	# Create generator based on template selected by name
 	def build_generator(self, model_name:str):
