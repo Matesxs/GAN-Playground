@@ -2,7 +2,7 @@
 DATASET_PATH = "datasets/dogs_normalized__64x64"
 LATENT_DIM = 128
 BATCH_SIZE = 16
-BUFFERED_BATCHES = 10
+BUFFERED_BATCHES = 20
 
 START_EPISODE = 0
 
@@ -14,7 +14,7 @@ DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/
 # Settings of SR gans
 DATASET_SR_PATH = "datasets/faces_normalized__256x256"
 BATCH_SIZE_SR = 4
-BUFFERED_BATCHES_SR = 10
+BUFFERED_BATCHES_SR = 20
 
 START_EPISODE_SR = 0
 
