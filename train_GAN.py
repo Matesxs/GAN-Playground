@@ -45,6 +45,7 @@ if __name__ == '__main__':
 				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=False,
+				          generator_smooth_labels=False,
 				          feed_prev_gen_batch=True, feed_old_perc_amount=0.15)
 				if input("Continue? ") == "n": break
 
@@ -82,7 +83,8 @@ if __name__ == '__main__':
 			while True:
 				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-				          discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False)
+				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
+				          generator_smooth_labels=True)
 				if input("Continue? ") == "n": break
 
 		gan.save_weights()

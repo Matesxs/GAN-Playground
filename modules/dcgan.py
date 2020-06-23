@@ -164,9 +164,6 @@ class DCGAN:
 		if generator_weights: self.generator.load_weights(generator_weights)
 		if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
 
-		# Create some proprietary objects
-		self.gen_labels = np.ones(shape=(self.batch_size, 1))
-
 	# Create basic encoder-decoder architecture and uset it to initialize generator network to not default values
 	def pretrain_generator(self, num_of_episodes):
 		dec = self.build_generator(self.gen_mod_name)
@@ -252,7 +249,8 @@ class DCGAN:
 
 	def train(self, epochs:int, feed_prev_gen_batch:bool=False, feed_old_perc_amount:float=0.2,
 	          progress_images_save_interval:int=None, weights_save_interval:int=None,
-	          discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
+	          discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
+	          generator_smooth_labels:bool=False):
 
 		# Function for adding random noise to labels (flipping them)
 		def noising_labels(labels: np.ndarray, noise_ammount:float=0.01):
@@ -304,12 +302,12 @@ class DCGAN:
 
 				# Train discriminator (real as ones and fake as zeros)
 				if discriminator_smooth_real_labels:
-					disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
+					disc_real_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
 				else:
 					disc_real_labels = np.ones(shape=(self.batch_size, 1))
 
 				if discriminator_smooth_fake_labels:
-					disc_fake_labels = np.random.uniform(0, 0.3, size=(self.batch_size, 1))
+					disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
 				else:
 					disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
 
@@ -331,7 +329,11 @@ class DCGAN:
 
 				### Train Generator ###
 				# Train generator (wants discriminator to recognize fake images as valid)
-				self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.gen_labels)
+				if generator_smooth_labels:
+					gen_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
+				else:
+					gen_labels = np.ones(shape=(self.batch_size, 1))
+				self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), gen_labels)
 
 			time.sleep(0.5)
 			self.epoch_counter += 1
