@@ -17,7 +17,7 @@ DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/
 # Settings of SR gans
 DATASET_SR_PATH = "datasets/All_normalized__256x256"
 
-NUM_OF_TRAINING_EPOCHS_SR = 200
+NUM_OF_TRAINING_EPOCHS_SR = 5
 
 BATCH_SIZE_SR = 4
 CUSTOM_BATCHES_PER_EPOCH = None
