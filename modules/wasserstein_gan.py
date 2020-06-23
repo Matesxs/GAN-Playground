@@ -256,7 +256,11 @@ class WGANGC:
 
 		end_epoch = self.epoch_counter + epochs
 		num_of_batches = self.data_length // self.batch_size
+
 		epochs_time_history = deque(maxlen=5)
+
+		if self.epoch_counter == 0:
+			self.tensorboard.log_kernels_and_biases(self.generator)
 
 		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
 		for _ in range(epochs):

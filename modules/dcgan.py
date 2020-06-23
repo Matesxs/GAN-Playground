@@ -289,6 +289,9 @@ class DCGAN:
 
 		epochs_time_history = deque(maxlen=5)
 
+		if self.epoch_counter == 0:
+			self.tensorboard.log_kernels_and_biases(self.generator)
+
 		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
 		for _ in range(epochs):
 			ep_start = time.time()
