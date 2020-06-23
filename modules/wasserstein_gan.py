@@ -63,7 +63,7 @@ class WGANGC:
 
 	def __init__(self, dataset_path:str,
 	             gen_mod_name:str, critic_mod_name:str,
-	             latent_dim:int, training_progress_save_path:str=None, progress_image_dim:tuple=(16, 9),
+	             latent_dim:int, training_progress_save_path:str=None,
 	             generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
 	             batch_size:int=32, buffered_batches:int=20,
 	             generator_weights:Union[str, None, int]=None, critic_weights:Union[str, None, int]=None,
@@ -78,7 +78,7 @@ class WGANGC:
 		self.batch_size = batch_size
 		assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
 
-		self.progress_image_dim = progress_image_dim
+		self.progress_image_dim = (16, 9)
 
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode

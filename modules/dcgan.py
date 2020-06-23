@@ -38,7 +38,7 @@ class DCGAN:
 
 	def __init__(self, dataset_path:str,
 	             gen_mod_name: str, disc_mod_name: str,
-	             latent_dim:int=128, training_progress_save_path:str=None, progress_image_dim:tuple=(10, 10),
+	             latent_dim:int=128, training_progress_save_path:str=None,
 	             generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
 	             discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
 	             batch_size: int = 32, buffered_batches:int=20, test_batches:int=1,
@@ -63,7 +63,7 @@ class DCGAN:
 		self.discriminator_label_noise_decay = discriminator_label_noise_decay
 		self.discriminator_label_noise_min = discriminator_label_noise_min
 
-		self.progress_image_dim = progress_image_dim
+		self.progress_image_dim = (16, 9)
 
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
