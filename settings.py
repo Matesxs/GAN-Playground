@@ -1,5 +1,8 @@
 # Settings of classic gans
 DATASET_PATH = "datasets/dogs_normalized__64x64"
+
+NUM_OF_TRAINING_EPOCHS = 200
+
 LATENT_DIM = 128
 BATCH_SIZE = 16
 BUFFERED_BATCHES = 20
@@ -13,6 +16,9 @@ DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/
 
 # Settings of SR gans
 DATASET_SR_PATH = "datasets/All_normalized__256x256"
+
+NUM_OF_TRAINING_EPOCHS_SR = 200
+
 BATCH_SIZE_SR = 4
 CUSTOM_BATCHES_PER_EPOCH = None
 BUFFERED_BATCHES_SR = 20
@@ -26,8 +32,6 @@ DICS_SR_WEIGHTS = None
 
 # General settings
 LOAD_FROM_CHECKPOINTS = True
-
-NUM_OF_TRAINING_EPOCHS = 200
 
 WEIGHTS_SAVE_INTERVAL = 5
 PROGRESS_IMAGE_SAVE_INTERVAL = 1
