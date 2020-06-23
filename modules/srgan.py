@@ -81,7 +81,7 @@ class SRGAN:
 
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
-		if custom_batches_per_epochs < 1: custom_batches_per_epochs = None
+		if custom_batches_per_epochs and custom_batches_per_epochs < 1: custom_batches_per_epochs = None
 		self.custom_batches_per_epochs = custom_batches_per_epochs
 
 		# Create array of input image paths
