@@ -71,10 +71,11 @@ if __name__ == '__main__':
 			            batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR,
 			            gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
 			            generator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08), discriminator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
-			            discriminator_label_noise=None, discriminator_label_noise_decay=0.997, discriminator_label_noise_min=0.03,
+			            discriminator_label_noise=None, discriminator_label_noise_decay=0.995, discriminator_label_noise_min=0.03,
 			            generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
 			            start_episode=START_EPISODE_SR,
-			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS)
+			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
+			            custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH)
 
 			gan.save_models_structure_images()
 
@@ -92,8 +93,8 @@ if __name__ == '__main__':
 			gan.save_checkpoint()
 	except Exception as e:
 		if gan:
-			print(f"Exception on epoch: {gan.epoch_counter}\n{e}")
+			print(f"Exception on epoch: {gan.epoch_counter}")
 			gan.save_checkpoint()
 		else:
-			print(f"Creating GAN failed\n{e}")
-			traceback.print_exc()
+			print(f"Creating GAN failed")
+		traceback.print_exc()

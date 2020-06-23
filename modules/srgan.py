@@ -64,7 +64,8 @@ class SRGAN:
 	             discriminator_label_noise: float = None, discriminator_label_noise_decay: float = None, discriminator_label_noise_min: float = 0.001,
 	             batch_size: int = 32, buffered_batches:int=20,
 	             generator_weights: Union[str, None, int] = None, discriminator_weights: Union[str, None, int] = None,
-	             start_episode: int = 0, load_from_checkpoint: bool = False):
+	             start_episode: int = 0, load_from_checkpoint: bool = False,
+	             custom_batches_per_epochs:int=None):
 
 		self.disc_mod_name = disc_mod_name
 		self.gen_mod_name = gen_mod_name
@@ -75,9 +76,12 @@ class SRGAN:
 		self.discriminator_label_noise_min = discriminator_label_noise_min
 
 		self.batch_size = batch_size
+		assert self.batch_size > 0, "Invalid batch size"
 
 		if start_episode < 0: start_episode = 0
 		self.epoch_counter = start_episode
+		if custom_batches_per_epochs < 1: custom_batches_per_epochs = None
+		self.custom_batches_per_epochs = custom_batches_per_epochs
 
 		# Create array of input image paths
 		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
@@ -210,13 +214,14 @@ class SRGAN:
 		# Check arguments and input data
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs % progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs % weights_save_interval != 0: raise Exception("Invalid weights save interval")
-		if self.train_data is None: raise Exception("No datasets loaded")
+		assert self.train_data, Fore.RED + "Dataset not loaded" + Fore.RESET
 
 		if self.training_progress_save_path:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 
 		# Training variables
 		num_of_batches = self.data_length // self.batch_size
+		if self.custom_batches_per_epochs: num_of_batches = self.custom_batches_per_epochs
 		end_epoch = self.epoch_counter + epochs
 
 		epochs_time_history = deque(maxlen=5)
@@ -255,10 +260,10 @@ class SRGAN:
 				self.tensorboard.step = self.epoch_counter
 
 			# Decay label noise
-			if self.discriminator_label_noise_decay:
+			if self.discriminator_label_noise and self.discriminator_label_noise_decay:
 				self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
-				if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.005):
+				if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.0001):
 					self.discriminator_label_noise = 0
 
 			# Seve stats and print them to console
@@ -269,13 +274,14 @@ class SRGAN:
 				# Evaluate models state
 				disc_real_loss = self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
 				disc_fake_loss = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-				vgg_loss, gen_loss = self.combined_generator_model.test_on_batch(small_images, [large_images, np.ones(shape=(large_images.shape[0], 1))])
+				gen_loss = self.combined_generator_model.test_on_batch(small_images, [large_images, np.ones(shape=(large_images.shape[0], 1))])
+
 
 				if self.tensorboard:
 					self.tensorboard.log_kernels_and_biases(self.generator)
-					self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss, vgg_loss=vgg_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+					self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss1=gen_loss[0], gen_loss2=gen_loss[1], gen_loss3=gen_loss[2], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}, G VGG loss: {round(float(vgg_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4)}" + Fore.RESET)
+				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss1: {round(float(gen_loss[0]), 5)}, G loss2: {round(float(gen_loss[1]), 5)}, G loss3: {round(float(gen_loss[2]), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
@@ -292,7 +298,6 @@ class SRGAN:
 
 			# Reset seeds
 			if self.epoch_counter % self.RESET_SEEDS_INTERVAL == 0:
-				# Change seed for keeping as low number of constants as possible
 				np.random.seed(None)
 				random.seed()
 
@@ -306,13 +311,17 @@ class SRGAN:
 
 	def __save_img(self):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
-		gen_img = self.generator.predict(cv.cvtColor(cv.imread(self.progress_test_image_path), cv.COLOR_BGR2RGB) / 127.5 - 1.0)
+		original_image = cv.imread(self.progress_test_image_path)
+		gen_img = self.generator.predict(np.array([cv.cvtColor(cv.resize(original_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC)), cv.COLOR_BGR2RGB) / 127.5 - 1.0]))[0]
 
 		# Rescale images 0 to 255
 		gen_img = (0.5 * gen_img + 0.5) * 255
-
 		gen_img = cv.cvtColor(gen_img, cv.COLOR_BGR2RGB)
-		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", gen_img)
+		
+		final_image = np.zeros(shape=(gen_img.shape[0], gen_img.shape[1] * 2, gen_img.shape[2]))
+		final_image[:, 0:gen_img.shape[0], :] = original_image
+		final_image[:, gen_img.shape[0]:gen_img.shape[0] * 2, :] = gen_img
+		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
 
 	def save_weights(self):
 		save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter)

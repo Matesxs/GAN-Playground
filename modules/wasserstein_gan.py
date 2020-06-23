@@ -305,7 +305,6 @@ class WGANGC:
 
 			# Reset seeds
 			if self.epoch_counter % self.RESET_SEEDS_INTERVAL == 0:
-				# Change seed for keeping as low number of constants as possible
 				np.random.seed(None)
 				random.seed()
 
