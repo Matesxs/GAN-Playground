@@ -226,6 +226,7 @@ class SRGAN:
 
 		epochs_time_history = deque(maxlen=5)
 
+		# Save starting kernels and biases
 		if self.epoch_counter == 0:
 			self.tensorboard.log_kernels_and_biases(self.generator)
 
