@@ -50,9 +50,14 @@ class DCGAN:
 		self.gen_mod_name = gen_mod_name
 		self.generator_optimizer = generator_optimizer
 
-		self.batch_size = batch_size
-		self.test_batches = test_batches
 		self.latent_dim = latent_dim
+		assert self.latent_dim > 0, Fore.RED + "Invalid latent dim" + Fore.RESET
+
+		self.batch_size = batch_size
+		assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
+
+		self.test_batches = test_batches
+		assert self.test_batches > 0, Fore.RED + "Invalid test batch size" + Fore.RESET
 
 		self.discriminator_label_noise = discriminator_label_noise
 		self.discriminator_label_noise_decay = discriminator_label_noise_decay
@@ -72,6 +77,7 @@ class DCGAN:
 
 		# Create array of input image paths
 		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
+		assert self.train_data, Fore.RED + "Dataset is not loaded" + Fore.RESET
 		self.data_length = len(self.train_data)
 
 		# Load one image to get shape of it

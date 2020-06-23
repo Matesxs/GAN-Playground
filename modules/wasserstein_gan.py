@@ -73,7 +73,10 @@ class WGANGC:
 		self.critic_mod_name = critic_mod_name
 		self.gen_mod_name = gen_mod_name
 		self.latent_dim = latent_dim
+		assert self.latent_dim > 0, Fore.RED + "Invalid latent dim" + Fore.RESET
+
 		self.batch_size = batch_size
+		assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
 
 		self.progress_image_dim = progress_image_dim
 
@@ -89,7 +92,9 @@ class WGANGC:
 
 		# Create array of input image paths
 		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
+		assert self.train_data, Fore.RED + "Dataset is not loaded" + Fore.RESET
 		self.data_length = len(self.train_data)
+		assert self.data_length > 0, Fore.RED + "Dataset is not loaded" + Fore.RESET
 
 		# Load one image to get shape of it
 		tmp_image = cv.imread(self.train_data[0])
@@ -242,7 +247,6 @@ class WGANGC:
 		# Check arguments and input data
 		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
-		if self.train_data is None: raise Exception("No datasets loaded")
 		if critic_train_multip < 1: raise Exception("Invalid critic training multiplier")
 
 		# Save noise for progress consistency
