@@ -10,7 +10,7 @@ def mod_srgan_base(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kern
 
 	skip = m
 
-	for _ in range(4):
+	for _ in range(8):
 		m = res_block(m, 64, 3, 1, kernel_initializer=kernel_initializer)
 
 	m = Conv2D(filters=64, kernel_size=3, strides=1, padding="same", kernel_initializer=kernel_initializer)(m)

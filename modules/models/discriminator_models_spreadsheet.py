@@ -75,8 +75,5 @@ def mod_base_9layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stdd
 	m = conv_layer(m, 512, kernel_size=3, strides=1, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
 	m = conv_layer(m, 512, kernel_size=3, strides=2, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
 
-	m = conv_layer(m, 1024, kernel_size=3, strides=1, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
-	m = conv_layer(m, 1024, kernel_size=3, strides=2, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
-
 	m = Flatten()(m)
 	return m

@@ -47,7 +47,7 @@ class VGG_LOSS(object):
 		vgg19.trainable = False
 		for l in vgg19.layers:
 			l.trainable = False
-		model = Model(inputs=vgg19.input, outputs=vgg19.get_layer('block5_conv4').output)
+		model = Model(inputs=vgg19.input, outputs=vgg19.layers[9].output)
 		model.trainable = False
 
 		return K.mean(K.square(model(y_true) - model(y_pred)))
