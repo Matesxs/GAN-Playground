@@ -43,7 +43,7 @@ if __name__ == '__main__':
 			gan.save_models_structure_images()
 
 			while True:
-				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
+				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=False,
 				          generator_smooth_labels=False,
@@ -64,7 +64,7 @@ if __name__ == '__main__':
 			gan.save_models_structure_images()
 
 			while True:
-				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
+				gan.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          critic_train_multip=5)
 				if input("Continue? ") == "n": break
@@ -83,7 +83,7 @@ if __name__ == '__main__':
 			gan.save_models_structure_images()
 
 			while True:
-				gan.train(NUM_OF_TRAINING_EPOCHS_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL,
+				gan.train(NUM_OF_TRAINING_EPOCHS_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
 				          generator_smooth_labels=True)

@@ -322,7 +322,7 @@ class SRGAN:
 		gen_img = (0.5 * gen_img + 0.5) * 255
 		gen_img = cv.cvtColor(gen_img, cv.COLOR_RGB2BGR)
 		
-		final_image = np.zeros(shape=(gen_img.shape[0], gen_img.shape[1] * 2, gen_img.shape[2]))
+		final_image = np.zeros(shape=(gen_img.shape[0], gen_img.shape[1] * 2, gen_img.shape[2])).astype(np.float32)
 		final_image[:, 0:gen_img.shape[0], :] = original_image
 		final_image[:, gen_img.shape[0]:gen_img.shape[0] * 2, :] = gen_img
 

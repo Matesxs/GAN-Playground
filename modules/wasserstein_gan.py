@@ -242,7 +242,7 @@ class WGANGC:
 		return Model(img_input, m, name="critic_model")
 
 	def train(self, epochs:int,
-	          progress_images_save_interval:int=None, weights_save_interval:int=None,
+	          progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
 	          critic_train_multip:int=5):
 
 		# Check arguments and input data
@@ -301,7 +301,7 @@ class WGANGC:
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
-				self.__save_imgs()
+				self.__save_imgs(save_raw_progress_images)
 
 			# Save weights of models
 			if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
@@ -325,7 +325,7 @@ class WGANGC:
 		print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
 	# Function for saving progress images
-	def __save_imgs(self):
+	def __save_imgs(self, save_raw_progress_images:bool=True):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
 		gen_imgs = self.generator.predict(self.static_noise)
 
@@ -343,7 +343,10 @@ class WGANGC:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
 				cnt += 1
 		final_image = cv.cvtColor(final_image, cv.COLOR_RGB2BGR)
-		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
+
+		if save_raw_progress_images:
+			cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
+		self.tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32))
 
 	def save_models_structure_images(self, save_path:str=None):
 		if save_path is None: save_path = self.training_progress_save_path + "/model_structures"
