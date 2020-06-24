@@ -37,6 +37,20 @@ def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
 	if upsc[0] < 1 or upsc[1] < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
 	return upsc
 
+_IMAGENET_MEAN = K.constant(-np.array([103.939, 116.778, 123.68]))
+def preproces_vgg(x):
+	# scale from [-1,1] to [0, 255]
+	x += 1.
+	x *= 127.5
+
+	# RGB -> BGR
+	x = x[..., ::-1]
+
+	# apply Imagenet preprocessing : BGR mean
+	x = K.bias_add(x, K.cast(_IMAGENET_MEAN, K.dtype(x)))
+
+	return x
+
 class VGG_LOSS(object):
 	def __init__(self, image_shape):
 		self.image_shape = image_shape
@@ -49,6 +63,11 @@ class VGG_LOSS(object):
 			l.trainable = False
 		model = Model(inputs=vgg19.input, outputs=vgg19.layers[9].output)
 		model.trainable = False
+
+		# features_pred = model(preproces_vgg(y_pred))
+		# features_true = model(preproces_vgg(y_true))
+		#
+		# return 0.006*K.mean(K.square(features_pred - features_true), axis=-1)
 
 		return K.mean(K.square(model(y_true) - model(y_pred)))
 
