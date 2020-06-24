@@ -14,7 +14,7 @@ def mod_srgan_base(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kern
 		m = res_block(m, 64, 3, 1, batch_norm=0.5, kernel_initializer=kernel_initializer)
 
 	m = Conv2D(filters=64, kernel_size=3, strides=1, padding="same", kernel_initializer=kernel_initializer)(m)
-	m = BatchNormalization(momentum=0.5)(m)
+	m = BatchNormalization(momentum=0.5, axis=-1)(m)
 	m = Add()([skip, m])
 
 	for _ in range(num_of_upscales):

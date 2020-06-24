@@ -18,7 +18,7 @@ def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropo
 
 		x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(x)
 
-	if batch_norm: x = BatchNormalization(momentum=batch_norm)(x)
+	if batch_norm: x = BatchNormalization(momentum=batch_norm, axis=-1)(x)
 	if leaky: x = LeakyReLU(0.2)(x)
 	else: x = Activation("relu")(x)
 	if dropout: x = Dropout(dropout)(x)
@@ -32,7 +32,7 @@ def conv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout
 
 	x = Conv2D(filters, (kernel_size, kernel_size), strides=(strides, strides), padding="same", kernel_initializer=kernel_initializer)(inp)
 
-	if batch_norm: x = BatchNormalization(momentum=batch_norm)(x)
+	if batch_norm: x = BatchNormalization(momentum=batch_norm, axis=-1)(x)
 	if leaky: x = LeakyReLU(0.2)(x)
 	else: x = Activation("relu")(x)
 	if dropout: x = Dropout(dropout)(x)
@@ -47,11 +47,11 @@ def res_block(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, batch_no
 	gen = inp
 
 	model = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer)(inp)
-	model = BatchNormalization(momentum=batch_norm)(model)
+	model = BatchNormalization(momentum=batch_norm, axis=-1)(model)
 
 	model = PReLU(alpha_initializer='zeros', alpha_regularizer=None, alpha_constraint=None, shared_axes=[1, 2])(model)
 	model = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer)(model)
-	model = BatchNormalization(momentum=batch_norm)(model)
+	model = BatchNormalization(momentum=batch_norm, axis=-1)(model)
 
 	model = Add()([gen, model])
 
@@ -67,7 +67,7 @@ def identity_layer(inp:Layer, filters_number_list:Union[list, int], kernel_size:
 
 			x = Conv2D(filters, kernel_size=(kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(x)
 
-			if batch_norm: x = BatchNormalization(momentum=batch_norm)(x)
+			if batch_norm: x = BatchNormalization(momentum=batch_norm, axis=-1)(x)
 			if leaky: x = LeakyReLU(0.2)(x)
 			else: x = Activation("relu")(x)
 			if dropout: x = Dropout(dropout)(x)
@@ -76,7 +76,7 @@ def identity_layer(inp:Layer, filters_number_list:Union[list, int], kernel_size:
 
 		x = Conv2D(filters_number_list, kernel_size=(kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(x)
 
-		if batch_norm: x = BatchNormalization(momentum=batch_norm)(x)
+		if batch_norm: x = BatchNormalization(momentum=batch_norm, axis=-1)(x)
 		if leaky:
 			x = LeakyReLU(0.2)(x)
 		else:
