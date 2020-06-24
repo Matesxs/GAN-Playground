@@ -37,7 +37,8 @@ if __name__ == '__main__':
 			            generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
 			            start_episode=START_EPISODE,
 			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-			            pretrain=5)
+			            pretrain=5,
+			            check_dataset=CHECK_DATASET)
 
 			gan.save_models_structure_images()
 
@@ -57,7 +58,8 @@ if __name__ == '__main__':
 			             generator_weights=GEN_WEIGHTS, critic_weights=DICS_WEIGHTS,
 			             critic_gradient_penalty_weight=10,
 			             start_episode=START_EPISODE,
-			             load_from_checkpoint=LOAD_FROM_CHECKPOINTS)
+			             load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
+			             check_dataset=CHECK_DATASET)
 
 			gan.save_models_structure_images()
 
@@ -76,7 +78,7 @@ if __name__ == '__main__':
 			            generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
 			            start_episode=START_EPISODE_SR,
 			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-			            custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH)
+			            custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, check_dataset=CHECK_DATASET)
 
 			gan.save_models_structure_images()
 

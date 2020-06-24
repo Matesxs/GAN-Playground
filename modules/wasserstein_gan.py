@@ -63,12 +63,14 @@ class WGANGC:
 
 	def __init__(self, dataset_path:str,
 	             gen_mod_name:str, critic_mod_name:str,
-	             latent_dim:int, training_progress_save_path:str=None,
+	             latent_dim:int,
+	             training_progress_save_path:str,
 	             generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
 	             batch_size:int=32, buffered_batches:int=20,
 	             generator_weights:Union[str, None, int]=None, critic_weights:Union[str, None, int]=None,
 	             critic_gradient_penalty_weight:float=10,
-	             start_episode:int=0, load_from_checkpoint:bool= False):
+	             start_episode:int=0, load_from_checkpoint:bool= False,
+	             check_dataset:bool=True):
 
 		self.critic_mod_name = critic_mod_name
 		self.gen_mod_name = gen_mod_name
@@ -85,10 +87,8 @@ class WGANGC:
 
 		# Initialize training data folder and logging
 		self.training_progress_save_path = training_progress_save_path
-		self.tensorboard = None
-		if self.training_progress_save_path:
-			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.critic_mod_name}")
-			self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
+		self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.critic_mod_name}")
+		self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
 		# Create array of input image paths
 		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
@@ -105,7 +105,8 @@ class WGANGC:
 		if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
 
 		# Check validity of datasets
-		self.validate_dataset()
+		if check_dataset:
+			self.validate_dataset()
 
 		# Define static vars
 		if os.path.exists(f"{self.training_progress_save_path}/static_noise.npy"):
@@ -245,12 +246,12 @@ class WGANGC:
 	          critic_train_multip:int=5):
 
 		# Check arguments and input data
-		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
+		if progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if critic_train_multip < 1: raise Exception("Invalid critic training multiplier")
 
 		# Save noise for progress consistency
-		if self.training_progress_save_path is not None and progress_images_save_interval is not None:
+		if progress_images_save_interval is not None:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
@@ -282,8 +283,7 @@ class WGANGC:
 			time.sleep(0.5)
 			self.epoch_counter += 1
 			epochs_time_history.append(time.time() - ep_start)
-			if self.tensorboard:
-				self.tensorboard.step = self.epoch_counter
+			self.tensorboard.step = self.epoch_counter
 
 			# Show stats
 			if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
@@ -294,9 +294,8 @@ class WGANGC:
 				gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
 
 				# Save stats
-				if self.tensorboard:
-					self.tensorboard.log_kernels_and_biases(self.generator)
-					self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
+				self.tensorboard.log_kernels_and_biases(self.generator)
+				self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
 				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
@@ -343,7 +342,7 @@ class WGANGC:
 				else:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
 				cnt += 1
-		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
+		final_image = cv.cvtColor(final_image, cv.COLOR_RGB2BGR)
 		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
 
 	def save_models_structure_images(self, save_path:str=None):

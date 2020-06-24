@@ -38,13 +38,15 @@ class DCGAN:
 
 	def __init__(self, dataset_path:str,
 	             gen_mod_name: str, disc_mod_name: str,
-	             latent_dim:int=128, training_progress_save_path:str=None,
+	             latent_dim:int,
+	             training_progress_save_path:str,
 	             generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
 	             discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
 	             batch_size: int = 32, buffered_batches:int=20, test_batches:int=1,
 	             generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
 	             start_episode:int=0, load_from_checkpoint:bool=False,
-	             pretrain:int=None):
+	             pretrain:int=None,
+	             check_dataset:bool=True):
 
 		self.disc_mod_name = disc_mod_name
 		self.gen_mod_name = gen_mod_name
@@ -70,10 +72,8 @@ class DCGAN:
 
 		# Initialize training data folder and logging
 		self.training_progress_save_path = training_progress_save_path
-		self.tensorboard = None
-		if self.training_progress_save_path:
-			self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{pretrain}pt")
-			self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
+		self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{pretrain}pt")
+		self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
 		# Create array of input image paths
 		self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
@@ -89,7 +89,8 @@ class DCGAN:
 		if self.image_shape[0] < 4 or self.image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
 
 		# Check validity of whole datasets
-		self.validate_dataset()
+		if check_dataset:
+			self.validate_dataset()
 
 		# Define static vars
 		if os.path.exists(f"{self.training_progress_save_path}/static_noise.npy"):
@@ -271,12 +272,12 @@ class DCGAN:
 			return orig_images
 
 		# Check arguments and input data
-		if self.training_progress_save_path is not None and progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
+		if progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if self.train_data is None: raise Exception("No datasets loaded")
 
 		# Save noise for progress consistency
-		if self.training_progress_save_path is not None and progress_images_save_interval is not None:
+		if progress_images_save_interval is not None:
 			if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 			np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
@@ -342,8 +343,7 @@ class DCGAN:
 			time.sleep(0.5)
 			self.epoch_counter += 1
 			epochs_time_history.append(time.time() - ep_start)
-			if self.tensorboard:
-				self.tensorboard.step = self.epoch_counter
+			self.tensorboard.step = self.epoch_counter
 
 			# Decay label noise
 			if self.discriminator_label_noise and self.discriminator_label_noise_decay:
@@ -367,9 +367,8 @@ class DCGAN:
 				disc_real_acc *= 100
 				disc_fake_acc *= 100
 
-				if self.tensorboard:
-					self.tensorboard.log_kernels_and_biases(self.generator)
-					self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+				self.tensorboard.log_kernels_and_biases(self.generator)
+				self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
 				# Change color of log according to state of training
 				if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
@@ -443,7 +442,7 @@ class DCGAN:
 				else:
 					final_image[self.image_shape[0] * i:self.image_shape[0] * (i + 1), self.image_shape[1] * j:self.image_shape[1] * (j + 1), 0] = gen_imgs[cnt, :, :, 0]
 				cnt += 1
-		final_image = cv.cvtColor(final_image, cv.COLOR_BGR2RGB)
+		final_image = cv.cvtColor(final_image, cv.COLOR_RGB2BGR)
 		cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
 
 	def save_models_structure_images(self):

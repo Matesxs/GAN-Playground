@@ -2,6 +2,7 @@ import keras
 import tensorflow as tf
 from keras.callbacks import Callback
 import keras.backend as K
+import numpy as np
 
 class TensorBoardCustom(Callback):
 	def __init__(self, log_dir):
@@ -18,7 +19,7 @@ class TensorBoardCustom(Callback):
 			pass
 
 	def on_epoch_end(self, epoch, logs=None):
-		self.update_stats(self.step, **logs)
+		pass
 
 	def init_writer_check(self):
 		if not self.writer:
@@ -53,4 +54,11 @@ class TensorBoardCustom(Callback):
 						tf.summary.scalar(f"A_{action}", value[action], step=index)
 				else:
 					tf.summary.scalar(name, value, step=index)
+		self.writer.flush()
+
+	def write_image(self, image:np.ndarray):
+		self.init_writer_check()
+
+		with self.writer.as_default():
+			tf.summary.image("progress", image, step=self.step)
 		self.writer.flush()
