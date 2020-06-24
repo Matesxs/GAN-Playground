@@ -226,6 +226,7 @@ class SRGAN:
 
 		# Save starting kernels and biases
 		if self.epoch_counter == 0:
+			self.__save_img(save_raw_progress_images)
 			self.tensorboard.log_kernels_and_biases(self.generator)
 
 		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
