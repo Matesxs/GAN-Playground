@@ -104,6 +104,7 @@ class DCGAN:
 		self.kernel_initializer = RandomNormal(stddev=0.02)
 
 		# Load checkpoint
+		self.initiated = False
 		loaded_gen_weights_path = None
 		loaded_disc_weights_path = None
 		if load_from_checkpoint:
@@ -291,9 +292,10 @@ class DCGAN:
 		epochs_time_history = deque(maxlen=5)
 
 		# Save starting kernels and biases
-		if self.epoch_counter == 0:
+		if not self.initiated:
 			self.__save_imgs(save_raw_progress_images)
 			self.tensorboard.log_kernels_and_biases(self.generator)
+			self.save_checkpoint()
 
 		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
 		for _ in range(epochs):
@@ -467,6 +469,7 @@ class DCGAN:
 				self.epoch_counter = int(data["episode"])
 				if data["disc_label_noise"]:
 					self.discriminator_label_noise = float(data["disc_label_noise"])
+				self.initiated = True
 				return data["gen_path"], data["disc_path"]
 			return None, None
 

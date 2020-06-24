@@ -188,6 +188,7 @@ class WGANGC:
 		self.combined_critic_model.summary()
 
 		# Load checkpoint
+		self.initiated = False
 		if load_from_checkpoint: self.load_checkpoint()
 
 		# Load weights and override checkpoint loaded weights
@@ -261,9 +262,10 @@ class WGANGC:
 		epochs_time_history = deque(maxlen=5)
 
 		# Save starting kernels and biases
-		if self.epoch_counter == 0:
+		if not self.initiated:
 			self.__save_imgs(save_raw_progress_images)
 			self.tensorboard.log_kernels_and_biases(self.generator)
+			self.save_checkpoint()
 
 		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
 		for _ in range(epochs):
@@ -368,6 +370,7 @@ class WGANGC:
 				self.epoch_counter = int(data["episode"])
 				self.generator.load_weights(data["gen_path"])
 				self.critic.load_weights(data["critic_path"])
+				self.initiated = True
 
 	def save_checkpoint(self):
 		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")

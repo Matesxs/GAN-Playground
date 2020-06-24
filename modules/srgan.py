@@ -160,6 +160,7 @@ class SRGAN:
 		                                      optimizer=generator_optimizer)
 
 		# Load checkpoint
+		self.initiated = False
 		if load_from_checkpoint: self.load_checkpoint()
 
 		# Load weights from param and override checkpoint weights
@@ -225,9 +226,10 @@ class SRGAN:
 		epochs_time_history = deque(maxlen=5)
 
 		# Save starting kernels and biases
-		if self.epoch_counter == 0:
+		if not self.initiated:
 			self.__save_img(save_raw_progress_images)
 			self.tensorboard.log_kernels_and_biases(self.generator)
+			self.save_checkpoint()
 
 		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
 		for _ in range(epochs):
@@ -363,6 +365,7 @@ class SRGAN:
 				if data["disc_label_noise"]:
 					self.discriminator_label_noise = float(data["disc_label_noise"])
 				self.progress_test_image_path = data["test_image"]
+				self.initiated = True
 
 	def save_checkpoint(self):
 		checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
