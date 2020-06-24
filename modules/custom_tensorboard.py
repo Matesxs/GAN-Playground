@@ -3,6 +3,7 @@ import tensorflow as tf
 from keras.callbacks import Callback
 import keras.backend as K
 import numpy as np
+import os
 
 class TensorBoardCustom(Callback):
 	def __init__(self, log_dir):
@@ -10,6 +11,8 @@ class TensorBoardCustom(Callback):
 		self.step = 0
 		self.log_dir = log_dir
 		self.writer = None
+
+		if not os.path.exists(self.log_dir): os.makedirs(self.log_dir)
 
 	def __del__(self):
 		try:

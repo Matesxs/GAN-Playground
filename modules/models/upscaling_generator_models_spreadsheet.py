@@ -11,14 +11,14 @@ def mod_srgan_base(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kern
 	skip = m
 
 	for _ in range(16):
-		m = res_block(m, 64, 3, 1, kernel_initializer=kernel_initializer)
+		m = res_block(m, 64, 3, 1, batch_norm=0.5, kernel_initializer=kernel_initializer)
 
 	m = Conv2D(filters=64, kernel_size=3, strides=1, padding="same", kernel_initializer=kernel_initializer)(m)
 	m = BatchNormalization(momentum=0.5)(m)
 	m = Add()([skip, m])
 
 	for _ in range(num_of_upscales):
-		m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, kernel_initializer=kernel_initializer)
+		m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, conv_transpose=False, kernel_initializer=kernel_initializer)
 
 	m = Conv2D(filters=start_image_shape[2], kernel_size=9, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
 	return m

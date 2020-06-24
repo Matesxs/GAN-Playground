@@ -37,3 +37,5 @@ CHECK_DATASET = False # Leave this false only when you are sure your dataset is 
 WEIGHTS_SAVE_INTERVAL = 5
 PROGRESS_IMAGE_SAVE_INTERVAL = 1
 SAVE_RAW_IMAGES = True # Save progress images to folder too (if false then they will be saved only to tensorboard)
+
+PATH_TO_PYTHON_EXECUTABLE = "venv/Scripts/python.exe" # Only for starting tensorboard for example from venv
