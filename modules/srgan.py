@@ -53,23 +53,21 @@ def preproces_vgg(x):
 
 class VGG_LOSS(object):
 	def __init__(self, image_shape):
-		self.image_shape = image_shape
-
-	# computes VGG loss or content loss
-	def vgg_loss(self, y_true, y_pred):
-		vgg19 = VGG19(include_top=False, weights='imagenet', input_shape=self.image_shape)
+		vgg19 = VGG19(include_top=False, weights='imagenet', input_shape=image_shape)
 		vgg19.trainable = False
 		for l in vgg19.layers:
 			l.trainable = False
-		model = Model(inputs=vgg19.input, outputs=vgg19.layers[9].output)
-		model.trainable = False
+		self.model = Model(inputs=vgg19.input, outputs=vgg19.get_layer("block2_conv2").output)
+		self.model.trainable = False
 
-		# features_pred = model(preproces_vgg(y_pred))
-		# features_true = model(preproces_vgg(y_true))
-		#
-		# return 0.006*K.mean(K.square(features_pred - features_true), axis=-1)
+	# computes VGG loss or content loss
+	def vgg_loss(self, y_true, y_pred):
+		features_pred = self.model(preproces_vgg(y_pred))
+		features_true = self.model(preproces_vgg(y_true))
 
-		return K.mean(K.square(model(y_true) - model(y_pred)))
+		return 0.006*K.mean(K.square(features_pred - features_true), axis=-1)
+
+		# return K.mean(K.square(model(y_true) - model(y_pred)))
 
 class SRGAN:
 	AGREGATE_STAT_INTERVAL = 1  # Interval of saving data
