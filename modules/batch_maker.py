@@ -67,13 +67,22 @@ class BatchMaker(Thread):
 		if self.secondary_size:
 			while not self.resized_batches: time.sleep(0.01)
 			return self.batches.popleft(), self.resized_batches.popleft()
-		else:
-			return self.batches.popleft()
+		return self.batches.popleft()
 
 	def get_larger_batch(self, num_of_batches_to_merge:int):
 		batch = []
+		resized_batch = []
 		for _ in range(num_of_batches_to_merge):
 			while not self.batches: time.sleep(0.01)
-			for img in self.batches.popleft():
-				batch.append(img)
+			if self.secondary_size:
+				while not self.resized_batches: time.sleep(0.01)
+				for orig_image, resized_image in zip(self.batches.popleft(), self.resized_batches.popleft()):
+					batch.append(orig_image)
+					resized_batch.append(resized_image)
+			else:
+				for img in self.batches.popleft():
+					batch.append(img)
+
+		if self.secondary_size:
+			return np.array(batch), np.array(resized_batch)
 		return np.array(batch)
