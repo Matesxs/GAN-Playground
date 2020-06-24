@@ -284,9 +284,9 @@ class SRGAN:
 
 
 				self.tensorboard.log_kernels_and_biases(self.generator)
-				self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss1=gen_loss[0], gen_loss2=gen_loss[1], gen_loss3=gen_loss[2], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+				self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss[0], gen_vgg_loss=gen_loss[1], gen_binary_loss=gen_loss[2], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss1: {round(float(gen_loss[0]), 5)}, G loss2: {round(float(gen_loss[1]), 5)}, G loss3: {round(float(gen_loss[2]), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss: {round(float(gen_loss[0]), 5)}, G vgg_loss: {round(float(gen_loss[1]), 5)}, G binary_loss: {round(float(gen_loss[2]), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
@@ -316,6 +316,11 @@ class SRGAN:
 
 	def __save_img(self, save_raw_progress_images:bool=True):
 		if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
+		if not os.path.exists(self.progress_test_image_path):
+			print(Fore.YELLOW + "Test image doesnt exist anymore, choosing new one" + Fore.RESET)
+			self.progress_test_image_path = random.choice(self.train_data)
+			self.save_checkpoint()
+
 		original_image = cv.imread(self.progress_test_image_path)
 		gen_img = self.generator.predict(np.array([cv.cvtColor(cv.resize(original_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC)), cv.COLOR_BGR2RGB) / 127.5 - 1.0]))[0]
 
