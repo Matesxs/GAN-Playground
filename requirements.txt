@@ -10,3 +10,4 @@ matplotlib==3.2.1
 pydot
 keras==2.3.1
 imagesize==1.2.0
+tensorboard==2.2.2

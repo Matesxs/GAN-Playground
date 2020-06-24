@@ -12,11 +12,11 @@ def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropo
 	if conv_transpose:
 		x = Conv2DTranspose(filters, (kernel_size, kernel_size), strides=(strides, strides), padding="same", kernel_initializer=kernel_initializer)(inp)
 	else:
-		x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(inp)
-
 		if strides > 1:
-			x = UpSampling2D(size=strides)(x)
+			x = UpSampling2D(size=strides)(inp)
 		else: x = inp
+
+		x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(x)
 
 	if batch_norm: x = BatchNormalization(momentum=batch_norm)(x)
 	if leaky: x = LeakyReLU(0.2)(x)

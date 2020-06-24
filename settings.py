@@ -32,7 +32,7 @@ DICS_SR_WEIGHTS = None
 
 # General settings
 LOAD_FROM_CHECKPOINTS = True
-CHECK_DATASET = False
+CHECK_DATASET = False # Leave this false only when you are sure your dataset is consistent
 
 WEIGHTS_SAVE_INTERVAL = 5
 PROGRESS_IMAGE_SAVE_INTERVAL = 1
