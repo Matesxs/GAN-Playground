@@ -27,5 +27,6 @@ SRGAN - https://arxiv.org/pdf/1609.04802.pdf
 SR_Resnet - https://github.com/JGuillaumin/SuperResGAN-keras
 
 Perceptual loss - https://arxiv.org/pdf/1603.08155.pdf%7C
+				- https://deepai.org/machine-learning-glossary-and-terms/perceptual-loss-function
 
 DATASETS - From Kaggle
