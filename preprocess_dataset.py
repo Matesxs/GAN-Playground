@@ -35,8 +35,8 @@ while True:
 				continue
 
 		selected_dataset_name = dataset_list[selected_dataset_index]
-		if selected_dataset_name == "All":
-			input_folder = [os.path.join(datasets_folder, x) for x in dataset_list if x != "All"]
+		if selected_dataset_name == "All (All datasets merged)":
+			input_folder = [os.path.join(datasets_folder, x) for x in dataset_list if x != "All (All datasets merged)"]
 		else:
 			input_folder = os.path.join(datasets_folder, selected_dataset_name)
 		output_folder = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}")
