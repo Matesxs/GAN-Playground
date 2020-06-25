@@ -1,6 +1,10 @@
 import os
 import sys
 import traceback
+import colorama
+from colorama import Fore
+
+colorama.init()
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 stdin = sys.stdin
@@ -11,6 +15,7 @@ sys.stdin = stdin
 sys.stderr = stderr
 
 import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
 	try:
@@ -79,7 +84,7 @@ if __name__ == '__main__':
 			            generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
 			            start_episode=START_EPISODE_SR,
 			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-			            custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, check_dataset=CHECK_DATASET)
+			            custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=None, check_dataset=CHECK_DATASET)
 
 			gan.save_models_structure_images()
 
@@ -99,7 +104,7 @@ if __name__ == '__main__':
 			             generator_weights=GEN_SR_WEIGHTS,
 			             start_episode=START_EPISODE_SR,
 			             load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-			             custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, check_dataset=CHECK_DATASET)
+			             custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=None, check_dataset=CHECK_DATASET)
 
 			gan.save_models_structure_images()
 
@@ -108,16 +113,22 @@ if __name__ == '__main__':
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL)
 				if input("Continue? ") == "n": break
 
-		gan.save_weights()
-		gan.save_checkpoint()
+		else: print(Fore.RED + "Invalid gan entered" + Fore.RESET)
+
+		if gan:
+			gan.save_weights()
+			gan.save_checkpoint()
 	except KeyboardInterrupt:
 		if gan:
-			print(f"Quiting on epoch: {gan.epoch_counter} - This could take little time, get some coffe and rest :)")
+			print(Fore.BLUE + "Quiting on epoch: {gan.epoch_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)
 			gan.save_checkpoint()
 	except Exception as e:
 		if gan:
-			print(f"Exception on epoch: {gan.epoch_counter}")
+			print(Fore.RED + "Exception on epoch: {gan.epoch_counter}" + Fore.RESET)
 			gan.save_checkpoint()
 		else:
-			print(f"Creating GAN failed")
+			print(Fore.RED + "Creating GAN failed" + Fore.RESET)
 		traceback.print_exc()
+
+	if gan:
+		if input("Create gif of progress?") == "y": gan.make_progress_gif(frame_duration=GIF_FRAME_DURATION)

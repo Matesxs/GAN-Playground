@@ -1,8 +1,6 @@
-import colorama
 from colorama import Fore
 import os
 from typing import Union
-import tensorflow as tf
 import keras.backend as K
 from keras.optimizers import Optimizer, Adam
 from keras.layers import Input, Dense
@@ -27,9 +25,6 @@ from modules.models import upscaling_generator_models_spreadsheet, discriminator
 from modules.custom_tensorboard import TensorBoardCustom
 from modules.batch_maker import BatchMaker
 from modules.helpers import time_to_format
-
-tf.get_logger().setLevel('ERROR')
-colorama.init()
 
 # Calculate start image size based on final image size and number of upscales
 def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
@@ -82,7 +77,7 @@ class SRGAN:
 	             batch_size: int = 32, buffered_batches:int=20,
 	             generator_weights: Union[str, None, int] = None, discriminator_weights: Union[str, None, int] = None,
 	             start_episode: int = 0, load_from_checkpoint: bool = False,
-	             custom_batches_per_epochs:int=None, check_dataset:bool=True):
+	             custom_batches_per_epochs:int=None, custom_hr_test_image_path:str=None, check_dataset:bool=True):
 
 		self.disc_mod_name = disc_mod_name
 		self.gen_mod_name = gen_mod_name
@@ -131,7 +126,10 @@ class SRGAN:
 
 		# Define static vars
 		self.kernel_initializer = RandomNormal(stddev=0.02)
-		self.progress_test_image_path = random.choice(self.train_data)
+		if custom_hr_test_image_path and os.path.exists(custom_hr_test_image_path):
+			self.progress_test_image_path = custom_hr_test_image_path
+		else:
+			self.progress_test_image_path = random.choice(self.train_data)
 
 		# Create batchmaker and start it
 		self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)

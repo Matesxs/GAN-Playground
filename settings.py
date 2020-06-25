@@ -16,6 +16,7 @@ DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/
 
 # Settings of SR gans
 DATASET_SR_PATH = "datasets/faces_normalized__256x256"
+CUSTOM_HR_TEST_IMAGE = None
 
 NUM_OF_TRAINING_EPOCHS_SR = 20
 
@@ -38,5 +39,4 @@ CHECK_DATASET = False # Leave this false only when you are sure your dataset is 
 WEIGHTS_SAVE_INTERVAL = 5
 PROGRESS_IMAGE_SAVE_INTERVAL = 1
 SAVE_RAW_IMAGES = True # Save progress images to folder too (if false then they will be saved only to tensorboard)
-
-PATH_TO_PYTHON_EXECUTABLE = "venv/Scripts/python.exe" # Only for starting tensorboard for example from venv
+GIF_FRAME_DURATION = 100

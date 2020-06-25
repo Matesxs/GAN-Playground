@@ -9,13 +9,11 @@ from keras.utils import plot_model
 from keras.layers import Layer
 from keras.engine.network import Network
 import keras.backend as K
-import tensorflow as tf
 from PIL import Image
 import cv2 as cv
 import random
 import time
 from tqdm import tqdm
-import colorama
 from colorama import Fore
 from functools import partial
 from typing import Union
@@ -28,9 +26,6 @@ from modules.batch_maker import BatchMaker
 from modules.models import discriminator_models_spreadsheet, generator_models_spreadsheet
 from modules.custom_tensorboard import TensorBoardCustom
 from modules.helpers import time_to_format
-
-tf.get_logger().setLevel('ERROR')
-colorama.init()
 
 # Custom loss function
 def wasserstein_loss(y_true, y_pred):
