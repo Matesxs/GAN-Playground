@@ -84,7 +84,7 @@ if __name__ == '__main__':
 			            generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
 			            start_episode=START_EPISODE_SR,
 			            load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-			            custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=None, check_dataset=CHECK_DATASET)
+			            custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
 
 			gan.save_models_structure_images()
 
@@ -104,7 +104,7 @@ if __name__ == '__main__':
 			             generator_weights=GEN_SR_WEIGHTS,
 			             start_episode=START_EPISODE_SR,
 			             load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-			             custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=None, check_dataset=CHECK_DATASET)
+			             custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
 
 			gan.save_models_structure_images()
 
