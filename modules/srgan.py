@@ -389,8 +389,13 @@ class SRGAN:
 
 			if data:
 				self.epoch_counter = int(data["episode"])
-				self.generator.load_weights(data["gen_path"])
-				self.discriminator.load_weights(data["disc_path"])
+
+				try:
+					self.generator.load_weights(data["gen_path"])
+					self.discriminator.load_weights(data["disc_path"])
+				except:
+					print(Fore.YELLOW + "Failed to load all weights from checkpoint" + Fore.RESET)
+
 				if data["disc_label_noise"]:
 					self.discriminator_label_noise = float(data["disc_label_noise"])
 				if not self.custom_hr_test_image_path:

@@ -288,7 +288,12 @@ class SR_Resnet:
 
 			if data:
 				self.epoch_counter = int(data["episode"])
-				self.generator.load_weights(data["gen_path"])
+
+				try:
+					self.generator.load_weights(data["gen_path"])
+				except:
+					print(Fore.YELLOW + "Failed to load all weights from checkpoint" + Fore.RESET)
+
 				if not self.custom_hr_test_image_path:
 					self.progress_test_image_path = data["test_image"]
 				self.initiated = True

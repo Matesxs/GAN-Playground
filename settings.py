@@ -28,7 +28,7 @@ BUFFERED_BATCHES_SR = 50
 START_EPISODE_SR = 0
 
 NUM_OF_UPSCALES = 2
-GEN_SR_MODEL = "mod_srgan_ext" # "mod_srgan_base"
+GEN_SR_MODEL = "mod_srgan_ext" # mod_srgan_base, mod_srgan_ext
 GEN_SR_WEIGHTS = None
 DISC_SR_MODEL = "mod_base_9layers"
 DICS_SR_WEIGHTS = None

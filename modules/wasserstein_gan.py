@@ -367,8 +367,13 @@ class WGANGC:
 
 			if data:
 				self.epoch_counter = int(data["episode"])
-				self.generator.load_weights(data["gen_path"])
-				self.critic.load_weights(data["critic_path"])
+
+				try:
+					self.generator.load_weights(data["gen_path"])
+					self.critic.load_weights(data["critic_path"])
+				except:
+					print(Fore.YELLOW + "Failed to load all weights from checkpoint" + Fore.RESET)
+
 				self.initiated = True
 
 	def save_checkpoint(self):
