@@ -153,6 +153,7 @@ class SRGAN:
 		#################################
 		self.generator = self.build_generator(gen_mod_name)
 		if self.generator.output_shape[1:] != self.target_image_shape: raise Exception("Invalid image input size for this generator model")
+		self.generator.compile(loss=self.loss_object.vgg_loss, optimizer=generator_optimizer)
 		print("\nGenerator Sumary:")
 		self.generator.summary()
 
@@ -224,12 +225,13 @@ class SRGAN:
 
 		return Model(img, m, name="discriminator_model")
 
-	def train(self, epochs: int,
+	def train(self, epochs: int, pretrain_epochs:int=None,
 	          progress_images_save_interval: int = None, save_raw_progress_images:bool=True, weights_save_interval: int = None,
 	          discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
 	          generator_smooth_labels:bool=False):
 
 		# Check arguments and input data
+		assert epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
 		if progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs % progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs % weights_save_interval != 0: raise Exception("Invalid weights save interval")
 
@@ -246,6 +248,13 @@ class SRGAN:
 		if not self.initiated:
 			self.__save_img(save_raw_progress_images)
 			self.tensorboard.log_kernels_and_biases(self.generator)
+			if pretrain_epochs:
+				assert pretrain_epochs > 0, Fore.RED + "Invalid pretrain epochs" + Fore.RESET
+				print(Fore.BLUE + "Starting generator pretrain" + Fore.RESET)
+				for _ in range(pretrain_epochs):
+					large_images, small_images = self.batch_maker.get_batch()
+					self.generator.train_on_batch(small_images, large_images)
+				print(Fore.BLUE + "Generator pretrain finished" + Fore.RESET)
 			self.save_checkpoint()
 
 		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)

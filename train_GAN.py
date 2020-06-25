@@ -87,7 +87,8 @@ if __name__ == '__main__':
 				gan.train(NUM_OF_TRAINING_EPOCHS_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
-				          generator_smooth_labels=True)
+				          generator_smooth_labels=True,
+				          pretrain_epochs=5)
 				if input("Continue? ") == "n": break
 
 		elif gan_selection == 3:

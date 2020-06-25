@@ -273,6 +273,7 @@ class DCGAN:
 			return orig_images
 
 		# Check arguments and input data
+		assert epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
 		if progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if self.train_data is None: raise Exception("No datasets loaded")

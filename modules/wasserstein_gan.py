@@ -250,6 +250,7 @@ class WGANGC:
 	          critic_train_multip:int=5):
 
 		# Check arguments and input data
+		assert epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
 		if progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
 		if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
 		if critic_train_multip < 1: raise Exception("Invalid critic training multiplier")
