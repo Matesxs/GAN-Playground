@@ -93,7 +93,7 @@ if __name__ == '__main__':
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
 				          generator_smooth_labels=True,
-				          pretrain_epochs=5)
+				          pretrain_epochs=PRETRAIN_EPISODES_OF_SRGAN)
 				if input("Continue? ") == "n": break
 
 		elif gan_selection == 3:
