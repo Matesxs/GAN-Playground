@@ -38,7 +38,7 @@ def mod_srgan_ext(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kerne
 	m = Add()(inputs=[skip, m])
 
 	for _ in range(num_of_upscales):
-		m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, conv_transpose=False, kernel_initializer=kernel_initializer)
+		m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, conv_transpose=False, upsample_first=False, kernel_initializer=kernel_initializer)
 
 	m = res_block(m, 256, kernel_size=3, strides=1, batch_norm=0.5, kernel_initializer=kernel_initializer)
 

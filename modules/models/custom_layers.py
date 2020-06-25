@@ -4,7 +4,7 @@ from keras.layers import Layer, Conv2D, Conv2DTranspose, UpSampling2D, BatchNorm
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers import Activation
 
-def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, conv_transpose:bool=False, leaky:bool=True, upsample_first:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, conv_transpose:bool=False, leaky:bool=True, upsample_first:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	assert filters > 0, "Invalid filter number"
 	assert kernel_size > 0, "Invalid kernel size"
 	assert strides > 0, "Invalid stride size"
