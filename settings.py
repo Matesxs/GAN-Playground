@@ -15,7 +15,7 @@ DISC_MODEL = "mod_ext_5layers"
 DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/weights/350/discriminator_mod_ext_5layers.h5"
 
 # Settings of SR gans
-DATASET_SR_PATH = "datasets/faces_normalized__256x256"
+DATASET_SR_PATH = "datasets/all_normalized__256x256" # "datasets/faces_normalized__256x256"
 CUSTOM_HR_TEST_IMAGE = None
 
 NUM_OF_TRAINING_EPOCHS_SR = 20
