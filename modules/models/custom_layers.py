@@ -4,7 +4,7 @@ from keras.layers import Layer, Conv2D, Conv2DTranspose, UpSampling2D, BatchNorm
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers import Activation
 
-def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, conv_transpose:bool=False, leaky:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, conv_transpose:bool=False, leaky:bool=True, upsample_first:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
 	assert filters > 0, "Invalid filter number"
 	assert kernel_size > 0, "Invalid kernel size"
 	assert strides > 0, "Invalid stride size"
@@ -12,11 +12,18 @@ def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropo
 	if conv_transpose:
 		x = Conv2DTranspose(filters, (kernel_size, kernel_size), strides=(strides, strides), padding="same", kernel_initializer=kernel_initializer)(inp)
 	else:
-		if strides > 1:
-			x = UpSampling2D(size=strides)(inp)
-		else: x = inp
+		if upsample_first:
+			if strides > 1:
+				x = UpSampling2D(size=strides)(inp)
+			else: x = inp
 
-		x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(x)
+			x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(x)
+		else:
+			x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer)(inp)
+
+			if strides > 1:
+				x = UpSampling2D(size=strides)(x)
+			else: x = inp
 
 	if batch_norm: x = BatchNormalization(momentum=batch_norm, axis=-1)(x)
 	if leaky: x = LeakyReLU(0.2)(x)
