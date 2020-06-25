@@ -244,22 +244,27 @@ class SRGAN:
 		epochs_time_history = deque(maxlen=5)
 
 		# Save starting kernels and biases
+		pretrain_active = False
 		if not self.initiated:
 			self.__save_img(save_raw_progress_images)
 			self.tensorboard.log_kernels_and_biases(self.generator)
 			if pretrain_epochs:
 				assert pretrain_epochs > 0, Fore.RED + "Invalid pretrain epochs" + Fore.RESET
-				print(Fore.BLUE + "Starting generator pretrain" + Fore.RESET)
-				for _ in range(pretrain_epochs):
-					large_images, small_images = self.batch_maker.get_batch()
-					self.generator.train_on_batch(small_images, large_images)
-				print(Fore.BLUE + "Generator pretrain finished" + Fore.RESET)
+				print(Fore.BLUE + "Pretrain active" + Fore.RESET)
+				epochs += pretrain_epochs
+				end_epoch += pretrain_epochs
+				pretrain_active = True
 			self.save_checkpoint()
 
-		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
+		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {epochs} epochs" + Fore.RESET)
 		for _ in range(epochs):
 			ep_start = time.time()
 			for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
+				if pretrain_active and self.epoch_counter < pretrain_epochs:
+					large_images, small_images = self.batch_maker.get_batch()
+					self.generator.train_on_batch(small_images, large_images)
+					continue
+
 				large_images, small_images = self.batch_maker.get_batch()
 
 				gen_imgs = self.generator.predict(small_images)

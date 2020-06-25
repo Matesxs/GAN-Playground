@@ -293,7 +293,7 @@ class DCGAN:
 			self.tensorboard.log_kernels_and_biases(self.generator)
 			self.save_checkpoint()
 
-		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter}" + Fore.RESET)
+		print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {epochs} epochs" + Fore.RESET)
 		for _ in range(epochs):
 			ep_start = time.time()
 			for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
