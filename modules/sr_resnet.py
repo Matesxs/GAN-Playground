@@ -62,7 +62,7 @@ class VGG_LOSS(object):
 
 		return 0.006 * K.mean(K.square(features_pred - features_true), axis=-1)
 
-class SSRGAN:
+class SR_Resnet:
 	AGREGATE_STAT_INTERVAL = 1  # Interval of saving data
 	RESET_SEEDS_INTERVAL = 10  # Interval of checking norm gradient value of combined model
 	CHECKPOINT_SAVE_INTERVAL = 1  # Interval of saving checkpoint

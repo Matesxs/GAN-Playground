@@ -23,7 +23,8 @@ AC-GAN - https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifi
 SRGAN - https://arxiv.org/pdf/1609.04802.pdf
 	  - https://github.com/deepak112/Keras-SRGAN/blob/master/Network.py
 	  - https://medium.com/@birla.deepak26/single-image-super-resolution-using-gans-keras-aca310f33112
-	  - https://github.com/JGuillaumin/SuperResGAN-keras
+
+SR_Resnet - https://github.com/JGuillaumin/SuperResGAN-keras
 
 Perceptual loss - https://arxiv.org/pdf/1603.08155.pdf%7C
 

@@ -1,4 +1,4 @@
-# Settings of classic gans
+# Settings of classic GANs
 DATASET_PATH = "datasets/dogs_normalized__64x64"
 
 NUM_OF_TRAINING_EPOCHS = 200
@@ -14,7 +14,7 @@ GEN_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/w
 DISC_MODEL = "mod_ext_5layers"
 DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/weights/350/discriminator_mod_ext_5layers.h5"
 
-# Settings of SR gans
+# Settings of SR GANs and SR Resnets
 DATASET_SR_PATH = "datasets/all_normalized__256x256" # "datasets/faces_normalized__256x256"
 CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256\60165.png"
 

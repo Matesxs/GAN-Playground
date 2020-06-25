@@ -62,8 +62,6 @@ class VGG_LOSS(object):
 
 		return 0.006*K.mean(K.square(features_pred - features_true), axis=-1)
 
-		# return K.mean(K.square(model(y_true) - model(y_pred)))
-
 class SRGAN:
 	AGREGATE_STAT_INTERVAL = 1  # Interval of saving data
 	RESET_SEEDS_INTERVAL = 10  # Interval of checking norm gradient value of combined model
