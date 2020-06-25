@@ -6,7 +6,7 @@ from keras.models import Model
 from keras.layers import Input, Dense
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
-from keras.layers.merge import _Merge
+from keras.layers import Layer
 from keras.engine.network import Network
 import keras.backend as K
 import tensorflow as tf
@@ -46,15 +46,18 @@ def gradient_penalty_loss(y_true, y_pred, averaged_samples):
 	return K.mean(gradient_penalty)
 
 # Weighted average function
-class RandomWeightedAverage(_Merge):
+class RandomWeightedAverage(Layer):
 	def __init__(self, batch_size:int):
 		super().__init__()
 		self.batch_size = batch_size
 
 	# Provides a (random) weighted average between real and generated image samples
-	def _merge_function(self, inputs):
+	def call(self, inputs, **kwargs):
 		weights = K.random_uniform((self.batch_size, 1, 1, 1))
 		return (weights * inputs[0]) + ((1 - weights) * inputs[1])
+
+	def compute_output_shape(self, input_shape):
+		return input_shape[0]
 
 class WGANGC:
 	AGREGATE_STAT_INTERVAL = 1 # Interval of saving data
@@ -164,7 +167,7 @@ class WGANGC:
 		valid_out = self.critic(real_image_input)
 
 		# Create weighted input to critic for gradient penalty loss
-		averaged_samples = RandomWeightedAverage(self.batch_size)([real_image_input, generated_images_for_critic])
+		averaged_samples = RandomWeightedAverage(self.batch_size)(inputs=[real_image_input, generated_images_for_critic])
 		validity_interpolated = self.critic(averaged_samples)
 
 		# Create partial gradient penalty loss function

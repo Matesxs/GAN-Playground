@@ -53,7 +53,7 @@ def res_block(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, batch_no
 	model = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer)(model)
 	model = BatchNormalization(momentum=batch_norm, axis=-1)(model)
 
-	model = Add()([gen, model])
+	model = Add()(inputs=[gen, model])
 
 	return model
 
@@ -83,5 +83,5 @@ def identity_layer(inp:Layer, filters_number_list:Union[list, int], kernel_size:
 			x = Activation("relu")(x)
 		if dropout: x = Dropout(dropout)(x)
 
-	x = Add()([x, inp])
+	x = Add()(inputs=[x, inp])
 	return x

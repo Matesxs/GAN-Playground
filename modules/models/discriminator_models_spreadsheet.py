@@ -1,4 +1,4 @@
-from keras.layers import Layer, Conv2D, Flatten, Dense
+from keras.layers import Layer, Flatten, Dense
 from keras.layers.advanced_activations import LeakyReLU
 from keras.initializers import Initializer, RandomNormal
 
