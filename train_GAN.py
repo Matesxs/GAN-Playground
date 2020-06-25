@@ -22,12 +22,13 @@ from keras import optimizers
 from modules.dcgan import DCGAN
 from modules.wasserstein_gan import WGANGC
 from modules.srgan import SRGAN
+from modules.ssrgan import SSRGAN
 from settings import *
 
 if __name__ == '__main__':
 	gan = None
 	try:
-		gan_selection = int(input("GAN selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\nSelected GAN: "))
+		gan_selection = int(input("GAN selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n3 - SSRGAN\nSelected GAN: "))
 		if gan_selection == 0:
 			gan = DCGAN(DATASET_PATH, training_progress_save_path="training_data/dcgan",
 			            batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES, test_batches=5,
@@ -70,7 +71,7 @@ if __name__ == '__main__':
 				if input("Continue? ") == "n": break
 
 		elif gan_selection == 2:
-			gan = SRGAN(DATASET_SR_PATH, num_of_upscales=2, training_progress_save_path="training_data/srgan",
+			gan = SRGAN(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
 			            batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR,
 			            gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
 			            generator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08), discriminator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
@@ -87,6 +88,23 @@ if __name__ == '__main__':
 				          weights_save_interval=WEIGHTS_SAVE_INTERVAL,
 				          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
 				          generator_smooth_labels=True)
+				if input("Continue? ") == "n": break
+
+		elif gan_selection == 3:
+			gan = SSRGAN(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/ssrgan",
+			             batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR,
+			             gen_mod_name=GEN_SR_MODEL,
+			             generator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
+			             generator_weights=GEN_SR_WEIGHTS,
+			             start_episode=START_EPISODE_SR,
+			             load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
+			             custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, check_dataset=CHECK_DATASET)
+
+			gan.save_models_structure_images()
+
+			while True:
+				gan.train(NUM_OF_TRAINING_EPOCHS_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
+				          weights_save_interval=WEIGHTS_SAVE_INTERVAL)
 				if input("Continue? ") == "n": break
 
 		gan.save_weights()
