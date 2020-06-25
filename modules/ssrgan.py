@@ -219,7 +219,7 @@ class SSRGAN:
 				self.tensorboard.log_kernels_and_biases(self.generator)
 				self.tensorboard.update_stats(self.epoch_counter, gen_loss=gen_loss)
 
-				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [G loss: {round(float(gen_loss[0]), 5)}, G vgg_loss: {round(float(gen_loss[1]), 5)}, G binary_loss: {round(float(gen_loss[2]), 5)}]" + Fore.RESET)
+				print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [G loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
 			# Save progress
 			if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
