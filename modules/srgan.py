@@ -261,6 +261,7 @@ class SRGAN:
 			ep_start = time.time()
 			for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
 				if pretrain_active and self.epoch_counter < pretrain_epochs:
+					# Pretrain generator
 					large_images, small_images = self.batch_maker.get_batch()
 					self.generator.train_on_batch(small_images, large_images)
 					continue
