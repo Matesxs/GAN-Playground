@@ -118,6 +118,7 @@ class SSRGAN:
 
 		# Define static vars
 		self.kernel_initializer = RandomNormal(stddev=0.02)
+		self.custom_hr_test_image_path = custom_hr_test_image_path
 		if custom_hr_test_image_path and os.path.exists(custom_hr_test_image_path):
 			self.progress_test_image_path = custom_hr_test_image_path
 		else:
@@ -288,7 +289,8 @@ class SSRGAN:
 			if data:
 				self.epoch_counter = int(data["episode"])
 				self.generator.load_weights(data["gen_path"])
-				self.progress_test_image_path = data["test_image"]
+				if not self.custom_hr_test_image_path:
+					self.progress_test_image_path = data["test_image"]
 				self.initiated = True
 
 	def save_checkpoint(self):

@@ -120,15 +120,15 @@ if __name__ == '__main__':
 			gan.save_checkpoint()
 	except KeyboardInterrupt:
 		if gan:
-			print(Fore.BLUE + "Quiting on epoch: {gan.epoch_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)
+			print(Fore.BLUE + f"Quiting on epoch: {gan.epoch_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)
 			gan.save_checkpoint()
 	except Exception as e:
 		if gan:
-			print(Fore.RED + "Exception on epoch: {gan.epoch_counter}" + Fore.RESET)
+			print(Fore.RED + f"Exception on epoch: {gan.epoch_counter}" + Fore.RESET)
 			gan.save_checkpoint()
 		else:
 			print(Fore.RED + "Creating GAN failed" + Fore.RESET)
 		traceback.print_exc()
 
 	if gan:
-		if input("Create gif of progress?") == "y": gan.make_progress_gif(frame_duration=GIF_FRAME_DURATION)
+		if input("Create gif of progress? ") == "y": gan.make_progress_gif(frame_duration=GIF_FRAME_DURATION)

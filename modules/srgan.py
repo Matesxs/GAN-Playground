@@ -126,6 +126,7 @@ class SRGAN:
 
 		# Define static vars
 		self.kernel_initializer = RandomNormal(stddev=0.02)
+		self.custom_hr_test_image_path = custom_hr_test_image_path
 		if custom_hr_test_image_path and os.path.exists(custom_hr_test_image_path):
 			self.progress_test_image_path = custom_hr_test_image_path
 		else:
@@ -388,7 +389,8 @@ class SRGAN:
 				self.discriminator.load_weights(data["disc_path"])
 				if data["disc_label_noise"]:
 					self.discriminator_label_noise = float(data["disc_label_noise"])
-				self.progress_test_image_path = data["test_image"]
+				if not self.custom_hr_test_image_path:
+					self.progress_test_image_path = data["test_image"]
 				self.initiated = True
 
 	def save_checkpoint(self):
