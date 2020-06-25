@@ -25,4 +25,6 @@ SRGAN - https://arxiv.org/pdf/1609.04802.pdf
 	  - https://medium.com/@birla.deepak26/single-image-super-resolution-using-gans-keras-aca310f33112
 	  - https://github.com/JGuillaumin/SuperResGAN-keras
 
+Perceptual loss - https://arxiv.org/pdf/1603.08155.pdf%7C
+
 DATASETS - From Kaggle
