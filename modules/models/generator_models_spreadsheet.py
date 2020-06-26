@@ -152,10 +152,10 @@ def mod_ext2_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
   m = deconv_layer(m, 128, kernel_size=3, strides=2, conv_transpose=False, leaky=False, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
   # (16*st_s, 16*st_s, 128) -> (16*st_s, 16*st_s, 128)
-  m = identity_layer(m, [128, 128], kernel_size=3, dropout=None, batch_norm=0.8, leaky=False, kernel_initializer=kernel_initializer)
+  m = identity_layer(m, [128, 128], kernel_size=3, dropout=None, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
   # (16*st_s, 16*st_s, 128) -> (16*st_s, 16*st_s, 128)
-  m = identity_layer(m, [64, 128], kernel_size=3, dropout=None, batch_norm=0.8, leaky=False, kernel_initializer=kernel_initializer)
+  m = identity_layer(m, [64, 128], kernel_size=3, dropout=None, batch_norm=0.8, kernel_initializer=kernel_initializer)
 
   # (16*st_s, 16*st_s, 128) -> (16*st_s, 16*st_s, image_channels)
   m = Conv2D(image_channels, kernel_size=(3, 3), padding="same", activation="tanh", kernel_initializer=kernel_initializer, use_bias=False)(m)

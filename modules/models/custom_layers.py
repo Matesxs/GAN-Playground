@@ -64,19 +64,19 @@ def res_block(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, batch_no
 
   return model
 
-def identity_layer(inp:Layer, filters_number_list:Union[list, int], kernel_size:int=3, dropout:float=None, batch_norm:Union[float, None]=None, leaky:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def identity_layer(inp, filters_number_list:Union[list, int], kernel_size:int=3, dropout:float=None, batch_norm:Union[float, None]=None, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert kernel_size > 0, "Invalid kernel size"
 
   x = inp
   if isinstance(filters_number_list, list):
-    for filters in filters_number_list:
+    for index, filters in enumerate(filters_number_list):
       assert filters > 0, "Invalid filter number"
+      if index > 0:
+        x = PReLU(alpha_initializer='zeros', alpha_regularizer=None, alpha_constraint=None, shared_axes=[1, 2])(x)
 
       x = Conv2D(filters, kernel_size=(kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(x)
 
       if batch_norm: x = BatchNormalization(momentum=batch_norm, axis=-1)(x)
-      if leaky: x = LeakyReLU(0.2)(x)
-      else: x = Activation("relu")(x)
       if dropout: x = Dropout(dropout)(x)
   else:
     assert filters_number_list > 0, "Invalid filter number"
@@ -84,11 +84,10 @@ def identity_layer(inp:Layer, filters_number_list:Union[list, int], kernel_size:
     x = Conv2D(filters_number_list, kernel_size=(kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(x)
 
     if batch_norm: x = BatchNormalization(momentum=batch_norm, axis=-1)(x)
-    if leaky:
-      x = LeakyReLU(0.2)(x)
-    else:
-      x = Activation("relu")(x)
     if dropout: x = Dropout(dropout)(x)
+
+  if inp.shape != x.shape:
+    inp = Conv2D(x.shape[-1], kernel_size=1, strides=1, padding="valid", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(inp)
 
   x = Add()(inputs=[x, inp])
   return x
