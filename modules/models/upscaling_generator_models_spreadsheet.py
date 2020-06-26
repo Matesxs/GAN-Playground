@@ -38,7 +38,7 @@ def mod_srgan_ext(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kerne
   for _ in range(num_of_upscales):
     m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, conv_transpose=False, upsample_first=False, kernel_initializer=kernel_initializer)
 
-  m = identity_layer(m, [128, 128], kernel_size=3, batch_norm=0.5, dropout=None, kernel_initializer=kernel_initializer)
+  m = identity_layer(m, 256, kernel_size=3, batch_norm=0.5, dropout=None, kernel_initializer=kernel_initializer)
 
   m = Conv2D(filters=start_image_shape[2], kernel_size=9, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer, use_bias=False)(m)
   return m
