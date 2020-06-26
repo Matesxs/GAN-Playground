@@ -7,82 +7,82 @@ import cv2 as cv
 import time
 
 class BatchMaker(Thread):
-	def __init__(self, train_data:list, data_length: int, batch_size: int, buffered_batches:int=5, num_of_workers:int=4, secondary_size:tuple=None):
-		super().__init__()
-		self.daemon = True
+  def __init__(self, train_data:list, data_length: int, batch_size: int, buffered_batches:int=5, num_of_workers:int=4, secondary_size:tuple=None):
+    super().__init__()
+    self.daemon = True
 
-		self.terminate = False
-		self.secondary_size = secondary_size
+    self.terminate = False
+    self.secondary_size = secondary_size
 
-		self.batches_in_buffer = buffered_batches
-		self.batches = deque(maxlen=self.batches_in_buffer)
-		self.resized_batches = deque(maxlen=self.batches_in_buffer)
+    self.batches_in_buffer = buffered_batches
+    self.batches = deque(maxlen=self.batches_in_buffer)
+    self.resized_batches = deque(maxlen=self.batches_in_buffer)
 
-		self.train_data = train_data
-		self.data_length = data_length
-		self.batch_size = batch_size
+    self.train_data = train_data
+    self.data_length = data_length
+    self.batch_size = batch_size
 
-		self.index = 0
-		self.max_index = (self.data_length // self.batch_size) - 2
-		self.worker_pool = ThreadPool(processes=num_of_workers)
+    self.index = 0
+    self.max_index = (self.data_length // self.batch_size) - 2
+    self.worker_pool = ThreadPool(processes=num_of_workers)
 
-	def make_batch(self, data):
-		if data is not None:
-			batch = []
-			resized_batch = []
+  def make_batch(self, data):
+    if data is not None:
+      batch = []
+      resized_batch = []
 
-			for im_p in data:
-				original_image = cv.imread(im_p)
-				batch.append(cv.cvtColor(original_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0)
-				if self.secondary_size:
-					resized_batch.append(cv.cvtColor(cv.resize(original_image, dsize=(self.secondary_size[0], self.secondary_size[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.secondary_size[0] and original_image.shape[1] > self.secondary_size[1]) else cv.INTER_CUBIC)), cv.COLOR_BGR2RGB) / 127.5 - 1.0)
+      for im_p in data:
+        original_image = cv.imread(im_p)
+        batch.append(cv.cvtColor(original_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0)
+        if self.secondary_size:
+          resized_batch.append(cv.cvtColor(cv.resize(original_image, dsize=(self.secondary_size[0], self.secondary_size[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.secondary_size[0] and original_image.shape[1] > self.secondary_size[1]) else cv.INTER_CUBIC)), cv.COLOR_BGR2RGB) / 127.5 - 1.0)
 
-			if batch: self.batches.append(np.array(batch).astype(np.float32))
-			if resized_batch: self.resized_batches.append(np.array(resized_batch).astype(np.float32))
+      if batch: self.batches.append(np.array(batch).astype(np.float32))
+      if resized_batch: self.resized_batches.append(np.array(resized_batch).astype(np.float32))
 
-	def make_data(self, data_ammount:int):
-		data_array = []
-		for _ in range(data_ammount):
-			data_array.append(np.array(self.train_data)[range(self.index * self.batch_size, (self.index + 1) * self.batch_size)])
+  def make_data(self, data_ammount:int):
+    data_array = []
+    for _ in range(data_ammount):
+      data_array.append(np.array(self.train_data)[range(self.index * self.batch_size, (self.index + 1) * self.batch_size)])
 
-			self.index += 1
-			if self.index >= self.max_index:
-				np.random.shuffle(self.train_data)
-				self.index = 0
+      self.index += 1
+      if self.index >= self.max_index:
+        np.random.shuffle(self.train_data)
+        self.index = 0
 
-		return data_array
+    return data_array
 
-	def run(self):
-		np.random.shuffle(self.train_data)
+  def run(self):
+    np.random.shuffle(self.train_data)
 
-		while not self.terminate:
-			batches_to_create = self.batches_in_buffer - len(self.batches)
-			if batches_to_create > 0:
-				self.worker_pool.map(self.make_batch, self.make_data(batches_to_create))
+    while not self.terminate:
+      batches_to_create = self.batches_in_buffer - len(self.batches)
+      if batches_to_create > 0:
+        self.worker_pool.map(self.make_batch, self.make_data(batches_to_create))
 
-			time.sleep(0.01)
+      time.sleep(0.01)
 
-	def get_batch(self) -> Union[np.ndarray, tuple]:
-		while not self.batches: time.sleep(0.01)
-		if self.secondary_size:
-			while not self.resized_batches: time.sleep(0.01)
-			return self.batches.popleft(), self.resized_batches.popleft()
-		return self.batches.popleft()
+  def get_batch(self) -> Union[np.ndarray, tuple]:
+    while not self.batches: time.sleep(0.01)
+    if self.secondary_size:
+      while not self.resized_batches: time.sleep(0.01)
+      return self.batches.popleft(), self.resized_batches.popleft()
+    return self.batches.popleft()
 
-	def get_larger_batch(self, num_of_batches_to_merge:int):
-		batch = []
-		resized_batch = []
-		for _ in range(num_of_batches_to_merge):
-			while not self.batches: time.sleep(0.01)
-			if self.secondary_size:
-				while not self.resized_batches: time.sleep(0.01)
-				for orig_image, resized_image in zip(self.batches.popleft(), self.resized_batches.popleft()):
-					batch.append(orig_image)
-					resized_batch.append(resized_image)
-			else:
-				for img in self.batches.popleft():
-					batch.append(img)
+  def get_larger_batch(self, num_of_batches_to_merge:int):
+    batch = []
+    resized_batch = []
+    for _ in range(num_of_batches_to_merge):
+      while not self.batches: time.sleep(0.01)
+      if self.secondary_size:
+        while not self.resized_batches: time.sleep(0.01)
+        for orig_image, resized_image in zip(self.batches.popleft(), self.resized_batches.popleft()):
+          batch.append(orig_image)
+          resized_batch.append(resized_image)
+      else:
+        for img in self.batches.popleft():
+          batch.append(img)
 
-		if self.secondary_size:
-			return np.array(batch), np.array(resized_batch)
-		return np.array(batch)
+    if self.secondary_size:
+      return np.array(batch), np.array(resized_batch)
+    return np.array(batch)
