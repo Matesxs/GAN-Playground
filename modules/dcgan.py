@@ -156,9 +156,13 @@ class DCGAN:
     # Load weights from checkpoint
     try:
       if loaded_gen_weights_path: self.generator.load_weights(loaded_gen_weights_path)
+    except:
+      print(Fore.YELLOW + "Failed to load generator weights from checkpoint" + Fore.RESET)
+
+    try:
       if loaded_disc_weights_path: self.discriminator.load_weights(loaded_disc_weights_path)
     except:
-      print(Fore.YELLOW + "Failed to load all weights from checkpoint" + Fore.RESET)
+      print(Fore.YELLOW + "Failed to load discriminator weights from checkpoint" + Fore.RESET)
 
     # Load weights from param and override checkpoint weights
     if generator_weights: self.generator.load_weights(generator_weights)

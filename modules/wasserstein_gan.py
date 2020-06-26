@@ -370,15 +370,13 @@ class WGANGC:
 
         try:
           self.generator.load_weights(data["gen_path"])
-          self.critic.load_weights(data["critic_path"])
         except:
-          print(Fore.YELLOW + "Failed to load all weights from checkpoint" + Fore.RESET)
+          print(Fore.YELLOW + "Failed to load generator weights from checkpoint" + Fore.RESET)
 
         try:
-          self.generator.load_weights(data["gen_path"])
           self.critic.load_weights(data["critic_path"])
         except:
-          print(Fore.YELLOW + "Failed to load all weights from checkpoint" + Fore.RESET)
+          print(Fore.YELLOW + "Failed to load critic weights from checkpoint" + Fore.RESET)
 
         self.initiated = True
 
