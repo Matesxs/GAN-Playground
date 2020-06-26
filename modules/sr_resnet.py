@@ -203,6 +203,7 @@ class SR_Resnet:
         # Train generator (wants discriminator to recognize fake images as valid)
         large_images, small_images = self.batch_maker.get_batch()
         self.generator.train_on_batch(small_images, large_images)
+        time.sleep(0.05)
 
       time.sleep(0.5)
       self.epoch_counter += 1

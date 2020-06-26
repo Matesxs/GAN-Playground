@@ -291,6 +291,7 @@ class SRGAN:
         else:
           gen_labels = np.ones(shape=(self.batch_size, 1))
         self.combined_generator_model.train_on_batch(small_images, [large_images, gen_labels])
+        time.sleep(0.05)
 
       time.sleep(0.5)
       self.epoch_counter += 1

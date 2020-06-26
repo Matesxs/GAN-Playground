@@ -192,6 +192,7 @@ class DCGAN:
         for _ in range(num_batches):
           images = self.batch_maker.get_batch()
           encdec.train_on_batch(images, images)
+          time.sleep(0.05)
     except Exception as e:
       print(Fore.RED + f"Failed to pretrain generator\n{e}" + Fore.RESET)
       failed = True
@@ -345,6 +346,7 @@ class DCGAN:
         else:
           gen_labels = np.ones(shape=(self.batch_size, 1))
         self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), gen_labels)
+        time.sleep(0.05)
 
       time.sleep(0.5)
       self.epoch_counter += 1

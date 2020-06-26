@@ -281,6 +281,7 @@ class WGANGC:
         ### Train Generator ###
         # Generate new latent noise
         self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
+        time.sleep(0.05)
 
       time.sleep(0.5)
       self.epoch_counter += 1
