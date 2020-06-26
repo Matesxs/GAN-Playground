@@ -1,29 +1,47 @@
 from typing import Union
+import tensorflow as tf
 from keras.initializers import Initializer, RandomNormal
-from keras.layers import Layer, Conv2D, Conv2DTranspose, UpSampling2D, BatchNormalization, Dropout, Add, PReLU
+from keras.layers import Layer, Conv2D, UpSampling2D, BatchNormalization, Dropout, Add, PReLU, Lambda
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers import Activation
 
-def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, conv_transpose:bool=False, leaky:bool=True, upsample_first:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def SubpixelConv2D(scale=2):
+  def subpixel_shape(input_shape):
+    dims = [input_shape[0],
+            None if input_shape[1] is None else input_shape[1] * scale,
+            None if input_shape[2] is None else input_shape[2] * scale,
+            int(input_shape[3] / (scale ** 2))]
+    output_shape = tuple(dims)
+    return output_shape
+
+  def subpixel(x):
+    return tf.nn.depth_to_space(x, scale)
+
+  return Lambda(subpixel, output_shape=subpixel_shape, name="cubpixel_conv2d")
+
+def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, use_subpixel_conv2d:bool=False, leaky:bool=True, upsample_first:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert filters > 0, "Invalid filter number"
   assert kernel_size > 0, "Invalid kernel size"
   assert strides > 0, "Invalid stride size"
 
-  if conv_transpose:
-    x = Conv2DTranspose(filters, (kernel_size, kernel_size), strides=(strides, strides), padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(inp)
-  else:
-    if upsample_first:
-      if strides > 1:
+  if upsample_first:
+    if strides > 1:
+      if use_subpixel_conv2d:
+        x = SubpixelConv2D(2)(inp)
+      else:
         x = UpSampling2D(size=strides)(inp)
-      else: x = inp
+    else: x = inp
 
-      x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(x)
-    else:
-      x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(inp)
+    x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(x)
+  else:
+    x = Conv2D(filters, (kernel_size, kernel_size), padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(inp)
 
-      if strides > 1:
+    if strides > 1:
+      if use_subpixel_conv2d:
+        x = SubpixelConv2D(2)(x)
+      else:
         x = UpSampling2D(size=strides)(x)
-      else: x = inp
+    else: x = inp
 
   if batch_norm: x = BatchNormalization(momentum=batch_norm, axis=-1)(x)
   if leaky: x = LeakyReLU(0.2)(x)
