@@ -303,19 +303,25 @@ class SRGAN_V2:
         binary_gen_loss = 0
         disc_real_loss = 0
         disc_fake_loss = 0
+        disc_real_acc = 0
+        disc_fake_acc = 0
         for _ in range(self.test_batches):
           large_images, small_images = self.batch_maker.get_batch()
           gen_imgs = self.generator.predict(small_images)
 
           # Evaluate models state
-          disc_real_loss += self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
-          disc_fake_loss += self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
+          d_r_l, d_r_a = self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
+          d_f_l, d_f_a = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
           predicted_features = self.vgg.predict(preprocess_vgg(large_images))
           g_l = self.combined_generator_model.test_on_batch(small_images, [predicted_features, np.ones(shape=(large_images.shape[0], 1))])
 
           gen_loss += g_l[0]
           mse_gen_loss += g_l[1]
           binary_gen_loss += g_l[2]
+          disc_real_loss += d_r_l
+          disc_fake_loss += d_f_l
+          disc_real_acc += d_r_a
+          disc_fake_acc += d_f_a
 
         # Calculate excatc values of stats and convert accuracy to percents
         gen_loss /= self.test_batches
@@ -323,11 +329,15 @@ class SRGAN_V2:
         binary_gen_loss /= self.test_batches
         disc_real_loss /= self.test_batches
         disc_fake_loss /= self.test_batches
+        disc_real_acc /= self.test_batches
+        disc_fake_acc /= self.test_batches
+        disc_real_acc *= 100.0
+        disc_fake_acc *= 100.0
 
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss, mse_gen_loss=mse_gen_loss, gen_binary_loss=binary_gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, mse_gen_loss=mse_gen_loss, gen_binary_loss=binary_gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}, G mse_loss: {round(float(mse_gen_loss), 5)}, G binary_loss: {round(float(binary_gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(float(disc_real_acc), 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(float(disc_fake_acc), 2)}%] [G loss: {round(float(gen_loss), 5)}, G mse_loss: {round(float(mse_gen_loss), 5)}, G binary_loss: {round(float(binary_gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
       # Save progress
       if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:

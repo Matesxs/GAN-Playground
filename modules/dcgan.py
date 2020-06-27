@@ -119,7 +119,7 @@ class DCGAN:
     ###   Create discriminator    ###
     #################################
     self.discriminator = self.build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['accuracy'])
+    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['binary_accuracy'])
     print("\nDiscriminator Sumary:")
     self.discriminator.summary()
 
@@ -388,8 +388,8 @@ class DCGAN:
         disc_real_loss /= self.test_batches
         disc_fake_loss /= self.test_batches
         gen_loss /= self.test_batches
-        disc_real_acc *= 100
-        disc_fake_acc *= 100
+        disc_real_acc *= 100.0
+        disc_fake_acc *= 100.0
 
         self.tensorboard.log_kernels_and_biases(self.generator)
         self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
