@@ -362,16 +362,32 @@ class DCGAN:
 
       # Seve stats and print them to console
       if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
-        # Generate images for statistics
-        imgs = self.batch_maker.get_larger_batch(self.test_batches)
-        gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size * self.test_batches, self.latent_dim)))
+        disc_real_acc = 0
+        disc_fake_acc = 0
+        disc_real_loss = 0
+        disc_fake_loss = 0
+        gen_loss = 0
+        for _ in range(self.test_batches):
+          # Generate images for statistics
+          imgs = self.batch_maker.get_batch()
+          gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
 
-        # Evaluate models state
-        disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
-        disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-        gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size * self.test_batches, self.latent_dim)), np.ones(shape=(self.batch_size * self.test_batches, 1)))
+          # Evaluate models state
+          d_r_l, d_r_a = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
+          d_f_l, d_f_a = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
+          gen_loss += self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), np.ones(shape=(self.batch_size, 1)))
 
-        # Convert accuracy to percents
+          disc_real_acc += d_r_a
+          disc_fake_acc += d_f_a
+          disc_real_loss += d_r_l
+          disc_fake_loss += d_f_l
+
+        # Calculate excatc values of stats and convert accuracy to percents
+        disc_real_acc /= self.test_batches
+        disc_fake_acc /= self.test_batches
+        disc_real_loss /= self.test_batches
+        disc_fake_loss /= self.test_batches
+        gen_loss /= self.test_batches
         disc_real_acc *= 100
         disc_fake_acc *= 100
 

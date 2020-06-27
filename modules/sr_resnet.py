@@ -71,7 +71,7 @@ class SR_Resnet:
                gen_mod_name: str,
                training_progress_save_path: str,
                generator_optimizer: Optimizer = Adam(0.0002, 0.5),
-               batch_size: int = 32, buffered_batches: int = 20,
+               batch_size: int = 32, buffered_batches: int = 20, test_batches:int=1,
                generator_weights: Union[str, None, int] = None,
                start_episode: int = 0, load_from_checkpoint: bool = False,
                custom_batches_per_epochs: int = None, custom_hr_test_image_path:str=None, check_dataset: bool = True):
@@ -82,6 +82,9 @@ class SR_Resnet:
 
     self.batch_size = batch_size
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
+
+    self.test_batches = test_batches
+    assert self.test_batches > 0, Fore.RED + "Invalid test batch size" + Fore.RESET
 
     if start_episode < 0: start_episode = 0
     self.epoch_counter = start_episode
@@ -212,10 +215,15 @@ class SR_Resnet:
 
       # Seve stats and print them to console
       if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
-        large_images, small_images = self.batch_maker.get_batch()
+        gen_loss = 0
+        for _ in range(self.test_batches):
+          large_images, small_images = self.batch_maker.get_batch()
 
-        # Evaluate model state
-        gen_loss = self.generator.test_on_batch(small_images, large_images)
+          # Evaluate model state
+          gen_loss += self.generator.test_on_batch(small_images, large_images)
+
+        # Calculate excatc values of stats
+        gen_loss /= self.test_batches
 
         self.tensorboard.log_kernels_and_biases(self.generator)
         self.tensorboard.update_stats(self.epoch_counter, gen_loss=gen_loss)

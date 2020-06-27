@@ -34,6 +34,8 @@ DISC_SR_MODEL = "mod_base_9layers"
 DICS_SR_WEIGHTS = None
 
 # General settings
+NUM_OF_TEST_BATCHES = 5
+
 LOAD_FROM_CHECKPOINTS = True
 CHECK_DATASET = False # Leave this false only when you are sure your dataset is consistent
 
