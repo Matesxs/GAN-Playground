@@ -1,7 +1,7 @@
 # Settings of classic GANs
 DATASET_PATH = "datasets/dogs_normalized__64x64"
 
-NUM_OF_TRAINING_EPOCHS = 200
+NUM_OF_TRAINING_EPOCHS = 10_000
 
 LATENT_DIM = 128
 BATCH_SIZE = 16
@@ -18,8 +18,8 @@ DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/
 DATASET_SR_PATH = "datasets/all_normalized__256x256" # "datasets/faces_normalized__256x256"
 CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256\60165.png"
 
-NUM_OF_TRAINING_EPOCHS_SR = 20
-PRETRAIN_EPISODES_OF_SRGAN = 10
+NUM_OF_TRAINING_EPOCHS_SR = 10_000
+PRETRAIN_EPISODES_OF_SRGAN = 200
 
 BATCH_SIZE_SR = 4
 CUSTOM_BATCHES_PER_EPOCH = 5_000

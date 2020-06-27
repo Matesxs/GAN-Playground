@@ -44,7 +44,7 @@ if __name__ == '__main__':
                               generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
                               start_episode=START_EPISODE,
                               load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                              pretrain=5,
+                              pretrain=200,
                               check_dataset=CHECK_DATASET)
 
       training_object.save_models_structure_images()
