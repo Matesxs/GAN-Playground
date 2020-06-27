@@ -6,7 +6,7 @@ from keras.optimizers import Optimizer, Adam
 from keras.layers import Input, Dense
 from keras.models import Model
 from keras.engine.network import Network
-from keras.applications.vgg19 import VGG19
+from keras.applications.vgg19 import VGG19, preprocess_input
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
 from statistics import mean
@@ -32,19 +32,11 @@ def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
   if upsc[0] < 1 or upsc[1] < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
   return upsc
 
-_IMAGENET_MEAN = K.constant(-np.array([103.939, 116.778, 123.68]))
 def preproces_vgg(x):
   # scale from [-1,1] to [0, 255]
   x += 1.
   x *= 127.5
-
-  # RGB -> BGR
-  x = x[..., ::-1]
-
-  # apply Imagenet preprocessing : BGR mean
-  x = K.bias_add(x, K.cast(_IMAGENET_MEAN, K.dtype(x)))
-
-  return x
+  return preprocess_input(x)
 
 class VGG_LOSS(object):
   def __init__(self, image_shape):
