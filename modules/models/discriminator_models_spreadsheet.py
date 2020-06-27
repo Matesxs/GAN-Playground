@@ -52,16 +52,16 @@ def mod_base_9layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stdd
   m = Conv2D(64, kernel_size=3, strides=1, padding="same", use_bias=False, activation=None, kernel_initializer=kernel_initializer)(inp)
   m = LeakyReLU(0.2)(m)
 
-  m = conv_layer(m, 64, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
+  m = conv_layer(m, 64, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, leaky=True, use_bias=False, kernel_initializer=kernel_initializer)
 
-  m = conv_layer(m, 128, kernel_size=3, strides=1, dropout=None, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
-  m = conv_layer(m, 128, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
+  m = conv_layer(m, 128, kernel_size=3, strides=1, dropout=None, batch_norm=0.5, leaky=True, use_bias=False, kernel_initializer=kernel_initializer)
+  m = conv_layer(m, 128, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, leaky=True, use_bias=False, kernel_initializer=kernel_initializer)
 
-  m = conv_layer(m, 256, kernel_size=3, strides=1, dropout=None, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
-  m = conv_layer(m, 256, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
+  m = conv_layer(m, 256, kernel_size=3, strides=1, dropout=None, batch_norm=0.5, leaky=True, use_bias=False, kernel_initializer=kernel_initializer)
+  m = conv_layer(m, 256, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, leaky=True, use_bias=False, kernel_initializer=kernel_initializer)
 
-  m = conv_layer(m, 512, kernel_size=3, strides=1, dropout=None, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
-  m = conv_layer(m, 512, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, leaky=True, kernel_initializer=kernel_initializer)
+  m = conv_layer(m, 512, kernel_size=3, strides=1, dropout=None, batch_norm=0.5, leaky=True, use_bias=False, kernel_initializer=kernel_initializer)
+  m = conv_layer(m, 512, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, leaky=True, use_bias=False, kernel_initializer=kernel_initializer)
 
   m = Flatten()(m)
 

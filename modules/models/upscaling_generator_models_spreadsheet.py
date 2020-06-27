@@ -10,14 +10,14 @@ def mod_srgan_base(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kern
   skip = m
 
   for _ in range(16):
-    m = res_block(m, 64, 3, 1, batch_norm=0.5, kernel_initializer=kernel_initializer)
+    m = res_block(m, 64, 3, 1, batch_norm=0.5, use_bias=False, kernel_initializer=kernel_initializer)
 
   m = Conv2D(filters=64, kernel_size=3, strides=1, padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(m)
   m = BatchNormalization(momentum=0.5, axis=-1)(m)
   m = Add()(inputs=[skip, m])
 
   for _ in range(num_of_upscales):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, use_subpixel_conv2d=False, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, use_subpixel_conv2d=False, upsample_first=False, use_bias=False, kernel_initializer=kernel_initializer)
 
   m = Conv2D(filters=start_image_shape[2], kernel_size=9, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer, use_bias=False)(m)
   return m
@@ -29,14 +29,14 @@ def mod_srgan_base_sub(inp:Layer, start_image_shape:tuple, num_of_upscales:int, 
   skip = m
 
   for _ in range(16):
-    m = res_block(m, 64, 3, 1, batch_norm=0.5, kernel_initializer=kernel_initializer)
+    m = res_block(m, 64, 3, 1, batch_norm=0.5, use_bias=False, kernel_initializer=kernel_initializer)
 
   m = Conv2D(filters=64, kernel_size=3, strides=1, padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(m)
   m = BatchNormalization(momentum=0.5, axis=-1)(m)
   m = Add()(inputs=[skip, m])
 
   for _ in range(num_of_upscales):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, use_subpixel_conv2d=True, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=False, kernel_initializer=kernel_initializer)
 
   m = Conv2D(filters=start_image_shape[2], kernel_size=9, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer, use_bias=False)(m)
   return m
@@ -48,16 +48,16 @@ def mod_srgan_ext(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kerne
   skip = m
 
   for _ in range(16):
-    m = res_block(m, 64, kernel_size=3, strides=1, batch_norm=0.5, kernel_initializer=kernel_initializer)
+    m = res_block(m, 64, kernel_size=3, strides=1, batch_norm=0.5, use_bias=False, kernel_initializer=kernel_initializer)
 
   m = Conv2D(filters=64, kernel_size=3, strides=1, padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(m)
   m = BatchNormalization(momentum=0.5, axis=-1)(m)
   m = Add()(inputs=[skip, m])
 
   for _ in range(num_of_upscales):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, use_subpixel_conv2d=False, upsample_first=False, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, strides=2, leaky=True, batch_norm=None, use_subpixel_conv2d=False, upsample_first=False, use_bias=False, kernel_initializer=kernel_initializer)
 
-  m = identity_layer(m, 256, kernel_size=3, batch_norm=0.5, dropout=None, kernel_initializer=kernel_initializer)
+  m = identity_layer(m, 256, kernel_size=3, batch_norm=0.5, dropout=None, use_bias=False, kernel_initializer=kernel_initializer)
 
   m = Conv2D(filters=start_image_shape[2], kernel_size=9, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer, use_bias=False)(m)
   return m
