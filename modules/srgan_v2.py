@@ -413,12 +413,12 @@ class SRGAN_V2:
         self.epoch_counter = int(data["episode"])
 
         try:
-          self.generator.load_weights(data["gen_path"])
+          self.generator.load_weights(data["gen_path"], by_name=True, skip_mismatch=True)
         except:
           print(Fore.YELLOW + "Failed to load generator weights from checkpoint" + Fore.RESET)
 
         try:
-          self.discriminator.load_weights(data["disc_path"])
+          self.discriminator.load_weights(data["disc_path"], by_name=True, skip_mismatch=True)
         except:
           print(Fore.YELLOW + "Failed to load discriminator weights from checkpoint" + Fore.RESET)
 

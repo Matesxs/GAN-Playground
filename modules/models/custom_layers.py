@@ -68,7 +68,7 @@ def conv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout
 
   return x
 
-def res_block(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, batch_norm:Union[float, None]=None, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def res_block(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, batch_norm:float=0.5, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert filters > 0, "Invalid filter number"
   assert kernel_size > 0, "Invalid kernel size"
   assert strides > 0, "Invalid stride size"
