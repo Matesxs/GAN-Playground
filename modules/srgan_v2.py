@@ -1,12 +1,12 @@
 from colorama import Fore
 import os
 from typing import Union
-import keras.backend as K
+import tensorflow as tf
 from keras.optimizers import Optimizer, Adam
-from keras.layers import Input, Dense
+from keras.layers import Input, Dense, Lambda
 from keras.models import Model
 from keras.engine.network import Network
-from keras.applications.vgg19 import VGG19
+from keras.applications.vgg19 import VGG19, preprocess_input
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
 from statistics import mean
@@ -32,37 +32,32 @@ def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
   if upsc[0] < 1 or upsc[1] < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
   return upsc
 
-_IMAGENET_MEAN = K.constant(-np.array([103.939, 116.778, 123.68]))
-def preproces_vgg(x):
-  # scale from [-1,1] to [0, 255]
-  x += 1.
-  x *= 127.5
 
-  # RGB -> BGR
-  x = x[..., ::-1]
+def preprocess_vgg(x):
+  """Take a HR image [-1, 1], convert to [0, 255], then to input for VGG network"""
+  if isinstance(x, np.ndarray):
+    return preprocess_input((x + 1) * 127.5)
+  else:
+    return Lambda(lambda x: preprocess_input(tf.add(x, 1) * 127.5))(x)
 
-  # apply Imagenet preprocessing : BGR mean
-  x = K.bias_add(x, K.cast(_IMAGENET_MEAN, K.dtype(x)))
+def build_vgg(image_shape):
+  # Input image to extract features from
+  img = Input(shape=image_shape)
 
-  return x
+  # Get the vgg network. Extract features from last conv layer
+  vgg = VGG19(weights="imagenet")
+  vgg.trainable = False
+  for l in vgg.layers:
+    l.trainable = False
 
-class VGG_LOSS(object):
-  def __init__(self, image_shape):
-    vgg19 = VGG19(include_top=False, weights='imagenet', input_shape=image_shape)
-    vgg19.trainable = False
-    for l in vgg19.layers:
-      l.trainable = False
-    self.model = Model(inputs=vgg19.input, outputs=vgg19.get_layer("block2_conv2").output)
-    self.model.trainable = False
+  vgg.outputs = [vgg.layers[20].output]
 
-  # computes VGG loss or content loss
-  def vgg_loss(self, y_true, y_pred):
-    features_pred = self.model(preproces_vgg(y_pred))
-    features_true = self.model(preproces_vgg(y_true))
+  # Create model and compile
+  model = Model(inputs=img, outputs=vgg(img))
+  model.trainable = False
+  return model
 
-    return 0.006*K.mean(K.square(features_pred - features_true), axis=-1)
-
-class SRGAN:
+class SRGAN_V2:
   AGREGATE_STAT_INTERVAL = 1  # Interval of saving data
   RESET_SEEDS_INTERVAL = 10  # Interval of checking norm gradient value of combined model
   CHECKPOINT_SAVE_INTERVAL = 1  # Interval of saving checkpoint
@@ -137,14 +132,11 @@ class SRGAN:
     self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
     self.batch_maker.start()
 
-    # Loss object
-    self.loss_object = VGG_LOSS(self.target_image_shape)
-
     #################################
     ###   Create discriminator    ###
     #################################
     self.discriminator = self.build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer)
+    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=["accuracy"])
     print("\nDiscriminator Sumary:")
     self.discriminator.summary()
 
@@ -153,15 +145,22 @@ class SRGAN:
     #################################
     self.generator = self.build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception("Invalid image input size for this generator model")
-    self.generator.compile(loss=self.loss_object.vgg_loss, optimizer=generator_optimizer)
+    self.generator.compile(loss="mse", optimizer=generator_optimizer)
     print("\nGenerator Sumary:")
     self.generator.summary()
+
+    #################################
+    ###    Create vgg network     ###
+    #################################
+    self.vgg = build_vgg(self.target_image_shape)
+    self.vgg.compile(loss='mse', optimizer=Adam(0.0001, 0.9), metrics=['accuracy'])
 
     #################################
     ### Create combined generator ###
     #################################
     small_image_input = Input(shape=self.start_image_shape, name="small_image_input")
     gen_images = self.generator(small_image_input)
+    generated_features = self.vgg(preprocess_vgg(gen_images))
 
     # Create frozen version of discriminator
     frozen_discriminator = Network(self.discriminator.inputs, self.discriminator.outputs, name="frozen_discriminator")
@@ -172,9 +171,9 @@ class SRGAN:
 
     # Combine models
     # Train generator to fool discriminator
-    self.combined_generator_model = Model(small_image_input, outputs=[gen_images, validity], name="srgan_model")
-    self.combined_generator_model.compile(loss=[self.loss_object.vgg_loss, "binary_crossentropy"],
-                                          loss_weights=[1., 1e-3],
+    self.combined_generator_model = Model(small_image_input, outputs=[generated_features, validity], name="srgan_model")
+    self.combined_generator_model.compile(loss=["mse", "binary_crossentropy"],
+                                          loss_weights=[0.006, 1e-3],
                                           optimizer=generator_optimizer)
 
     # Load checkpoint
@@ -226,9 +225,7 @@ class SRGAN:
     return Model(img, m, name="discriminator_model")
 
   def train(self, epochs: int, pretrain_epochs:int=None,
-            progress_images_save_interval: int = None, save_raw_progress_images:bool=True, weights_save_interval: int = None,
-            discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
-            generator_smooth_labels:bool=False):
+            progress_images_save_interval: int = None, save_raw_progress_images:bool=True, weights_save_interval:int=None):
 
     # Check arguments and input data
     assert epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
@@ -273,15 +270,8 @@ class SRGAN:
         gen_imgs = self.generator.predict(small_images)
 
         # Train discriminator (real as ones and fake as zeros)
-        if discriminator_smooth_real_labels:
-          disc_real_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
-        else:
-          disc_real_labels = np.ones(shape=(self.batch_size, 1))
-
-        if discriminator_smooth_fake_labels:
-          disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
-        else:
-          disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
+        disc_real_labels = np.ones(shape=(self.batch_size, 1))
+        disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
 
         self.discriminator.train_on_batch(large_images, disc_real_labels)
         self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
@@ -289,11 +279,9 @@ class SRGAN:
         ### Train Generator ###
         # Train generator (wants discriminator to recognize fake images as valid)
         large_images, small_images = self.batch_maker.get_batch()
-        if generator_smooth_labels:
-          gen_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
-        else:
-          gen_labels = np.ones(shape=(self.batch_size, 1))
-        self.combined_generator_model.train_on_batch(small_images, [large_images, gen_labels])
+        gen_labels = np.ones(shape=(self.batch_size, 1))
+        predicted_features = self.vgg.predict(preprocess_vgg(large_images))
+        self.combined_generator_model.train_on_batch(small_images, [predicted_features, gen_labels])
         time.sleep(0.05)
 
       time.sleep(0.5)
@@ -311,7 +299,7 @@ class SRGAN:
       # Seve stats and print them to console
       if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
         gen_loss = 0
-        vgg_gen_loss = 0
+        mse_gen_loss = 0
         binary_gen_loss = 0
         disc_real_loss = 0
         disc_fake_loss = 0
@@ -322,23 +310,24 @@ class SRGAN:
           # Evaluate models state
           disc_real_loss += self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
           disc_fake_loss += self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-          g_l = self.combined_generator_model.test_on_batch(small_images, [large_images, np.ones(shape=(large_images.shape[0], 1))])
+          predicted_features = self.vgg.predict(preprocess_vgg(large_images))
+          g_l = self.combined_generator_model.test_on_batch(small_images, [predicted_features, np.ones(shape=(large_images.shape[0], 1))])
 
           gen_loss += g_l[0]
-          vgg_gen_loss += g_l[1]
+          mse_gen_loss += g_l[1]
           binary_gen_loss += g_l[2]
 
         # Calculate excatc values of stats and convert accuracy to percents
         gen_loss /= self.test_batches
-        vgg_gen_loss /= self.test_batches
+        mse_gen_loss /= self.test_batches
         binary_gen_loss /= self.test_batches
         disc_real_loss /= self.test_batches
         disc_fake_loss /= self.test_batches
 
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss, gen_vgg_loss=vgg_gen_loss, gen_binary_loss=binary_gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss, mse_gen_loss=mse_gen_loss, gen_binary_loss=binary_gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}, G vgg_loss: {round(float(vgg_gen_loss), 5)}, G binary_loss: {round(float(binary_gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss: {round(float(gen_loss), 5)}, G mse_loss: {round(float(mse_gen_loss), 5)}, G binary_loss: {round(float(binary_gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
       # Save progress
       if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:

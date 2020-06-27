@@ -27,13 +27,14 @@ from keras import optimizers
 from modules.dcgan import DCGAN
 from modules.wasserstein_gan import WGANGC
 from modules.srgan import SRGAN
+from modules.srgan_v2 import SRGAN_V2
 from modules.sr_resnet import SR_Resnet
 from settings import *
 
 if __name__ == '__main__':
   training_object = None
   try:
-    gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n3 - SR_Resnet\nSelected trainer: "))
+    gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n3 - SRGAN_V2\n4 - SR_Resnet\nSelected trainer: "))
     if gan_selection == 0:
       training_object = DCGAN(DATASET_PATH, training_progress_save_path="training_data/dcgan",
                               batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES, test_batches=NUM_OF_TEST_BATCHES,
@@ -79,7 +80,7 @@ if __name__ == '__main__':
       training_object = SRGAN(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
                               batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
                               gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
-                              generator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08), discriminator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08), # Finetune optimizers.Adam(lr=1E-5, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
+                              generator_optimizer=optimizers.Adam(1e-4, 0.9), discriminator_optimizer=optimizers.Adam(1e-4, 0.9), # Finetune optimizers.Adam(1e-5, 0.9)
                               discriminator_label_noise=None, discriminator_label_noise_decay=0.995, discriminator_label_noise_min=0.03,
                               generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
                               start_episode=START_EPISODE_SR,
@@ -97,10 +98,29 @@ if __name__ == '__main__':
         if input("Continue? ") == "n": break
 
     elif gan_selection == 3:
+      training_object = SRGAN_V2(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan_v2",
+                                 batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
+                                 gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
+                                 generator_optimizer=optimizers.Adam(1e-4, 0.9), discriminator_optimizer=optimizers.Adam(1e-4, 0.9), # Finetune optimizers.Adam(1e-5, 0.9)
+                                 discriminator_label_noise=None, discriminator_label_noise_decay=0.995, discriminator_label_noise_min=0.03,
+                                 generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
+                                 start_episode=START_EPISODE_SR,
+                                 load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
+                                 custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
+
+      training_object.save_models_structure_images()
+
+      while True:
+        training_object.train(NUM_OF_TRAINING_EPOCHS_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
+                              weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+                              pretrain_epochs=PRETRAIN_EPISODES_OF_SRGAN)
+        if input("Continue? ") == "n": break
+
+    elif gan_selection == 4:
       training_object = SR_Resnet(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/sr_resnet",
                                   batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
                                   gen_mod_name=GEN_SR_MODEL,
-                                  generator_optimizer=optimizers.Adam(lr=1E-4, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
+                                  generator_optimizer=optimizers.Adam(lr=1e-4, beta_1=0.9),
                                   generator_weights=GEN_SR_WEIGHTS,
                                   start_episode=START_EPISODE_SR,
                                   load_from_checkpoint=LOAD_FROM_CHECKPOINTS,

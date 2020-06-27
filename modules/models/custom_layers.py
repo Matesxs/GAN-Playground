@@ -5,7 +5,10 @@ from keras.layers import Layer, Conv2D, UpSampling2D, BatchNormalization, Dropou
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers import Activation
 
+subpixel_index = 0
 def SubpixelConv2D(scale=2):
+  global subpixel_index
+
   def subpixel_shape(input_shape):
     dims = [input_shape[0],
             None if input_shape[1] is None else input_shape[1] * scale,
@@ -17,7 +20,8 @@ def SubpixelConv2D(scale=2):
   def subpixel(x):
     return tf.nn.depth_to_space(x, scale)
 
-  return Lambda(subpixel, output_shape=subpixel_shape, name="cubpixel_conv2d")
+  subpixel_index += 1
+  return Lambda(subpixel, output_shape=subpixel_shape, name=f"cubpixel_conv2d_{subpixel_index}")
 
 def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, use_subpixel_conv2d:bool=False, leaky:bool=True, upsample_first:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert filters > 0, "Invalid filter number"

@@ -119,7 +119,7 @@ class DCGAN:
     ###   Create discriminator    ###
     #################################
     self.discriminator = self.build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['binary_accuracy'])
+    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['accuracy'])
     print("\nDiscriminator Sumary:")
     self.discriminator.summary()
 
@@ -180,7 +180,7 @@ class DCGAN:
     image_output = dec(latent_output)
 
     encdec = Model(inputs=image_input, outputs=image_output, name="Enc-Dec")
-    encdec.compile(loss="mse", optimizer=self.generator_optimizer, metrics=["accuracy"])
+    encdec.compile(loss="mse", optimizer=self.generator_optimizer)
     print("\nWarmup model summary:")
     encdec.summary()
 
