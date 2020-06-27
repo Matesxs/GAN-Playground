@@ -136,7 +136,7 @@ class SRGAN_V2:
     ###   Create discriminator    ###
     #################################
     self.discriminator = self.build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=["accuracy"])
+    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=["binary_accuracy"])
     print("\nDiscriminator Sumary:")
     self.discriminator.summary()
 
