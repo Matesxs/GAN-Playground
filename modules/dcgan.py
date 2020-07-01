@@ -26,10 +26,10 @@ from modules.custom_tensorboard import TensorBoardCustom
 from modules.helpers import time_to_format
 
 class DCGAN:
-  CONTROL_THRESHOLD = 50 # Threshold when after whitch we will be testing training process
-  AGREGATE_STAT_INTERVAL = 1  # Interval of saving data
-  GRADIENT_CHECK_INTERVAL = 10  # Interval of checking norm gradient value of combined model
-  CHECKPOINT_SAVE_INTERVAL = 1  # Interval of saving checkpoint
+  CONTROL_THRESHOLD = 500_000 # Threshold when after whitch we will be testing training process
+  AGREGATE_STAT_INTERVAL = 5_000  # Interval of saving data
+  GRADIENT_CHECK_INTERVAL = 50_000  # Interval of checking norm gradient value of combined model
+  CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
 
   def __init__(self, dataset_path:str,
                gen_mod_name: str, disc_mod_name: str,
@@ -40,7 +40,7 @@ class DCGAN:
                batch_size: int = 32, buffered_batches:int=20, test_batches:int=1,
                generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
                start_episode:int=0, load_from_checkpoint:bool=False,
-               pretrain_epochs:int=None,
+               pretrain_episodes:int=None,
                check_dataset:bool=True):
 
     self.disc_mod_name = disc_mod_name
@@ -56,7 +56,7 @@ class DCGAN:
     self.test_batches = test_batches
     assert self.test_batches > 0, Fore.RED + "Invalid test batch size" + Fore.RESET
 
-    self.pretrain_epochs = pretrain_epochs
+    self.pretrain_episodes = pretrain_episodes
 
     self.discriminator_label_noise = discriminator_label_noise
     self.discriminator_label_noise_decay = discriminator_label_noise_decay
@@ -65,11 +65,11 @@ class DCGAN:
     self.progress_image_dim = (16, 9)
 
     if start_episode < 0: start_episode = 0
-    self.epoch_counter = start_episode
+    self.episode_counter = start_episode
 
     # Initialize training data folder and logging
     self.training_progress_save_path = training_progress_save_path
-    self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{pretrain_epochs}pt")
+    self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{pretrain_episodes}pt")
     self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
     # Create array of input image paths
@@ -113,7 +113,7 @@ class DCGAN:
 
     # Pretrain generator
     gen_warmed_weights = None
-    if self.pretrain_epochs and self.epoch_counter < self.pretrain_epochs:
+    if self.pretrain_episodes and self.episode_counter < self.pretrain_episodes:
       gen_warmed_weights = self.pretrain_generator()
       K.clear_session()
 
@@ -192,13 +192,11 @@ class DCGAN:
 
     failed = False
     print(Fore.GREEN + "Generator warmup started" + Fore.RESET)
-    num_batches = self.data_length // self.batch_size
     try:
-      for _ in tqdm(range((self.pretrain_epochs - self.epoch_counter)), unit="epoch"):
-        for _ in range(num_batches):
-          images = self.batch_maker.get_batch()
-          encdec.train_on_batch(images, images)
-        self.epoch_counter += 1
+      for _ in tqdm(range((self.pretrain_episodes - self.episode_counter)), unit="ep"):
+        images = self.batch_maker.get_batch()
+        encdec.train_on_batch(images, images)
+        self.episode_counter += 1
     except Exception as e:
       print(Fore.RED + f"Failed to pretrain generator\n{e}" + Fore.RESET)
       failed = True
@@ -258,7 +256,7 @@ class DCGAN:
 
     return Model(img, m, name="discriminator_model")
 
-  def train(self, target_epochs:int,
+  def train(self, target_episodes:int,
             feed_prev_gen_batch:bool=False, feed_old_perc_amount:float=0.2,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
@@ -283,17 +281,17 @@ class DCGAN:
       return orig_images
 
     # Check arguments and input data
-    assert target_epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
-    if progress_images_save_interval is not None and progress_images_save_interval <= target_epochs and target_epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
-    if weights_save_interval is not None and weights_save_interval <= target_epochs and target_epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
+    assert target_episodes > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
+    if progress_images_save_interval is not None and progress_images_save_interval <= target_episodes and target_episodes%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
+    if weights_save_interval is not None and weights_save_interval <= target_episodes and target_episodes%weights_save_interval != 0: raise Exception("Invalid weights save interval")
     if self.train_data is None: raise Exception("No datasets loaded")
 
     # Calculate epochs to go
-    if self.pretrain_epochs:
-      target_epochs += self.pretrain_epochs
-    end_epoch = target_epochs
-    target_epochs = target_epochs - self.epoch_counter
-    assert target_epochs > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
+    if self.pretrain_episodes:
+      target_episodes += self.pretrain_episodes
+    end_episode = target_episodes
+    target_episodes = target_episodes - self.episode_counter
+    assert target_episodes > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
     # Save noise for progress consistency
     if progress_images_save_interval is not None:
@@ -304,8 +302,6 @@ class DCGAN:
     prev_gen_images = deque(maxlen=3*self.batch_size)
     get_gradients = self.gradient_norm_generator()
 
-    num_of_batches = self.data_length // self.batch_size
-
     epochs_time_history = deque(maxlen=10)
 
     # Save starting kernels and biases
@@ -314,58 +310,57 @@ class DCGAN:
       self.tensorboard.log_kernels_and_biases(self.generator)
       self.save_checkpoint()
 
-    print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {target_epochs} epochs" + Fore.RESET)
-    for _ in range(target_epochs):
+    print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episodes} episodes" + Fore.RESET)
+    for _ in tqdm(range(target_episodes), unit="ep", smoothing=0.5, leave=False):
       ep_start = time.time()
-      for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
-        ### Train Discriminator ###
-        # Select batch of valid images
-        imgs = self.batch_maker.get_batch()
 
-        # Sample noise and generate new images
-        gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
+      ### Train Discriminator ###
+      # Select batch of valid images
+      imgs = self.batch_maker.get_batch()
 
-        # Train discriminator (real as ones and fake as zeros)
-        if discriminator_smooth_real_labels:
-          disc_real_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
+      # Sample noise and generate new images
+      gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
+
+      # Train discriminator (real as ones and fake as zeros)
+      if discriminator_smooth_real_labels:
+        disc_real_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
+      else:
+        disc_real_labels = np.ones(shape=(self.batch_size, 1))
+
+      if discriminator_smooth_fake_labels:
+        disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
+      else:
+        disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
+
+      if feed_prev_gen_batch:
+        if len(prev_gen_images) > 0:
+          tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_old_perc_amount)
+          prev_gen_images += deque(gen_imgs)
+          gen_imgs = tmp_imgs
         else:
-          disc_real_labels = np.ones(shape=(self.batch_size, 1))
+          prev_gen_images += deque(gen_imgs)
 
-        if discriminator_smooth_fake_labels:
-          disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
-        else:
-          disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
+      # Adding random noise to discriminator labels
+      if self.discriminator_label_noise and self.discriminator_label_noise > 0:
+        disc_real_labels = noising_labels(disc_real_labels, self.discriminator_label_noise / 2)
+        disc_fake_labels = noising_labels(disc_fake_labels, self.discriminator_label_noise / 2)
 
-        if feed_prev_gen_batch:
-          if len(prev_gen_images) > 0:
-            tmp_imgs = replace_random_images(gen_imgs, prev_gen_images, feed_old_perc_amount)
-            prev_gen_images += deque(gen_imgs)
-            gen_imgs = tmp_imgs
-          else:
-            prev_gen_images += deque(gen_imgs)
+      self.discriminator.trainable = True
+      self.discriminator.train_on_batch(imgs, disc_real_labels)
+      self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
 
-        # Adding random noise to discriminator labels
-        if self.discriminator_label_noise and self.discriminator_label_noise > 0:
-          disc_real_labels = noising_labels(disc_real_labels, self.discriminator_label_noise / 2)
-          disc_fake_labels = noising_labels(disc_fake_labels, self.discriminator_label_noise / 2)
+      ### Train Generator ###
+      # Train generator (wants discriminator to recognize fake images as valid)
+      if generator_smooth_labels:
+        gen_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
+      else:
+        gen_labels = np.ones(shape=(self.batch_size, 1))
+      self.discriminator.trainable = False
+      self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), gen_labels)
 
-        self.discriminator.trainable = True
-        self.discriminator.train_on_batch(imgs, disc_real_labels)
-        self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-
-        ### Train Generator ###
-        # Train generator (wants discriminator to recognize fake images as valid)
-        if generator_smooth_labels:
-          gen_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
-        else:
-          gen_labels = np.ones(shape=(self.batch_size, 1))
-        self.discriminator.trainable = False
-        self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), gen_labels)
-
-      time.sleep(0.5)
-      self.epoch_counter += 1
+      self.episode_counter += 1
       epochs_time_history.append(time.time() - ep_start)
-      self.tensorboard.step = self.epoch_counter
+      self.tensorboard.step = self.episode_counter
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
@@ -375,7 +370,7 @@ class DCGAN:
           self.discriminator_label_noise = 0
 
       # Seve stats and print them to console
-      if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
+      if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
         disc_real_acc = 0
         disc_fake_acc = 0
         disc_real_loss = 0
@@ -406,31 +401,31 @@ class DCGAN:
         disc_fake_acc *= 100.0
 
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.epoch_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
         # Change color of log according to state of training
-        if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.epoch_counter > self.CONTROL_THRESHOLD:
-          print(Fore.RED + f"__FAIL__\n{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.episode_counter > self.CONTROL_THRESHOLD:
+          print(Fore.RED + f"__FAIL__\n{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
           if input("Do you want exit training?\n") == "y": return
-        elif (disc_real_acc < 20 or disc_fake_acc >= 100) and self.epoch_counter > self.CONTROL_THRESHOLD:
-          print(Fore.YELLOW + f"!!Warning!!\n{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        elif (disc_real_acc < 20 or disc_fake_acc >= 100) and self.episode_counter > self.CONTROL_THRESHOLD:
+          print(Fore.YELLOW + f"!!Warning!!\n{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
         else:
-          print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+          print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
       # Save progress
-      if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
+      if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
         self.__save_imgs(save_raw_progress_images)
 
       # Save weights of models
-      if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
+      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0:
         self.save_weights()
 
       # Save checkpoint
-      if self.epoch_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
+      if self.episode_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
         self.save_checkpoint()
         print(Fore.BLUE + "Checkpoint created" + Fore.RESET)
 
-      if self.epoch_counter % self.GRADIENT_CHECK_INTERVAL == 0:
+      if self.episode_counter % self.GRADIENT_CHECK_INTERVAL == 0:
         # Generate evaluation noise and labels
         eval_noise = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
         eval_labels = np.ones(shape=(self.batch_size, 1))
@@ -439,11 +434,11 @@ class DCGAN:
         norm_gradient = get_gradients([eval_noise, eval_labels, np.ones(len(eval_labels))])[0]
 
         # Check norm gradient
-        if norm_gradient > 100 and self.epoch_counter > self.CONTROL_THRESHOLD:
+        if norm_gradient > 100 and self.episode_counter > self.CONTROL_THRESHOLD:
           print(Fore.RED + f"Current generator norm gradient: {norm_gradient}")
           print("Gradient too high!" + Fore.RESET)
           if input("Do you want exit training?\n") == "y": return
-        elif norm_gradient < 0.2 and self.epoch_counter > self.CONTROL_THRESHOLD:
+        elif norm_gradient < 0.2 and self.episode_counter > self.CONTROL_THRESHOLD:
           print(Fore.RED + f"Current generator norm gradient: {norm_gradient}")
           print("Gradient vanished!" + Fore.RESET)
           if input("Do you want exit training?\n") == "y": return
@@ -483,7 +478,7 @@ class DCGAN:
     final_image = cv.cvtColor(final_image, cv.COLOR_RGB2BGR)
 
     if save_raw_progress_images:
-      cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
+      cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.episode_counter}.png", final_image)
     self.tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32))
 
   def save_models_structure_images(self):
@@ -501,7 +496,7 @@ class DCGAN:
       data = json.load(f)
 
       if data:
-        self.epoch_counter = int(data["episode"])
+        self.episode_counter = int(data["episode"])
         if data["disc_label_noise"]:
           self.discriminator_label_noise = float(data["disc_label_noise"])
         self.initiated = True
@@ -516,7 +511,7 @@ class DCGAN:
     self.discriminator.save_weights(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5")
 
     data = {
-      "episode": self.epoch_counter,
+      "episode": self.episode_counter,
       "gen_path": f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5",
       "disc_path": f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5",
       "disc_label_noise": self.discriminator_label_noise
@@ -526,7 +521,7 @@ class DCGAN:
       json.dump(data, f)
 
   def save_weights(self):
-    save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter)
+    save_dir = self.training_progress_save_path + "/weights/" + str(self.episode_counter)
     if not os.path.exists(save_dir): os.makedirs(save_dir)
     self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
     self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")

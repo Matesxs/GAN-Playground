@@ -27,14 +27,13 @@ from keras import optimizers
 from modules.dcgan import DCGAN
 from modules.wasserstein_gan import WGANGC
 from modules.srgan import SRGAN
-from modules.srgan_v2 import SRGAN_V2
 from modules.sr_resnet import SR_Resnet
 from settings import *
 
 if __name__ == '__main__':
   training_object = None
   try:
-    gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n3 - SRGAN_V2\n4 - SR_Resnet\nSelected trainer: "))
+    gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n3 - SR_Resnet\nSelected trainer: "))
     if gan_selection == 0:
       training_object = DCGAN(DATASET_PATH, training_progress_save_path="training_data/dcgan",
                               batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES, test_batches=NUM_OF_TEST_BATCHES,
@@ -44,7 +43,7 @@ if __name__ == '__main__':
                               generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
                               start_episode=START_EPISODE,
                               load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                              pretrain_epochs=50,
+                              pretrain_episodes=500_000,
                               check_dataset=CHECK_DATASET)
 
       training_object.save_models_structure_images()
@@ -78,27 +77,6 @@ if __name__ == '__main__':
 
     elif gan_selection == 2:
       training_object = SRGAN(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
-                              batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
-                              gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
-                              generator_optimizer=optimizers.Adam(1e-4, 0.9), discriminator_optimizer=optimizers.Adam(1e-4, 0.9), # Finetune optimizers.Adam(1e-5, 0.9)
-                              discriminator_label_noise=None, discriminator_label_noise_decay=0.995, discriminator_label_noise_min=0.03,
-                              generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
-                              start_episode=START_EPISODE_SR,
-                              load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                              custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
-
-      training_object.save_models_structure_images()
-
-      while True:
-        training_object.train(NUM_OF_TRAINING_EPOCHS_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
-                              weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                              discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
-                              generator_smooth_labels=True,
-                              pretrain_epochs=PRETRAIN_EPISODES_OF_SRGAN)
-        if input("Continue? ") == "n": break
-
-    elif gan_selection == 3:
-      training_object = SRGAN_V2(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan_v2",
                                  batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
                                  gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
                                  generator_optimizer=optimizers.Adam(1e-5, 0.9), discriminator_optimizer=optimizers.Adam(1e-5, 0.9), # Finetune optimizers.Adam(1e-5, 0.9)
@@ -106,7 +84,7 @@ if __name__ == '__main__':
                                  generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
                                  start_episode=START_EPISODE_SR,
                                  load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                                 custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
+                                 custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
 
       training_object.save_models_structure_images()
 
@@ -115,10 +93,10 @@ if __name__ == '__main__':
                               weights_save_interval=WEIGHTS_SAVE_INTERVAL,
                               discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
                               generator_smooth_labels=False,
-                              pretrain_epochs=PRETRAIN_EPISODES_OF_SRGAN)
+                              pretrain_episodes=PRETRAIN_EPISODES_OF_SRGAN)
         if input("Continue? ") == "n": break
 
-    elif gan_selection == 4:
+    elif gan_selection == 3:
       training_object = SR_Resnet(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/sr_resnet",
                                   batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
                                   gen_mod_name=GEN_SR_MODEL,
@@ -126,7 +104,7 @@ if __name__ == '__main__':
                                   generator_weights=GEN_SR_WEIGHTS,
                                   start_episode=START_EPISODE_SR,
                                   load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                                  custom_batches_per_epochs=CUSTOM_BATCHES_PER_EPOCH, custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
+                                  custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
 
       training_object.save_models_structure_images()
 
@@ -142,11 +120,11 @@ if __name__ == '__main__':
       training_object.save_checkpoint()
   except KeyboardInterrupt:
     if training_object:
-      print(Fore.BLUE + f"Quiting on epoch: {training_object.epoch_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)
+      print(Fore.BLUE + f"Quiting on epoch: {training_object.episode_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)
       training_object.save_checkpoint()
   except Exception as e:
     if training_object:
-      print(Fore.RED + f"Exception on epoch: {training_object.epoch_counter}" + Fore.RESET)
+      print(Fore.RED + f"Exception on epoch: {training_object.episode_counter}" + Fore.RESET)
       training_object.save_checkpoint()
     else:
       print(Fore.RED + "Creating training object failed" + Fore.RESET)

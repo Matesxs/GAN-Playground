@@ -54,9 +54,9 @@ class RandomWeightedAverage(Layer):
     return input_shape[0]
 
 class WGANGC:
-  AGREGATE_STAT_INTERVAL = 1 # Interval of saving data
-  RESET_SEEDS_INTERVAL = 10 # Interval of reseting seeds for random generators
-  CHECKPOINT_SAVE_INTERVAL = 1 # Interval of saving checkpoint
+  AGREGATE_STAT_INTERVAL = 5_000 # Interval of saving data
+  RESET_SEEDS_INTERVAL = 20_000 # Interval of reseting seeds for random generators
+  CHECKPOINT_SAVE_INTERVAL = 5_000 # Interval of saving checkpoint
 
   def __init__(self, dataset_path:str,
                gen_mod_name:str, critic_mod_name:str,
@@ -83,7 +83,7 @@ class WGANGC:
     self.progress_image_dim = (16, 9)
 
     if start_episode < 0: start_episode = 0
-    self.epoch_counter = start_episode
+    self.episode_counter = start_episode
 
     # Initialize training data folder and logging
     self.training_progress_save_path = training_progress_save_path
@@ -244,27 +244,25 @@ class WGANGC:
     m = Dense(1)(m)
     return Model(img_input, m, name="critic_model")
 
-  def train(self, target_epochs:int,
+  def train(self, target_episodes:int,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             critic_train_multip:int=5):
 
     # Check arguments and input data
-    assert target_epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
-    if progress_images_save_interval is not None and progress_images_save_interval <= target_epochs and target_epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
-    if weights_save_interval is not None and weights_save_interval <= target_epochs and target_epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
+    assert target_episodes > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
+    if progress_images_save_interval is not None and progress_images_save_interval <= target_episodes and target_episodes%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
+    if weights_save_interval is not None and weights_save_interval <= target_episodes and target_episodes%weights_save_interval != 0: raise Exception("Invalid weights save interval")
     if critic_train_multip < 1: raise Exception("Invalid critic training multiplier")
 
     # Calculate epochs to go
-    end_epoch = target_epochs
-    target_epochs = target_epochs - self.epoch_counter
-    assert target_epochs > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
+    end_episode = target_episodes
+    target_episodes = target_episodes - self.episode_counter
+    assert target_episodes > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
     # Save noise for progress consistency
     if progress_images_save_interval is not None:
       if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
       np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
-
-    num_of_batches = self.data_length // self.batch_size
 
     epochs_time_history = deque(maxlen=10)
 
@@ -274,30 +272,28 @@ class WGANGC:
       self.tensorboard.log_kernels_and_biases(self.generator)
       self.save_checkpoint()
 
-    print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {target_epochs} epochs" + Fore.RESET)
-    for _ in range(target_epochs):
+    print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episodes} episodes" + Fore.RESET)
+    for _ in tqdm(range(target_episodes), unit="batches", smoothing=0.5, leave=False):
       ep_start = time.time()
-      for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
-        ### Train Critic ###
-        for _ in range(critic_train_multip):
-          # Load image batch and generate new latent noise
-          image_batch = self.batch_maker.get_batch()
-          critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
-          self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
+      ### Train Critic ###
+      for _ in range(critic_train_multip):
+        # Load image batch and generate new latent noise
+        image_batch = self.batch_maker.get_batch()
+        critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
-        ### Train Generator ###
-        # Generate new latent noise
-        self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
-        time.sleep(0.05)
+        self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
 
-      time.sleep(0.5)
-      self.epoch_counter += 1
+      ### Train Generator ###
+      # Generate new latent noise
+      self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
+
+      self.episode_counter += 1
       epochs_time_history.append(time.time() - ep_start)
-      self.tensorboard.step = self.epoch_counter
+      self.tensorboard.step = self.episode_counter
 
       # Show stats
-      if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
+      if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
         critic_loss = 0
         gen_loss = 0
         for _ in range(self.test_batches):
@@ -318,24 +314,24 @@ class WGANGC:
 
         # Save stats
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.epoch_counter, critic_loss=critic_loss, gen_loss=gen_loss)
+        self.tensorboard.update_stats(self.episode_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
-        print(Fore.GREEN + f"{self.epoch_counter}/{end_epoch}, Remaining: {time_to_format(mean(epochs_time_history) * (end_epoch - self.epoch_counter))} - [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))} - [Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
       # Save progress
-      if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.epoch_counter % progress_images_save_interval == 0:
+      if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
         self.__save_imgs(save_raw_progress_images)
 
       # Save weights of models
-      if weights_save_interval is not None and self.epoch_counter % weights_save_interval == 0:
+      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0:
         self.save_weights()
 
       # Save checkpoint
-      if self.epoch_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
+      if self.episode_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
         self.save_checkpoint()
 
       # Reset seeds
-      if self.epoch_counter % self.RESET_SEEDS_INTERVAL == 0:
+      if self.episode_counter % self.RESET_SEEDS_INTERVAL == 0:
         np.random.seed(None)
         random.seed()
 
@@ -368,7 +364,7 @@ class WGANGC:
     final_image = cv.cvtColor(final_image, cv.COLOR_RGB2BGR)
 
     if save_raw_progress_images:
-      cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.epoch_counter}.png", final_image)
+      cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.episode_counter}.png", final_image)
     self.tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32))
 
   def save_models_structure_images(self, save_path:str=None):
@@ -387,7 +383,7 @@ class WGANGC:
       data = json.load(f)
 
       if data:
-        self.epoch_counter = int(data["episode"])
+        self.episode_counter = int(data["episode"])
 
         try:
           self.generator.load_weights(data["gen_path"])
@@ -409,7 +405,7 @@ class WGANGC:
     self.critic.save_weights(f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5")
 
     data = {
-      "episode": self.epoch_counter,
+      "episode": self.episode_counter,
       "gen_path": f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5",
       "critic_path": f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5"
     }
@@ -418,7 +414,7 @@ class WGANGC:
       json.dump(data, f)
 
   def save_weights(self):
-    save_dir = self.training_progress_save_path + "/weights/" + str(self.epoch_counter)
+    save_dir = self.training_progress_save_path + "/weights/" + str(self.episode_counter)
     if not os.path.exists(save_dir): os.makedirs(save_dir)
     self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
     self.critic.save_weights(f"{save_dir}/critic_{self.critic_mod_name}.h5")
