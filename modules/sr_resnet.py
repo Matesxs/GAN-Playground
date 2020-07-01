@@ -176,21 +176,25 @@ class SR_Resnet:
 
     return Model(small_image_input, m, name="generator_model")
 
-  def train(self, epochs: int, progress_images_save_interval: int = None, save_raw_progress_images: bool = True, weights_save_interval: int = None):
+  def train(self, target_epochs: int, progress_images_save_interval: int = None, save_raw_progress_images: bool = True, weights_save_interval: int = None):
 
     # Check arguments and input data
-    assert epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
-    if progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs % progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
-    if weights_save_interval is not None and weights_save_interval <= epochs and epochs % weights_save_interval != 0: raise Exception("Invalid weights save interval")
+    assert target_epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
+    if progress_images_save_interval is not None and progress_images_save_interval <= target_epochs and target_epochs % progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
+    if weights_save_interval is not None and weights_save_interval <= target_epochs and target_epochs % weights_save_interval != 0: raise Exception("Invalid weights save interval")
 
     if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+
+    # Calculate epochs to go
+    end_epoch = target_epochs
+    target_epochs = target_epochs - self.epoch_counter
+    assert target_epochs > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
     # Training variables
     num_of_batches = self.data_length // self.batch_size
     if self.custom_batches_per_epochs: num_of_batches = self.custom_batches_per_epochs
-    end_epoch = self.epoch_counter + epochs
 
-    epochs_time_history = deque(maxlen=5)
+    epochs_time_history = deque(maxlen=10)
 
     # Save starting kernels and biases
     if not self.initiated:
@@ -198,8 +202,8 @@ class SR_Resnet:
       self.tensorboard.log_kernels_and_biases(self.generator)
       self.save_checkpoint()
 
-    print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {epochs} epochs" + Fore.RESET)
-    for _ in range(epochs):
+    print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {target_epochs} epochs" + Fore.RESET)
+    for _ in range(target_epochs):
       ep_start = time.time()
       for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
         ### Train Generator ###
@@ -325,8 +329,8 @@ class SR_Resnet:
       json.dump(data, f)
 
   def make_progress_gif(self, frame_duration: int = 16):
-    if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
     if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+    if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
 
     frames = []
     img_file_names = os.listdir(self.training_progress_save_path + "/progress_images")

@@ -7,7 +7,7 @@ def time_to_format(timestamp):
 
   # Get the days, hours, etc:
   months = int(timestamp / MONTH)
-  days = int((timestamp / MONTH) / DAY)
+  days = int((timestamp % MONTH) / DAY)
   hours = int((timestamp % DAY) / HOUR)
   minutes = int((timestamp % HOUR) / MINUTE)
   seconds = int(timestamp % MINUTE)

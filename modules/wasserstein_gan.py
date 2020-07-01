@@ -7,7 +7,6 @@ from keras.layers import Input, Dense
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
 from keras.layers import Layer
-from keras.engine.network import Network
 import keras.backend as K
 from PIL import Image
 import cv2 as cv
@@ -134,12 +133,12 @@ class WGANGC:
     gen_latent_input = Input(shape=(self.latent_dim,), name="combined_generator_latent_input")
 
     # Create frozen version of critic
-    frozen_critics = Network(self.critic.inputs, self.critic.outputs, name="frozen_critic")
-    frozen_critics.trainable = False
+    self.critic.trainable = False
+    self.generator.trainable = True
 
     # Generate images and evaluate them
     generated_images = self.generator(gen_latent_input)
-    critic_gen_output = frozen_critics(generated_images)
+    critic_gen_output = self.critic(generated_images)
 
     self.combined_generator_model = Model(inputs=[gen_latent_input],
                                           outputs=[critic_gen_output],
@@ -154,11 +153,11 @@ class WGANGC:
     critic_latent_input = Input(shape=(self.latent_dim,), name="combined_critic_latent_input")
 
     # Create frozen version of generator
-    frozen_generator = Network(self.generator.inputs, self.generator.outputs, name="frozen_generator")
-    frozen_generator.trainable = False
+    self.critic.trainable = True
+    self.generator.trainable = False
 
     # Create fake image input (internal)
-    generated_images_for_critic = frozen_generator(critic_latent_input)
+    generated_images_for_critic = self.generator(critic_latent_input)
 
     # Create critic output for each image "type"
     fake_out = self.critic(generated_images_for_critic)
@@ -185,7 +184,9 @@ class WGANGC:
                                        loss_weights=[1, 1, critic_gradient_penalty_weight])
 
     # Summary of combined models
+    print("\nCombined Generator Summary:")
     self.combined_generator_model.summary()
+    print("\nCombined Critic Summary:")
     self.combined_critic_model.summary()
 
     # Load checkpoint
@@ -243,25 +244,29 @@ class WGANGC:
     m = Dense(1)(m)
     return Model(img_input, m, name="critic_model")
 
-  def train(self, epochs:int,
+  def train(self, target_epochs:int,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             critic_train_multip:int=5):
 
     # Check arguments and input data
-    assert epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
-    if progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
-    if weights_save_interval is not None and weights_save_interval <= epochs and epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
+    assert target_epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
+    if progress_images_save_interval is not None and progress_images_save_interval <= target_epochs and target_epochs%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
+    if weights_save_interval is not None and weights_save_interval <= target_epochs and target_epochs%weights_save_interval != 0: raise Exception("Invalid weights save interval")
     if critic_train_multip < 1: raise Exception("Invalid critic training multiplier")
+
+    # Calculate epochs to go
+    end_epoch = target_epochs
+    target_epochs = target_epochs - self.epoch_counter
+    assert target_epochs > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
     # Save noise for progress consistency
     if progress_images_save_interval is not None:
       if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
       np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
-    end_epoch = self.epoch_counter + epochs
     num_of_batches = self.data_length // self.batch_size
 
-    epochs_time_history = deque(maxlen=5)
+    epochs_time_history = deque(maxlen=10)
 
     # Save starting kernels and biases
     if not self.initiated:
@@ -269,8 +274,8 @@ class WGANGC:
       self.tensorboard.log_kernels_and_biases(self.generator)
       self.save_checkpoint()
 
-    print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {epochs} epochs" + Fore.RESET)
-    for _ in range(epochs):
+    print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {target_epochs} epochs" + Fore.RESET)
+    for _ in range(target_epochs):
       ep_start = time.time()
       for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
         ### Train Critic ###
@@ -299,7 +304,12 @@ class WGANGC:
           image_batch = self.batch_maker.get_batch()
           critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
+          self.critic.trainable = True
+          self.generator.trainable = False
           critic_loss += self.combined_critic_model.test_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
+
+          self.critic.trainable = False
+          self.generator.trainable = True
           gen_loss += self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
 
         # Calculate excatc values of stats
@@ -414,8 +424,8 @@ class WGANGC:
     self.critic.save_weights(f"{save_dir}/critic_{self.critic_mod_name}.h5")
 
   def make_progress_gif(self, frame_duration:int=16):
-    if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
     if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+    if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
 
     frames = []
     img_file_names = os.listdir(self.training_progress_save_path + "/progress_images")

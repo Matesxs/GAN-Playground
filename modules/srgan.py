@@ -137,8 +137,6 @@ class SRGAN:
     #################################
     self.discriminator = self.build_discriminator(disc_mod_name)
     self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=["accuracy"])
-    print("\nDiscriminator Sumary:")
-    self.discriminator.summary()
 
     #################################
     ###     Create generator      ###
@@ -146,8 +144,6 @@ class SRGAN:
     self.generator = self.build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception("Invalid image input size for this generator model")
     self.generator.compile(loss=self.loss_object.vgg_loss, optimizer=generator_optimizer)
-    print("\nGenerator Sumary:")
-    self.generator.summary()
 
     #################################
     ### Create combined generator ###
@@ -168,6 +164,14 @@ class SRGAN:
     self.combined_generator_model.compile(loss=[self.loss_object.vgg_loss, "binary_crossentropy"],
                                           loss_weights=[1., 1e-3],
                                           optimizer=generator_optimizer)
+
+    # Print all summaries
+    print("\nDiscriminator Summary:")
+    self.discriminator.summary()
+    print("\nGenerator Summary:")
+    self.generator.summary()
+    print("\nGAN Summary")
+    self.combined_generator_model.summary()
 
     # Load checkpoint
     self.initiated = False
@@ -217,48 +221,49 @@ class SRGAN:
 
     return Model(img, m, name="discriminator_model")
 
-  def train(self, epochs: int, pretrain_epochs:int=None,
+  def train(self, target_epochs: int, pretrain_epochs:int=None,
             progress_images_save_interval: int = None, save_raw_progress_images:bool=True, weights_save_interval: int = None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False):
 
     # Check arguments and input data
-    assert epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
-    if progress_images_save_interval is not None and progress_images_save_interval <= epochs and epochs % progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
-    if weights_save_interval is not None and weights_save_interval <= epochs and epochs % weights_save_interval != 0: raise Exception("Invalid weights save interval")
+    assert target_epochs > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
+    assert pretrain_epochs > 0 or pretrain_epochs is None, Fore.RED + "Invalid pretrain epochs" + Fore.RESET
+    if progress_images_save_interval is not None and progress_images_save_interval <= target_epochs and target_epochs % progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
+    if weights_save_interval is not None and weights_save_interval <= target_epochs and target_epochs % weights_save_interval != 0: raise Exception("Invalid weights save interval")
 
     if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+
+    # Calculate epochs to go
+    if pretrain_epochs:
+      target_epochs += pretrain_epochs
+    end_epoch = target_epochs
+    target_epochs = target_epochs - self.epoch_counter
+    assert target_epochs > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
     # Training variables
     num_of_batches = self.data_length // self.batch_size
     if self.custom_batches_per_epochs: num_of_batches = self.custom_batches_per_epochs
-    end_epoch = self.epoch_counter + epochs
 
-    epochs_time_history = deque(maxlen=5)
+    epochs_time_history = deque(maxlen=10)
 
     # Save starting kernels and biases
-    pretrain_active = False
     if not self.initiated:
       self.__save_img(save_raw_progress_images)
       self.tensorboard.log_kernels_and_biases(self.generator)
-      if pretrain_epochs:
-        assert pretrain_epochs > 0, Fore.RED + "Invalid pretrain epochs" + Fore.RESET
-        print(Fore.BLUE + "Pretrain active" + Fore.RESET)
-        epochs += pretrain_epochs
-        end_epoch += pretrain_epochs
-        pretrain_active = True
       self.save_checkpoint()
 
-    print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {epochs} epochs" + Fore.RESET)
-    for _ in range(epochs):
+    print(Fore.GREEN + f"Starting training on epoch {self.epoch_counter} for {target_epochs} epochs" + Fore.RESET)
+    for _ in range(target_epochs):
       ep_start = time.time()
       for _ in tqdm(range(num_of_batches), unit="batches", smoothing=0.5, leave=False):
-        if pretrain_active and self.epoch_counter < pretrain_epochs:
-          # Pretrain generator
-          large_images, small_images = self.batch_maker.get_batch()
-          self.generator.train_on_batch(small_images, large_images)
-          time.sleep(0.05)
-          continue
+        if pretrain_epochs:
+          if self.epoch_counter < pretrain_epochs:
+            # Pretrain generator
+            large_images, small_images = self.batch_maker.get_batch()
+            self.discriminator.trainable = False
+            self.generator.train_on_batch(small_images, large_images)
+            continue
 
         large_images, small_images = self.batch_maker.get_batch()
 
@@ -266,7 +271,7 @@ class SRGAN:
 
         # Train discriminator (real as ones and fake as zeros)
         if discriminator_smooth_real_labels:
-          disc_real_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
+          disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
         else:
           disc_real_labels = np.ones(shape=(self.batch_size, 1))
 
@@ -275,6 +280,7 @@ class SRGAN:
         else:
           disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
 
+        self.discriminator.trainable = True
         self.discriminator.train_on_batch(large_images, disc_real_labels)
         self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
 
@@ -282,11 +288,12 @@ class SRGAN:
         # Train generator (wants discriminator to recognize fake images as valid)
         large_images, small_images = self.batch_maker.get_batch()
         if generator_smooth_labels:
-          gen_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
+          gen_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
         else:
           gen_labels = np.ones(shape=(self.batch_size, 1))
+
+        self.discriminator.trainable = False
         self.combined_generator_model.train_on_batch(small_images, [large_images, gen_labels])
-        time.sleep(0.05)
 
       time.sleep(0.5)
       self.epoch_counter += 1
@@ -295,10 +302,11 @@ class SRGAN:
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
-        self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
+        if not pretrain_epochs or pretrain_epochs < self.epoch_counter:
+          self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
-        if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.0001):
-          self.discriminator_label_noise = 0
+          if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.0001):
+            self.discriminator_label_noise = 0
 
       # Seve stats and print them to console
       if self.epoch_counter % self.AGREGATE_STAT_INTERVAL == 0:
@@ -450,8 +458,8 @@ class SRGAN:
       json.dump(data, f)
 
   def make_progress_gif(self, frame_duration:int=16):
-    if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
     if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+    if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
 
     frames = []
     img_file_names = os.listdir(self.training_progress_save_path + "/progress_images")

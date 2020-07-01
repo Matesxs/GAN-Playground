@@ -6,8 +6,10 @@ from typing import Union
 import cv2 as cv
 import time
 
+from settings import NUM_OF_LOADING_WORKERS
+
 class BatchMaker(Thread):
-  def __init__(self, train_data:list, data_length: int, batch_size: int, buffered_batches:int=5, num_of_workers:int=4, secondary_size:tuple=None):
+  def __init__(self, train_data:list, data_length: int, batch_size: int, buffered_batches:int=5, secondary_size:tuple=None):
     super().__init__()
     self.daemon = True
 
@@ -24,7 +26,7 @@ class BatchMaker(Thread):
 
     self.index = 0
     self.max_index = (self.data_length // self.batch_size) - 2
-    self.worker_pool = ThreadPool(processes=num_of_workers)
+    self.worker_pool = ThreadPool(processes=NUM_OF_LOADING_WORKERS)
 
   def make_batch(self, data):
     if data is not None:
@@ -68,21 +70,3 @@ class BatchMaker(Thread):
       while not self.resized_batches: time.sleep(0.01)
       return self.batches.popleft(), self.resized_batches.popleft()
     return self.batches.popleft()
-
-  def get_larger_batch(self, num_of_batches_to_merge:int):
-    batch = []
-    resized_batch = []
-    for _ in range(num_of_batches_to_merge):
-      while not self.batches: time.sleep(0.01)
-      if self.secondary_size:
-        while not self.resized_batches: time.sleep(0.01)
-        for orig_image, resized_image in zip(self.batches.popleft(), self.resized_batches.popleft()):
-          batch.append(orig_image)
-          resized_batch.append(resized_image)
-      else:
-        for img in self.batches.popleft():
-          batch.append(img)
-
-    if self.secondary_size:
-      return np.array(batch), np.array(resized_batch)
-    return np.array(batch)

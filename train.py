@@ -44,7 +44,7 @@ if __name__ == '__main__':
                               generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
                               start_episode=START_EPISODE,
                               load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                              pretrain=200,
+                              pretrain_epochs=50,
                               check_dataset=CHECK_DATASET)
 
       training_object.save_models_structure_images()
@@ -101,8 +101,8 @@ if __name__ == '__main__':
       training_object = SRGAN_V2(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan_v2",
                                  batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
                                  gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
-                                 generator_optimizer=optimizers.Adam(1e-4, 0.9), discriminator_optimizer=optimizers.Adam(1e-4, 0.9), # Finetune optimizers.Adam(1e-5, 0.9)
-                                 discriminator_label_noise=None, discriminator_label_noise_decay=0.995, discriminator_label_noise_min=0.03,
+                                 generator_optimizer=optimizers.Adam(1e-5, 0.9), discriminator_optimizer=optimizers.Adam(1e-5, 0.9), # Finetune optimizers.Adam(1e-5, 0.9)
+                                 discriminator_label_noise=0.05, discriminator_label_noise_decay=0.97, discriminator_label_noise_min=0,
                                  generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
                                  start_episode=START_EPISODE_SR,
                                  load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
@@ -113,6 +113,8 @@ if __name__ == '__main__':
       while True:
         training_object.train(NUM_OF_TRAINING_EPOCHS_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                               weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+                              discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
+                              generator_smooth_labels=False,
                               pretrain_epochs=PRETRAIN_EPISODES_OF_SRGAN)
         if input("Continue? ") == "n": break
 
