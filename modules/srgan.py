@@ -269,8 +269,24 @@ class SRGAN:
       ep_start = time.time()
       if pretrain_episodes:
         if self.episode_counter < pretrain_episodes:
-          # Pretrain generator
           large_images, small_images = self.batch_maker.get_batch()
+          gen_imgs = self.generator.predict(small_images)
+
+          # Train discriminator (real as ones and fake as zeros)
+          if discriminator_smooth_real_labels:
+            disc_real_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
+          else:
+            disc_real_labels = np.ones(shape=(self.batch_size, 1))
+
+          if discriminator_smooth_fake_labels:
+            disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
+          else:
+            disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
+
+          self.discriminator.train_on_batch(large_images, disc_real_labels)
+          self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+
+          # Pretrain generator
           self.generator.train_on_batch(small_images, large_images)
           continue
 

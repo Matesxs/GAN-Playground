@@ -19,7 +19,7 @@ DATASET_SR_PATH = "datasets/all_normalized__256x256" # "datasets/faces_normalize
 CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256\60165.png"
 
 NUM_OF_TRAINING_EPOCHS_SR = 100_000
-PRETRAIN_EPISODES_OF_SRGAN = 1_000_000
+PRETRAIN_EPISODES_OF_SRGAN = 1_500_000
 
 BATCH_SIZE_SR = 4
 BUFFERED_BATCHES_SR = 50
