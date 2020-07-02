@@ -12,7 +12,6 @@ from PIL import Image
 import cv2 as cv
 import random
 import time
-from tqdm import tqdm
 from colorama import Fore
 from functools import partial
 from typing import Union
@@ -273,7 +272,7 @@ class WGANGC:
       self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episodes} episodes" + Fore.RESET)
-    for _ in tqdm(range(target_episodes), unit="batches", smoothing=0.5, leave=False):
+    for _ in range(target_episodes):
       ep_start = time.time()
 
       ### Train Critic ###
