@@ -48,7 +48,7 @@ if __name__ == '__main__':
       training_object.save_models_structure_images()
 
       while True:
-        training_object.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
+        training_object.train(NUM_OF_TRAINING_EPISODES, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                               weights_save_interval=WEIGHTS_SAVE_INTERVAL,
                               discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=False,
                               generator_smooth_labels=False,
@@ -69,7 +69,7 @@ if __name__ == '__main__':
       training_object.save_models_structure_images()
 
       while True:
-        training_object.train(NUM_OF_TRAINING_EPOCHS, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
+        training_object.train(NUM_OF_TRAINING_EPISODES, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                               weights_save_interval=WEIGHTS_SAVE_INTERVAL,
                               critic_train_multip=5)
         if input("Continue? ") == "n": break
@@ -88,11 +88,11 @@ if __name__ == '__main__':
       training_object.save_models_structure_images()
 
       while True:
-        training_object.train(NUM_OF_TRAINING_EPOCHS_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
+        training_object.train(NUM_OF_TRAINING_EPISODES_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                               weights_save_interval=WEIGHTS_SAVE_INTERVAL,
                               discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
                               generator_smooth_labels=False,
-                              pretrain_episodes=PRETRAIN_EPISODES_OF_SRGAN)
+                              generator_pretrain_episodes=GENERATOR_PRETRAIN_EPISODES_OF_SRGAN, discriminator_pretrain_episodes=DISCRIMINATOR_PRETRAIN_EPISODES_OF_SRGAN)
         if input("Continue? ") == "n": break
 
     else: print(Fore.RED + "Invalid training object index entered" + Fore.RESET)

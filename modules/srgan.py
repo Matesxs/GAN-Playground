@@ -15,7 +15,6 @@ from PIL import Image
 import numpy as np
 import cv2 as cv
 from collections import deque
-from tqdm import tqdm
 import json
 import random
 import time
@@ -68,7 +67,7 @@ def PSNR(y_true, y_pred):
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
 class SRGAN:
-  AGREGATE_STAT_INTERVAL = 5_000  # Interval of saving data
+  AGREGATE_STAT_INTERVAL = 2_500  # Interval of saving data
   RESET_SEEDS_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
   CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
 
@@ -236,22 +235,70 @@ class SRGAN:
 
     return Model(img, m, name="discriminator_model")
 
-  def train(self, target_episode: int, pretrain_episodes:int=None,
+  def train_generator(self):
+    large_images, small_images = self.batch_maker.get_batch()
+    self.generator.train_on_batch(small_images, large_images)
+
+  def train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
+    # Function for adding random noise to labels (flipping them)
+    def noising_labels(labels: np.ndarray, noise_ammount: float = 0.01):
+      array = np.zeros(labels.shape)
+      for idx in range(labels.shape[0]):
+        if random.random() < noise_ammount:
+          array[idx] = 1 - labels[idx]
+        else:
+          array[idx] = labels[idx]
+      return labels
+
+    large_images, small_images = self.batch_maker.get_batch()
+    gen_imgs = self.generator.predict(small_images)
+
+    if discriminator_smooth_real_labels:
+      disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
+    else:
+      disc_real_labels = np.ones(shape=(self.batch_size, 1))
+
+    if discriminator_smooth_fake_labels:
+      disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
+    else:
+      disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
+
+    # Adding random noise to discriminator labels
+    if self.discriminator_label_noise and self.discriminator_label_noise > 0:
+      disc_real_labels = noising_labels(disc_real_labels, self.discriminator_label_noise / 2)
+      disc_fake_labels = noising_labels(disc_fake_labels, self.discriminator_label_noise / 2)
+
+    self.discriminator.train_on_batch(large_images, disc_real_labels)
+    self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+
+  def train_gan(self, generator_smooth_labels:bool=False):
+    large_images, small_images = self.batch_maker.get_batch()
+    if generator_smooth_labels:
+      gen_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
+    else:
+      gen_labels = np.ones(shape=(self.batch_size, 1))
+    predicted_features = self.vgg.predict(preprocess_vgg(large_images))
+
+    self.combined_generator_model.train_on_batch(small_images, [predicted_features, gen_labels])
+
+  def train(self, target_episode: int, generator_pretrain_episodes:int=None, discriminator_pretrain_episodes:int=None,
             progress_images_save_interval: int = None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False):
 
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
-    assert pretrain_episodes > 0 or pretrain_episodes is None, Fore.RED + "Invalid pretrain episodes" + Fore.RESET
+    assert generator_pretrain_episodes > 0 or generator_pretrain_episodes is None, Fore.RED + "Invalid pretrain episodes" + Fore.RESET
     if progress_images_save_interval is not None and progress_images_save_interval <= target_episode and target_episode % progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
     if weights_save_interval is not None and weights_save_interval <= target_episode and target_episode % weights_save_interval != 0: raise Exception("Invalid weights save interval")
 
     if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 
     # Calculate epochs to go
-    if pretrain_episodes:
-      target_episode += pretrain_episodes
+    if generator_pretrain_episodes:
+      target_episode += generator_pretrain_episodes
+    if discriminator_pretrain_episodes:
+      target_episode += discriminator_pretrain_episodes
     end_episode = target_episode
     target_episode = target_episode - self.episode_counter
     assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
@@ -265,59 +312,29 @@ class SRGAN:
       self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
-    for _ in tqdm(range(target_episode), unit="ep", smoothing=0.5, leave=False):
+    for _ in range(target_episode):
       ep_start = time.time()
-      if pretrain_episodes:
-        if self.episode_counter < pretrain_episodes:
-          large_images, small_images = self.batch_maker.get_batch()
-          gen_imgs = self.generator.predict(small_images)
-
-          # Train discriminator (real as ones and fake as zeros)
-          if discriminator_smooth_real_labels:
-            disc_real_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
-          else:
-            disc_real_labels = np.ones(shape=(self.batch_size, 1))
-
-          if discriminator_smooth_fake_labels:
-            disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
-          else:
-            disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
-
-          self.discriminator.train_on_batch(large_images, disc_real_labels)
-          self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-
+      if generator_pretrain_episodes:
+        if self.episode_counter < generator_pretrain_episodes:
           # Pretrain generator
-          self.generator.train_on_batch(small_images, large_images)
-          continue
+          self.train_generator()
 
-      large_images, small_images = self.batch_maker.get_batch()
+      elif discriminator_pretrain_episodes:
+        if self.episode_counter < (discriminator_pretrain_episodes + (generator_pretrain_episodes if discriminator_pretrain_episodes else 0)):
+          # Pretrain discriminator
+          self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
 
-      gen_imgs = self.generator.predict(small_images)
+          # Pretrain generator (need to keepup with discriminator)
+          self.train_generator()
 
-      # Train discriminator (real as ones and fake as zeros)
-      if discriminator_smooth_real_labels:
-        disc_real_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
       else:
-        disc_real_labels = np.ones(shape=(self.batch_size, 1))
+        ### Train Discriminator ###
+        # Train discriminator (real as ones and fake as zeros)
+        self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
 
-      if discriminator_smooth_fake_labels:
-        disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
-      else:
-        disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
-
-      self.discriminator.train_on_batch(large_images, disc_real_labels)
-      self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-
-      ### Train Generator ###
-      # Train generator (wants discriminator to recognize fake images as valid)
-      large_images, small_images = self.batch_maker.get_batch()
-      if generator_smooth_labels:
-        gen_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
-      else:
-        gen_labels = np.ones(shape=(self.batch_size, 1))
-      predicted_features = self.vgg.predict(preprocess_vgg(large_images))
-
-      self.combined_generator_model.train_on_batch(small_images, [predicted_features, gen_labels])
+        ### Train GAN ###
+        # Train generator (wants discriminator to recognize fake images as valid)
+        self.train_gan(generator_smooth_labels)
 
       self.episode_counter += 1
       epochs_time_history.append(time.time() - ep_start)
@@ -325,7 +342,7 @@ class SRGAN:
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
-        if not pretrain_episodes or pretrain_episodes < self.episode_counter:
+        if not generator_pretrain_episodes or generator_pretrain_episodes < self.episode_counter:
           self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
           if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.0001):

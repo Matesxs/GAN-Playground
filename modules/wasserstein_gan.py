@@ -54,7 +54,7 @@ class RandomWeightedAverage(Layer):
     return input_shape[0]
 
 class WGANGC:
-  AGREGATE_STAT_INTERVAL = 5_000 # Interval of saving data
+  AGREGATE_STAT_INTERVAL = 2_500 # Interval of saving data
   RESET_SEEDS_INTERVAL = 20_000 # Interval of reseting seeds for random generators
   CHECKPOINT_SAVE_INTERVAL = 5_000 # Interval of saving checkpoint
 

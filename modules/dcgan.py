@@ -27,8 +27,8 @@ from modules.helpers import time_to_format
 
 class DCGAN:
   CONTROL_THRESHOLD = 500_000 # Threshold when after whitch we will be testing training process
-  AGREGATE_STAT_INTERVAL = 5_000  # Interval of saving data
-  GRADIENT_CHECK_INTERVAL = 50_000  # Interval of checking norm gradient value of combined model
+  AGREGATE_STAT_INTERVAL = 2_500  # Interval of saving data
+  GRADIENT_CHECK_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
   CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
 
   def __init__(self, dataset_path:str,
