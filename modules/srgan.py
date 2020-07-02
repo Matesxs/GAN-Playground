@@ -281,24 +281,24 @@ class SRGAN:
 
     self.combined_generator_model.train_on_batch(small_images, [predicted_features, gen_labels])
 
-  def train(self, target_episode: int, generator_pretrain_episodes:int=None, discriminator_pretrain_episodes:int=None,
+  def train(self, target_episode: int, generator_train_episodes:int=None, discriminator_train_episodes:int=None,
             progress_images_save_interval: int = None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False):
 
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
-    assert generator_pretrain_episodes > 0 or generator_pretrain_episodes is None, Fore.RED + "Invalid pretrain episodes" + Fore.RESET
+    assert generator_train_episodes > 0 or generator_train_episodes is None, Fore.RED + "Invalid pretrain episodes" + Fore.RESET
     if progress_images_save_interval is not None and progress_images_save_interval <= target_episode and target_episode % progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
     if weights_save_interval is not None and weights_save_interval <= target_episode and target_episode % weights_save_interval != 0: raise Exception("Invalid weights save interval")
 
     if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 
     # Calculate epochs to go
-    if generator_pretrain_episodes:
-      target_episode += generator_pretrain_episodes
-    if discriminator_pretrain_episodes:
-      target_episode += discriminator_pretrain_episodes
+    if generator_train_episodes:
+      target_episode += generator_train_episodes
+    if discriminator_train_episodes:
+      target_episode += discriminator_train_episodes
     end_episode = target_episode
     target_episode = target_episode - self.episode_counter
     assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
@@ -314,13 +314,13 @@ class SRGAN:
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
     for _ in range(target_episode):
       ep_start = time.time()
-      if generator_pretrain_episodes:
-        if self.episode_counter < generator_pretrain_episodes:
+      if generator_train_episodes:
+        if self.episode_counter < generator_train_episodes:
           # Pretrain generator
           self.train_generator()
 
-      elif discriminator_pretrain_episodes:
-        if self.episode_counter < (discriminator_pretrain_episodes + (generator_pretrain_episodes if discriminator_pretrain_episodes else 0)):
+      elif discriminator_train_episodes:
+        if self.episode_counter < (discriminator_train_episodes + (generator_train_episodes if discriminator_train_episodes else 0)):
           # Pretrain discriminator
           self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
 
@@ -342,7 +342,7 @@ class SRGAN:
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
-        if not generator_pretrain_episodes or generator_pretrain_episodes < self.episode_counter:
+        if not generator_train_episodes or generator_train_episodes < self.episode_counter:
           self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
           if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.0001):
