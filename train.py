@@ -90,7 +90,7 @@ if __name__ == '__main__':
       while True:
         training_object.train(NUM_OF_TRAINING_EPISODES_SR, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                               weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                              discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
+                              discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
                               generator_smooth_labels=False,
                               generator_pretrain_episodes=GENERATOR_PRETRAIN_EPISODES_OF_SRGAN, discriminator_pretrain_episodes=DISCRIMINATOR_PRETRAIN_EPISODES_OF_SRGAN)
         if input("Continue? ") == "n": break
