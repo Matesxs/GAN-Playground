@@ -193,7 +193,7 @@ class DCGAN:
     failed = False
     print(Fore.GREEN + "Generator warmup started" + Fore.RESET)
     try:
-      for _ in tqdm(range((self.pretrain_episodes - self.episode_counter)), unit="ep"):
+      for _ in tqdm(range((self.pretrain_episodes - self.episode_counter)), unit="ep", leave=False):
         images = self.batch_maker.get_batch()
         encdec.train_on_batch(images, images)
         self.episode_counter += 1
