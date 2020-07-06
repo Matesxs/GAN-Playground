@@ -32,7 +32,7 @@ from settings import *
 if __name__ == '__main__':
   training_object = None
   try:
-    gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n2 - SRGAN - Fine tune\nSelected trainer: "))
+    gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n3 - SRGAN - Fine tune\nSelected trainer: "))
     if gan_selection == 0:
       training_object = DCGAN(DATASET_PATH, training_progress_save_path="training_data/dcgan",
                               batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES, test_batches=NUM_OF_TEST_BATCHES,
