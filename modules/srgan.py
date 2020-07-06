@@ -67,6 +67,9 @@ def PSNR(y_true, y_pred):
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
 class SRGAN:
+  DISC_FAKE_THRESHOLD = 30
+  DISC_REAL_THRESHOLD = 50
+
   AGREGATE_STAT_INTERVAL = 2_500  # Interval of saving data
   RESET_SEEDS_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
   CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
@@ -239,7 +242,7 @@ class SRGAN:
     large_images, small_images = self.batch_maker.get_batch()
     self.generator.train_on_batch(small_images, large_images)
 
-  def train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
+  def train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False, training_scheme:str="all"):
     # Function for adding random noise to labels (flipping them)
     def noising_labels(labels: np.ndarray, noise_ammount: float = 0.01):
       array = np.zeros(labels.shape)
@@ -268,8 +271,17 @@ class SRGAN:
       disc_real_labels = noising_labels(disc_real_labels, self.discriminator_label_noise / 2)
       disc_fake_labels = noising_labels(disc_fake_labels, self.discriminator_label_noise / 2)
 
-    self.discriminator.train_on_batch(large_images, disc_real_labels)
-    self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+    if training_scheme == "all":
+      real_loss, real_acc = self.discriminator.train_on_batch(large_images, disc_real_labels)
+      fake_loss, fake_acc = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+      return real_loss, real_acc, fake_loss, fake_acc
+    elif training_scheme == "fake":
+      return self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+    elif training_scheme == "real":
+      return self.discriminator.train_on_batch(large_images, disc_real_labels)
+    else:
+      print(Fore.RED + "Invalid training scheme for discriminator" + Fore.RESET)
+      return None
 
   def train_gan(self, generator_smooth_labels:bool=False):
     large_images, small_images = self.batch_maker.get_batch()
@@ -284,7 +296,8 @@ class SRGAN:
   def train(self, target_episode: int, generator_train_episodes:int=None, discriminator_train_episodes:int=None,
             progress_images_save_interval: int = None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
-            generator_smooth_labels:bool=False):
+            generator_smooth_labels:bool=False,
+            training_autobalancer:bool=False):
 
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
@@ -322,7 +335,12 @@ class SRGAN:
       elif discriminator_train_episodes:
         if self.episode_counter < (discriminator_train_episodes + (generator_train_episodes if discriminator_train_episodes else 0)):
           # Pretrain discriminator
-          self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+          _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+          if training_autobalancer:
+            if (disc_real_acc * 100) < self.DISC_REAL_THRESHOLD:
+              self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="real")
+            if (disc_fake_acc * 100) < self.DISC_FAKE_THRESHOLD:
+              self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="fake")
 
           # Pretrain generator (need to keepup with discriminator)
           self.train_generator()
@@ -330,7 +348,12 @@ class SRGAN:
       else:
         ### Train Discriminator ###
         # Train discriminator (real as ones and fake as zeros)
-        self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+        _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+        if training_autobalancer:
+          if disc_real_acc < self.DISC_REAL_THRESHOLD:
+            self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="real")
+          if disc_fake_acc < self.DISC_FAKE_THRESHOLD:
+            self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="fake")
 
         ### Train GAN ###
         # Train generator (wants discriminator to recognize fake images as valid)
