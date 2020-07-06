@@ -263,7 +263,7 @@ class WGANGC:
       if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
       np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
-    epochs_time_history = deque(maxlen=10)
+    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 5)
 
     # Save starting kernels and biases
     if not self.initiated:

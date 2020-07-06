@@ -316,7 +316,7 @@ class SRGAN:
     target_episode = target_episode - self.episode_counter
     assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
-    epochs_time_history = deque(maxlen=10)
+    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 5)
 
     # Save starting kernels and biases
     if not self.initiated:
