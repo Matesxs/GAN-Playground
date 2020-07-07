@@ -93,7 +93,7 @@ if __name__ == '__main__':
                               discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
                               generator_smooth_labels=False,
                               generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
-                              training_autobalancer=True)
+                              training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)
         if input("Continue? ") == "n": break
 
     elif gan_selection == 3:
@@ -115,7 +115,8 @@ if __name__ == '__main__':
                               weights_save_interval=WEIGHTS_SAVE_INTERVAL,
                               discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
                               generator_smooth_labels=False,
-                              generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN)
+                              generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
+                              training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)
         if input("Continue? ") == "n": break
 
     else: print(Fore.RED + "Invalid training object index entered" + Fore.RESET)

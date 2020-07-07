@@ -18,6 +18,8 @@ DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/
 DATASET_SR_PATH = "datasets/all_normalized__256x256" # "datasets/faces_normalized__256x256"
 CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256\60165.png"
 
+AUTOBALANCE_TRAINING_OF_SRGAN = True
+
 COMBINED_TRAINING_EPISODES_SRGAN = 100_000
 GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_500_000
 DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 100_000 # With generator too
@@ -43,6 +45,6 @@ CHECK_DATASET = False # Leave this false only when you are sure your dataset is 
 WEIGHTS_SAVE_INTERVAL = 10_000
 PROGRESS_IMAGE_SAVE_INTERVAL = 2_500
 SAVE_RAW_IMAGES = True # Save progress images to folder too (if false then they will be saved only to tensorboard)
-GIF_FRAME_DURATION = 50
+GIF_FRAME_DURATION = 100
 
 NUM_OF_LOADING_WORKERS = 8
