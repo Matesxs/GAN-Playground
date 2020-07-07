@@ -359,7 +359,6 @@ class DCGAN:
       self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), gen_labels)
 
       self.episode_counter += 1
-      epochs_time_history.append(time.time() - ep_start)
       self.tensorboard.step = self.episode_counter
 
       # Decay label noise
@@ -448,6 +447,8 @@ class DCGAN:
         # Change seed
         np.random.seed(None)
         random.seed()
+
+      epochs_time_history.append(time.time() - ep_start)
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)

@@ -288,7 +288,6 @@ class WGANGC:
       self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
 
       self.episode_counter += 1
-      epochs_time_history.append(time.time() - ep_start)
       self.tensorboard.step = self.episode_counter
 
       # Show stats
@@ -333,6 +332,8 @@ class WGANGC:
       if self.episode_counter % self.RESET_SEEDS_INTERVAL == 0:
         np.random.seed(None)
         random.seed()
+
+      epochs_time_history.append(time.time() - ep_start)
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
