@@ -23,7 +23,7 @@ from multiprocessing.pool import ThreadPool
 from modules.batch_maker import BatchMaker
 from modules.models import discriminator_models_spreadsheet, generator_models_spreadsheet
 from modules.custom_tensorboard import TensorBoardCustom
-from modules.helpers import time_to_format
+from modules.helpers import time_to_format, get_paths_of_files_from_path
 
 # Custom loss function
 def wasserstein_loss(y_true, y_pred):
@@ -61,6 +61,7 @@ class WGANGC:
                gen_mod_name:str, critic_mod_name:str,
                latent_dim:int,
                training_progress_save_path:str,
+               testing_dataset_path: str = None,
                generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
                batch_size:int=32, buffered_batches:int=20, test_batches:int=1,
                generator_weights:Union[str, None, int]=None, critic_weights:Union[str, None, int]=None,
@@ -90,7 +91,7 @@ class WGANGC:
     self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
     # Create array of input image paths
-    self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
+    self.train_data = get_paths_of_files_from_path(dataset_path)
     assert self.train_data, Fore.RED + "Dataset is not loaded" + Fore.RESET
 
     # Load one image to get shape of it
@@ -198,6 +199,13 @@ class WGANGC:
     self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches)
     self.batch_maker.start()
 
+    self.testing_batchmaker = None
+    if testing_dataset_path:
+      testing_dataset = get_paths_of_files_from_path(testing_dataset_path)
+      assert testing_dataset, Fore.RED + "Testing dataset is not loaded" + Fore.RESET
+      self.testing_batchmaker = BatchMaker(testing_dataset, self.batch_size, buffered_batches=buffered_batches)
+      self.testing_batchmaker.start()
+
     # Create some proprietary objects
     self.fake_labels = np.ones((self.batch_size, 1), dtype=np.float32)
     self.valid_labels = -self.fake_labels
@@ -293,7 +301,10 @@ class WGANGC:
         critic_loss = 0
         gen_loss = 0
         for _ in range(self.test_batches):
-          image_batch = self.batch_maker.get_batch()
+          if self.testing_batchmaker:
+            image_batch = self.testing_batchmaker.get_batch()
+          else:
+            image_batch = self.batch_maker.get_batch()
           critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
           self.critic.trainable = True
@@ -335,10 +346,12 @@ class WGANGC:
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
+    if self.testing_batchmaker: self.testing_batchmaker.terminate = True
     self.batch_maker.terminate = True
     self.save_checkpoint()
     self.save_weights()
     self.batch_maker.join()
+    if self.testing_batchmaker: self.testing_batchmaker.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
   # Function for saving progress images
