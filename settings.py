@@ -15,7 +15,7 @@ DISC_MODEL = "mod_ext_5layers"
 DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/weights/350/discriminator_mod_ext_5layers.h5"
 
 # Settings of SR GANs and SR Resnets
-DATASET_SR_PATH = "datasets/all_normalized__256x256" # "datasets/faces_normalized__256x256"
+DATASET_SR_PATH = "datasets/all_normalized__256x256"
 CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256\60165.png" # If none will be provided then script will select some random one
 
 AUTOBALANCE_TRAINING_OF_SRGAN = True # Discriminator will be trained more on images where its more behind
