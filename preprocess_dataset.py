@@ -2,7 +2,11 @@ import os
 import cv2 as cv
 import hashlib
 import shutil
+import ntpath
+import random
 from multiprocessing.pool import ThreadPool
+
+from modules.helpers import get_paths_of_files_from_path
 
 datasets_folder = "datasets"
 
@@ -10,9 +14,15 @@ assert os.path.exists(datasets_folder) and os.path.isdir(datasets_folder), "Inva
 
 dataset_list = [x for x in os.listdir(datasets_folder) if os.path.isdir(os.path.join(datasets_folder, x)) and "normalized" not in x]
 dataset_list.append("All (All datasets merged)")
+
+selected_dataset_name = None
+selected_x_dimension = None
+selected_y_dimension = None
 output_folder = None
 input_folder = None
 scaled_dim = None
+testing_split = None
+
 while True:
   print("Avaible input datasets:")
   for i, dataset_name in enumerate(dataset_list):
@@ -34,15 +44,21 @@ while True:
       except:
         continue
 
+    try:
+      testing_split = float(input("Testing split (0 - 1), leave blank for not plitting: "))
+      if testing_split > 1: testing_split = None
+    except:
+      pass
+
     selected_dataset_name = dataset_list[selected_dataset_index]
     if selected_dataset_name == "All (All datasets merged)":
       input_folder = [os.path.join(datasets_folder, x) for x in dataset_list if x != "All (All datasets merged)"]
       selected_dataset_name = "all"
     else:
       input_folder = os.path.join(datasets_folder, selected_dataset_name)
-    output_folder = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}")
+    output_folder = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}" + ("_train" if testing_split else ""))
     scaled_dim = (selected_x_dimension, selected_y_dimension)
-    print(f"Dataset {selected_dataset_name} was selected with target dimensions: {scaled_dim}")
+    print(f"Dataset {selected_dataset_name} was selected with target dimensions: {scaled_dim}" + (f" with test split {testing_split}" if testing_split else ""))
     break
   except:
     print("")
@@ -115,4 +131,22 @@ def resize_and_save_file(args):
         pass
 
 worker_pool.map(resize_and_save_file, enumerate(filepaths_to_use))
+
+if testing_split:
+  testing_folder_path = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}_test")
+  if os.path.exists(testing_folder_path): shutil.rmtree(testing_folder_path)
+  os.mkdir(testing_folder_path)
+
+  train_folder_files = get_paths_of_files_from_path(output_folder)
+  num_test_files_count = int(len(train_folder_files) * testing_split)
+
+  random.shuffle(train_folder_files)
+  files_to_move_paths = train_folder_files[:num_test_files_count]
+
+  def move_file(original_path):
+    file_name = ntpath.basename(original_path)
+    shutil.move(original_path, os.path.join(testing_folder_path, file_name))
+
+  worker_pool.map(move_file, files_to_move_paths)
+
 worker_pool.close()
