@@ -56,7 +56,7 @@ while True:
       selected_dataset_name = "all"
     else:
       input_folder = os.path.join(datasets_folder, selected_dataset_name)
-    output_folder = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}" + ("_train" if testing_split else ""))
+    output_folder = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}" + ("__train" if testing_split else ""))
     scaled_dim = (selected_x_dimension, selected_y_dimension)
     print(f"Dataset {selected_dataset_name} was selected with target dimensions: {scaled_dim}" + (f" with test split {testing_split}" if testing_split else ""))
     break
@@ -67,7 +67,7 @@ while True:
 assert input_folder is not None and output_folder is not None and scaled_dim is not None, "Invalid settings"
 if isinstance(input_folder, str):
   assert os.path.exists(input_folder), "Input folder doesnt exist"
-  raw_file_paths = [os.path.join(input_folder, x) for x in os.listdir(input_folder)]
+  raw_file_paths = get_paths_of_files_from_path(input_folder)
 elif isinstance(input_folder, list):
   raw_file_paths = []
   for y in input_folder:
@@ -133,7 +133,7 @@ def resize_and_save_file(args):
 worker_pool.map(resize_and_save_file, enumerate(filepaths_to_use))
 
 if testing_split:
-  testing_folder_path = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}_test")
+  testing_folder_path = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}__test")
   if os.path.exists(testing_folder_path): shutil.rmtree(testing_folder_path)
   os.mkdir(testing_folder_path)
 
@@ -147,6 +147,7 @@ if testing_split:
     file_name = ntpath.basename(original_path)
     shutil.move(original_path, os.path.join(testing_folder_path, file_name))
 
+  print(f"{num_test_files_count} files will be moved to test folder")
   worker_pool.map(move_file, files_to_move_paths)
 
 worker_pool.close()
