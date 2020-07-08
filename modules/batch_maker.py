@@ -67,6 +67,8 @@ class BatchMaker(Thread):
 
       time.sleep(0.01)
 
+    self.worker_pool.close()
+
   def get_batch(self) -> Union[np.ndarray, tuple]:
     while not self.batches: time.sleep(0.01)
     if self.secondary_size:

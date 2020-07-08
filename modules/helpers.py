@@ -1,3 +1,9 @@
+import os
+
+def get_paths_of_files_from_path(path):
+  if not os.path.exists(path): return None
+  return [os.path.join(path, file_name) for file_name in os.listdir(path)]
+
 def time_to_format(timestamp):
   # Helper vars:
   MINUTE = 60

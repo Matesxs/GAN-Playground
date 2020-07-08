@@ -24,7 +24,7 @@ from multiprocessing.pool import ThreadPool
 from modules.models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet
 from modules.custom_tensorboard import TensorBoardCustom
 from modules.batch_maker import BatchMaker
-from modules.helpers import time_to_format
+from modules.helpers import time_to_format, get_paths_of_files_from_path
 
 # Calculate start image size based on final image size and number of upscales
 def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
@@ -77,6 +77,7 @@ class SRGAN:
   def __init__(self, dataset_path:str, num_of_upscales:int,
                gen_mod_name: str, disc_mod_name: str,
                training_progress_save_path:str,
+               testing_dataset_path: str = None,
                generator_optimizer: Optimizer = Adam(0.0001, 0.9), discriminator_optimizer: Optimizer = Adam(0.0001, 0.9),
                discriminator_label_noise: float = None, discriminator_label_noise_decay: float = None, discriminator_label_noise_min: float = 0.001,
                batch_size: int = 32, buffered_batches:int=20, test_batches:int=1,
@@ -103,7 +104,7 @@ class SRGAN:
     self.episode_counter = start_episode
 
     # Create array of input image paths
-    self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
+    self.train_data = get_paths_of_files_from_path(dataset_path)
     assert self.train_data, Fore.RED + "Dataset is not loaded" + Fore.RESET
 
     # Load one image to get shape of it
@@ -124,9 +125,6 @@ class SRGAN:
     self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{self.start_image_shape}_to_{self.target_image_shape}")
     self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
-    # Create array of input image paths
-    self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
-
     # Define static vars
     self.kernel_initializer = RandomNormal(stddev=0.02)
     self.custom_hr_test_image_path = custom_hr_test_image_path
@@ -138,6 +136,13 @@ class SRGAN:
     # Create batchmaker and start it
     self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
     self.batch_maker.start()
+
+    self.testing_batchmaker = None
+    if testing_dataset_path:
+      testing_dataset = get_paths_of_files_from_path(testing_dataset_path)
+      assert testing_dataset, Fore.RED + "Testing dataset is not loaded" + Fore.RESET
+      self.testing_batchmaker = BatchMaker(testing_dataset, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
+      self.testing_batchmaker.start()
 
     #################################
     ###   Create discriminator    ###
@@ -378,7 +383,10 @@ class SRGAN:
         disc_real_acc = 0
         disc_fake_acc = 0
         for _ in range(self.test_batches):
-          large_images, small_images = self.batch_maker.get_batch()
+          if self.testing_batchmaker:
+            large_images, small_images = self.testing_batchmaker.get_batch()
+          else:
+            large_images, small_images = self.batch_maker.get_batch()
           gen_imgs = self.generator.predict(small_images)
 
           # Evaluate models state
@@ -436,10 +444,12 @@ class SRGAN:
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
+    if self.testing_batchmaker: self.testing_batchmaker.terminate = True
     self.batch_maker.terminate = True
     self.save_checkpoint()
     self.save_weights()
     self.batch_maker.join()
+    if self.testing_batchmaker: self.testing_batchmaker.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
   def __save_img(self, save_raw_progress_images:bool=True):

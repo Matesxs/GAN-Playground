@@ -75,7 +75,7 @@ if __name__ == '__main__':
         if input("Continue? ") == "n": break
 
     elif gan_selection == 2:
-      training_object = SRGAN(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
+      training_object = SRGAN(DATASET_SR_PATH, testing_dataset_path=TESTING_DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
                                  batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
                                  gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
                                  generator_optimizer=optimizers.Adam(1e-4, 0.9), discriminator_optimizer=optimizers.Adam(1e-4, 0.9),
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     elif gan_selection == 3:
       # Same as SRGAN but with lower LR
-      training_object = SRGAN(DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
+      training_object = SRGAN(DATASET_SR_PATH, testing_dataset_path=TESTING_DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
                                  batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
                                  gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
                                  generator_optimizer=optimizers.Adam(1e-5, 0.9), discriminator_optimizer=optimizers.Adam(1e-5, 0.9),
