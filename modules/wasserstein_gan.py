@@ -203,6 +203,7 @@ class WGANGC:
     if testing_dataset_path:
       testing_dataset = get_paths_of_files_from_path(testing_dataset_path)
       assert testing_dataset, Fore.RED + "Testing dataset is not loaded" + Fore.RESET
+
       self.testing_batchmaker = BatchMaker(testing_dataset, self.batch_size, buffered_batches=buffered_batches)
       self.testing_batchmaker.start()
 
