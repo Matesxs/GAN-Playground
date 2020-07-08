@@ -1,5 +1,6 @@
 # Settings of classic GANs
 DATASET_PATH = "datasets/dogs_normalized__64x64"
+TESTING_DATASET_PATH = None
 
 NUM_OF_TRAINING_EPISODES = 1_000_000
 
