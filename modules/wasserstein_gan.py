@@ -92,8 +92,6 @@ class WGANGC:
     # Create array of input image paths
     self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
     assert self.train_data, Fore.RED + "Dataset is not loaded" + Fore.RESET
-    self.data_length = len(self.train_data)
-    assert self.data_length > 0, Fore.RED + "Dataset is not loaded" + Fore.RESET
 
     # Load one image to get shape of it
     tmp_image = cv.imread(self.train_data[0])
@@ -197,7 +195,7 @@ class WGANGC:
     if generator_weights: self.generator.load_weights(generator_weights)
 
     # Create batchmaker and start it
-    self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
+    self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches)
     self.batch_maker.start()
 
     # Create some proprietary objects

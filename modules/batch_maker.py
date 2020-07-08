@@ -5,11 +5,12 @@ from collections import deque
 from typing import Union
 import cv2 as cv
 import time
+from colorama import Fore
 
 from settings import NUM_OF_LOADING_WORKERS
 
 class BatchMaker(Thread):
-  def __init__(self, train_data:list, data_length: int, batch_size: int, buffered_batches:int=5, secondary_size:tuple=None):
+  def __init__(self, train_data:list, batch_size: int, buffered_batches:int=5, secondary_size:tuple=None):
     super().__init__()
     self.daemon = True
 
@@ -21,7 +22,9 @@ class BatchMaker(Thread):
     self.resized_batches = deque(maxlen=self.batches_in_buffer)
 
     self.train_data = train_data
-    self.data_length = data_length
+    self.data_length = len(self.train_data)
+    assert self.data_length > 0, Fore.RED + "Dataset is empty" + Fore.RESET
+
     self.batch_size = batch_size
 
     self.index = 0

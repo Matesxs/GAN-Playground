@@ -75,7 +75,6 @@ class DCGAN:
     # Create array of input image paths
     self.train_data = [os.path.join(dataset_path, file) for file in os.listdir(dataset_path)]
     assert self.train_data, Fore.RED + "Dataset is not loaded" + Fore.RESET
-    self.data_length = len(self.train_data)
 
     # Load one image to get shape of it
     tmp_image = cv.imread(self.train_data[0])
@@ -108,7 +107,7 @@ class DCGAN:
       loaded_gen_weights_path, loaded_disc_weights_path = self.load_checkpoint()
 
     # Create batchmaker and start it
-    self.batch_maker = BatchMaker(self.train_data, self.data_length, self.batch_size, buffered_batches=buffered_batches)
+    self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches)
     self.batch_maker.start()
 
     # Pretrain generator
