@@ -16,14 +16,14 @@ DICS_WEIGHTS = None # "training_data/dcgan/mod_ext_4upscl__mod_ext_5layers__5pt/
 
 # Settings of SR GANs and SR Resnets
 DATASET_SR_PATH = "datasets/all_normalized__256x256" # "datasets/faces_normalized__256x256"
-CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256\60165.png"
+CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256\60165.png" # If none will be provided then script will select some random one
 
-AUTOBALANCE_TRAINING_OF_SRGAN = True
+AUTOBALANCE_TRAINING_OF_SRGAN = True # Discriminator will be trained more on images where its more behind
 
 COMBINED_TRAINING_EPISODES_SRGAN = 100_000
 GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_500_000
 DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 500_000 # With generator too (Discriminator need to catch up with generator before it will adding details to image)
-FINETUNE_TRAIN_EPISODES_OF_SRGAN = 100_000
+FINETUNE_TRAIN_EPISODES_OF_SRGAN = 200_000
 
 BATCH_SIZE_SR = 4
 BUFFERED_BATCHES_SR = 50
