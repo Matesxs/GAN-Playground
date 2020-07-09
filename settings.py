@@ -84,3 +84,6 @@ GIF_FRAME_DURATION = 100
 
 # Num of worker used to preload data for training/testing
 NUM_OF_LOADING_WORKERS = 8
+
+## NOTE ##
+# Tensorboard console command: tensorboard --logdir training_data --samples_per_plugin=images=100
