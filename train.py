@@ -79,7 +79,7 @@ if __name__ == '__main__':
                                  batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
                                  gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
                                  generator_optimizer=optimizers.Adam(1e-4, 0.9), discriminator_optimizer=optimizers.Adam(1e-4, 0.9),
-                                 discriminator_label_noise=0.05, discriminator_label_noise_decay=0.97, discriminator_label_noise_min=0,
+                                 discriminator_label_noise=DISCRIMINATOR_START_NOISE_OF_SRGAN, discriminator_label_noise_decay=DISCRIMINATOR_NOISE_DECAY_OF_SRGAN, discriminator_label_noise_min=DISCRIMINATOR_TARGET_NOISE_OF_SRGAN,
                                  generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
                                  start_episode=START_EPISODE_SR,
                                  load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
