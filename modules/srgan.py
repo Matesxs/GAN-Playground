@@ -277,7 +277,7 @@ class SRGAN:
     if training_scheme == "all":
       real_loss, real_acc = self.discriminator.train_on_batch(large_images, disc_real_labels)
       fake_loss, fake_acc = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-      return real_loss, real_acc, fake_loss, fake_acc
+      return real_loss, (real_acc * 100), fake_loss, (fake_acc * 100)
     elif training_scheme == "fake":
       return self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
     elif training_scheme == "real":
@@ -344,6 +344,12 @@ class SRGAN:
 
           # Pretrain discriminator
           self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+          _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+          if training_autobalancer:
+            if disc_real_acc < self.DISC_REAL_THRESHOLD:
+              self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="real")
+            if disc_fake_acc < self.DISC_FAKE_THRESHOLD:
+              self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="fake")
 
           # Pretrain generator (need to keepup with discriminator)
           self.train_generator()
