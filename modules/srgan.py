@@ -343,12 +343,7 @@ class SRGAN:
           if training_state != "Discriminator Training": training_state = "Discriminator Training"
 
           # Pretrain discriminator
-          _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
-          if training_autobalancer:
-            if (disc_real_acc * 100) < self.DISC_REAL_THRESHOLD:
-              self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="real")
-            if (disc_fake_acc * 100) < self.DISC_FAKE_THRESHOLD:
-              self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="fake")
+          self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
 
           # Pretrain generator (need to keepup with discriminator)
           self.train_generator()
