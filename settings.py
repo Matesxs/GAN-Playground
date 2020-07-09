@@ -66,7 +66,7 @@ DICS_SR_WEIGHTS = None
 ### General settings ###
 ########################
 # Number of batches used for testing step
-NUM_OF_TEST_BATCHES = 10
+NUM_OF_TEST_BATCHES = 5
 
 # Check if you want to load last autocheckpoint (If weights were provided thne checkpoint will be overriden by them)
 LOAD_FROM_CHECKPOINTS = True

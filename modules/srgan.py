@@ -335,8 +335,8 @@ class SRGAN:
           # Pretrain generator
           self.train_generator()
 
-      elif discriminator_train_episodes:
-        if self.episode_counter < (discriminator_train_episodes + (generator_train_episodes if discriminator_train_episodes else 0)):
+      if discriminator_train_episodes:
+        if self.episode_counter < (discriminator_train_episodes + (generator_train_episodes if generator_train_episodes else 0)):
           # Pretrain discriminator
           _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
           if training_autobalancer:
@@ -348,7 +348,7 @@ class SRGAN:
           # Pretrain generator (need to keepup with discriminator)
           self.train_generator()
 
-      else:
+      if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         ### Train Discriminator ###
         # Train discriminator (real as ones and fake as zeros)
         _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
@@ -370,8 +370,8 @@ class SRGAN:
         if not generator_train_episodes or generator_train_episodes < self.episode_counter:
           self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
-          if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.0001):
-            self.discriminator_label_noise = 0
+          if self.discriminator_label_noise != self.discriminator_label_noise_min and (self.discriminator_label_noise - self.discriminator_label_noise_min) < 0.0001:
+            self.discriminator_label_noise = self.discriminator_label_noise_min
 
       # Seve stats and print them to console
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
