@@ -14,6 +14,7 @@ BATCH_SIZE = 16
 BUFFERED_BATCHES = 30
 
 # Model settings
+# Latent dim is size of "tweakable" parameters fed to generator
 LATENT_DIM = 128
 GEN_MODEL = "mod_ext2_4upscl"
 GEN_WEIGHTS = None
