@@ -320,6 +320,7 @@ class SRGAN:
     assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
     epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 5)
+    training_state = "Standby"
 
     # Save starting kernels and biases
     if not self.initiated:
@@ -332,11 +333,15 @@ class SRGAN:
       ep_start = time.time()
       if generator_train_episodes:
         if self.episode_counter < generator_train_episodes:
+          if training_state != "Generator Training": training_state = "Generator Training"
+
           # Pretrain generator
           self.train_generator()
 
       if discriminator_train_episodes:
-        if self.episode_counter < (discriminator_train_episodes + (generator_train_episodes if generator_train_episodes else 0)):
+        if (discriminator_train_episodes + (generator_train_episodes if generator_train_episodes else 0)) > self.episode_counter >= (generator_train_episodes if generator_train_episodes else 0):
+          if training_state != "Discriminator Training": training_state = "Discriminator Training"
+
           # Pretrain discriminator
           _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
           if training_autobalancer:
@@ -349,6 +354,8 @@ class SRGAN:
           self.train_generator()
 
       if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
+        if training_state != "GAN Training": training_state = "GAN Training"
+
         ### Train Discriminator ###
         # Train discriminator (real as ones and fake as zeros)
         _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
@@ -421,7 +428,7 @@ class SRGAN:
         self.tensorboard.log_kernels_and_biases(self.generator)
         self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, mse_gen_loss=mse_gen_loss, gen_binary_loss=binary_gen_loss, pnsr=gen_pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))} - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(float(disc_real_acc), 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(float(disc_fake_acc), 2)}%] [G loss: {round(float(gen_loss), 5)}, G mse_loss: {round(float(mse_gen_loss), 5)}, G binary_loss: {round(float(binary_gen_loss), 5)}, PNSR: {round(gen_pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}> - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(float(disc_real_acc), 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(float(disc_fake_acc), 2)}%] [G loss: {round(float(gen_loss), 5)}, G mse_loss: {round(float(mse_gen_loss), 5)}, G binary_loss: {round(float(binary_gen_loss), 5)}, PNSR: {round(gen_pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
       # Save progress
       if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
