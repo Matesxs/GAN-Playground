@@ -256,9 +256,6 @@ class SRGAN:
           array[idx] = labels[idx]
       return labels
 
-    large_images, small_images = self.batch_maker.get_batch()
-    gen_imgs = self.generator.predict(small_images)
-
     if discriminator_smooth_real_labels:
       disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
     else:
@@ -275,12 +272,20 @@ class SRGAN:
       disc_fake_labels = noising_labels(disc_fake_labels, self.discriminator_label_noise / 2)
 
     if training_scheme == "all":
+      large_images, small_images = self.batch_maker.get_batch()
+      gen_imgs = self.generator.predict(small_images)
+
       real_loss, real_acc = self.discriminator.train_on_batch(large_images, disc_real_labels)
       fake_loss, fake_acc = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
       return real_loss, (real_acc * 100), fake_loss, (fake_acc * 100)
     elif training_scheme == "fake":
+      _, small_images = self.batch_maker.get_batch()
+      gen_imgs = self.generator.predict(small_images)
+
       return self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
     elif training_scheme == "real":
+      large_images, _ = self.batch_maker.get_batch()
+
       return self.discriminator.train_on_batch(large_images, disc_real_labels)
     else:
       print(Fore.RED + "Invalid training scheme for discriminator" + Fore.RESET)
