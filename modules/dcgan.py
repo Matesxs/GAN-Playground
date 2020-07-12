@@ -521,13 +521,22 @@ class DCGAN:
     checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
     if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
 
-    self.generator.save_weights(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5")
-    self.discriminator.save_weights(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5")
+    gen_path = f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5"
+    disc_path = f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5"
+
+    if os.path.exists(gen_path): os.rename(gen_path, f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock")
+    if os.path.exists(disc_path): os.rename(disc_path, f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5.lock")
+
+    self.generator.save_weights(gen_path)
+    self.discriminator.save_weights(disc_path)
+
+    if os.path.exists(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock")
+    if os.path.exists(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5.lock")
 
     data = {
       "episode": self.episode_counter,
-      "gen_path": f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5",
-      "disc_path": f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5",
+      "gen_path": gen_path,
+      "disc_path": disc_path,
       "disc_label_noise": self.discriminator_label_noise
     }
 

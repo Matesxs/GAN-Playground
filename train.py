@@ -90,7 +90,7 @@ if __name__ == '__main__':
       while True:
         training_object.train(COMBINED_TRAINING_EPISODES_SRGAN, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                               weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                              discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
+                              discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
                               generator_smooth_labels=False,
                               generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
                               training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)
@@ -113,7 +113,7 @@ if __name__ == '__main__':
       while True:
         training_object.train(COMBINED_TRAINING_EPISODES_SRGAN + FINETUNE_TRAIN_EPISODES_OF_SRGAN, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                               weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                              discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
+                              discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
                               generator_smooth_labels=False,
                               generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
                               training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)

@@ -413,13 +413,22 @@ class WGANGC:
     checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
     if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
 
-    self.generator.save_weights(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5")
-    self.critic.save_weights(f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5")
+    gen_path = f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5"
+    critic_path = f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5"
+
+    if os.path.exists(gen_path): os.rename(gen_path, f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock")
+    if os.path.exists(critic_path): os.rename(critic_path, f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5.lock")
+
+    self.generator.save_weights(gen_path)
+    self.critic.save_weights(critic_path)
+
+    if os.path.exists(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock")
+    if os.path.exists(f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5.lock")
 
     data = {
       "episode": self.episode_counter,
-      "gen_path": f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5",
-      "critic_path": f"{checkpoint_base_path}/discriminator_{self.critic_mod_name}.h5"
+      "gen_path": gen_path,
+      "critic_path": critic_path
     }
 
     with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "w", encoding='utf-8') as f:

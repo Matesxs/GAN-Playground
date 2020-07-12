@@ -16,6 +16,7 @@ import numpy as np
 import cv2 as cv
 from collections import deque
 import json
+import math
 import random
 import time
 import imagesize
@@ -67,8 +68,12 @@ def PSNR(y_true, y_pred):
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
 class SRGAN:
-  DISC_FAKE_THRESHOLD = 30
-  DISC_REAL_THRESHOLD = 50
+  DISC_REAL_THRESHOLD = 1.5
+  DISC_REAL_AUTO_LOOPS_BASE = 2
+
+  DISC_FAKE_THRESHOLD_FOR_GEN = 2
+  DISC_FAKE_THRESHOLD = 5
+  DISC_FAKE_AUTO_LOOPS_BASE = 5
 
   AGREGATE_STAT_INTERVAL = 2_500  # Interval of saving data
   RESET_SEEDS_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
@@ -149,7 +154,7 @@ class SRGAN:
     ###   Create discriminator    ###
     #################################
     self.discriminator = self.build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=["accuracy"])
+    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer)
 
     #################################
     ###     Create generator      ###
@@ -245,7 +250,7 @@ class SRGAN:
     large_images, small_images = self.batch_maker.get_batch()
     self.generator.train_on_batch(small_images, large_images)
 
-  def train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False, training_scheme:str="all"):
+  def train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False, auto_balance:bool=False):
     # Function for adding random noise to labels (flipping them)
     def noising_labels(labels: np.ndarray, noise_ammount: float = 0.01):
       array = np.zeros(labels.shape)
@@ -257,39 +262,54 @@ class SRGAN:
       return labels
 
     if discriminator_smooth_real_labels:
-      disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
+      drl = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
     else:
-      disc_real_labels = np.ones(shape=(self.batch_size, 1))
+      drl = np.ones(shape=(self.batch_size, 1))
 
     if discriminator_smooth_fake_labels:
-      disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
+      dfl = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
     else:
-      disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
+      dfl = np.zeros(shape=(self.batch_size, 1))
 
     # Adding random noise to discriminator labels
     if self.discriminator_label_noise and self.discriminator_label_noise > 0:
-      disc_real_labels = noising_labels(disc_real_labels, self.discriminator_label_noise / 2)
-      disc_fake_labels = noising_labels(disc_fake_labels, self.discriminator_label_noise / 2)
-
-    if training_scheme == "all":
-      large_images, small_images = self.batch_maker.get_batch()
-      gen_imgs = self.generator.predict(small_images)
-
-      real_loss, real_acc = self.discriminator.train_on_batch(large_images, disc_real_labels)
-      fake_loss, fake_acc = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-      return real_loss, (real_acc * 100), fake_loss, (fake_acc * 100)
-    elif training_scheme == "fake":
-      _, small_images = self.batch_maker.get_batch()
-      gen_imgs = self.generator.predict(small_images)
-
-      return self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-    elif training_scheme == "real":
-      large_images, _ = self.batch_maker.get_batch()
-
-      return self.discriminator.train_on_batch(large_images, disc_real_labels)
+      disc_real_labels = noising_labels(drl, self.discriminator_label_noise / 2)
+      disc_fake_labels = noising_labels(dfl, self.discriminator_label_noise / 2)
     else:
-      print(Fore.RED + "Invalid training scheme for discriminator" + Fore.RESET)
-      return None
+      disc_real_labels = drl.copy()
+      disc_fake_labels = dfl.copy()
+
+    large_images, small_images = self.batch_maker.get_batch()
+    gen_imgs = self.generator.predict(small_images)
+
+    real_loss = self.discriminator.train_on_batch(large_images, disc_real_labels)
+    if auto_balance:
+      if real_loss > self.DISC_REAL_THRESHOLD:
+        for _ in range(int(math.ceil(self.DISC_REAL_AUTO_LOOPS_BASE * (real_loss // self.DISC_REAL_THRESHOLD)))):
+          large_images, _ = self.batch_maker.get_batch()
+
+          if self.discriminator_label_noise and self.discriminator_label_noise > 0:
+            disc_real_labels = noising_labels(drl, self.discriminator_label_noise / 2)
+          else:
+            disc_real_labels = drl.copy()
+
+          real_loss = self.discriminator.train_on_batch(large_images, disc_real_labels)
+
+    fake_loss = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+    if auto_balance:
+      if fake_loss > self.DISC_FAKE_THRESHOLD:
+        for _ in range(int(math.ceil(self.DISC_FAKE_AUTO_LOOPS_BASE * (fake_loss // self.DISC_FAKE_THRESHOLD)))):
+          large_images, small_images = self.batch_maker.get_batch()
+          gen_imgs = self.generator.predict(small_images)
+
+          if self.discriminator_label_noise and self.discriminator_label_noise > 0:
+            disc_fake_labels = noising_labels(dfl, self.discriminator_label_noise / 2)
+          else:
+            disc_fake_labels = dfl.copy()
+
+          fake_loss = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+
+    return real_loss, fake_loss
 
   def train_gan(self, generator_smooth_labels:bool=False):
     large_images, small_images = self.batch_maker.get_batch()
@@ -334,42 +354,38 @@ class SRGAN:
       self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
+    if training_autobalancer: print(Fore.BLUE + "Discriminator auto balance training active!" + Fore.RESET)
     for _ in range(target_episode):
       ep_start = time.time()
       if generator_train_episodes:
         if self.episode_counter < generator_train_episodes:
-          if training_state != "Generator Training": training_state = "Generator Training"
+          if training_state != "Generator Training":
+            print(Fore.BLUE + "Starting generator training" + Fore.RESET)
+            training_state = "Generator Training"
 
           # Pretrain generator
           self.train_generator()
 
       if discriminator_train_episodes:
         if (discriminator_train_episodes + (generator_train_episodes if generator_train_episodes else 0)) > self.episode_counter >= (generator_train_episodes if generator_train_episodes else 0):
-          if training_state != "Discriminator Training": training_state = "Discriminator Training"
+          if training_state != "Discriminator Training":
+            print(Fore.BLUE + "Starting discriminator training" + Fore.RESET)
+            training_state = "Discriminator Training"
 
           # Pretrain discriminator
-          self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
-          _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
-          if training_autobalancer:
-            if disc_real_acc < self.DISC_REAL_THRESHOLD:
-              self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="real")
-            if disc_fake_acc < self.DISC_FAKE_THRESHOLD:
-              self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="fake")
+          _, fl = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
 
-          # Pretrain generator (need to keepup with discriminator)
-          self.train_generator()
+          # If fake loss is too low start training generator again
+          if fl < self.DISC_FAKE_THRESHOLD_FOR_GEN: self.train_generator()
 
       if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
-        if training_state != "GAN Training": training_state = "GAN Training"
+        if training_state != "GAN Training":
+          print(Fore.BLUE + "Starting GAN training" + Fore.RESET)
+          training_state = "GAN Training"
 
         ### Train Discriminator ###
         # Train discriminator (real as ones and fake as zeros)
-        _, disc_real_acc, _, disc_fake_acc = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
-        if training_autobalancer:
-          if disc_real_acc < self.DISC_REAL_THRESHOLD:
-            self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="real")
-          if disc_fake_acc < self.DISC_FAKE_THRESHOLD:
-            self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_scheme="fake")
+        self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
 
         ### Train GAN ###
         # Train generator (wants discriminator to recognize fake images as valid)
@@ -394,8 +410,6 @@ class SRGAN:
         gen_pnsr = 0
         disc_real_loss = 0
         disc_fake_loss = 0
-        disc_real_acc = 0
-        disc_fake_acc = 0
         for _ in range(self.test_batches):
           if self.testing_batchmaker:
             large_images, small_images = self.testing_batchmaker.get_batch()
@@ -404,8 +418,8 @@ class SRGAN:
           gen_imgs = self.generator.predict(small_images)
 
           # Evaluate models state
-          d_r_l, d_r_a = self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
-          d_f_l, d_f_a = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
+          d_r_l = self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
+          d_f_l = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
           predicted_features = self.vgg.predict(preprocess_vgg(large_images))
           g_l = self.combined_generator_model.test_on_batch(small_images, [predicted_features, np.ones(shape=(large_images.shape[0], 1))])
           _, pnsr = self.generator.test_on_batch(small_images, large_images)
@@ -416,8 +430,6 @@ class SRGAN:
           gen_pnsr += pnsr
           disc_real_loss += d_r_l
           disc_fake_loss += d_f_l
-          disc_real_acc += d_r_a
-          disc_fake_acc += d_f_a
 
         # Calculate excatc values of stats and convert accuracy to percents
         gen_loss /= self.test_batches
@@ -426,15 +438,11 @@ class SRGAN:
         gen_pnsr /= self.test_batches
         disc_real_loss /= self.test_batches
         disc_fake_loss /= self.test_batches
-        disc_real_acc /= self.test_batches
-        disc_fake_acc /= self.test_batches
-        disc_real_acc *= 100.0
-        disc_fake_acc *= 100.0
 
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, mse_gen_loss=mse_gen_loss, gen_binary_loss=binary_gen_loss, pnsr=gen_pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss, mse_gen_loss=mse_gen_loss, gen_binary_loss=binary_gen_loss, pnsr=gen_pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}> - [D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(float(disc_real_acc), 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(float(disc_fake_acc), 2)}%] [G loss: {round(float(gen_loss), 5)}, G mse_loss: {round(float(mse_gen_loss), 5)}, G binary_loss: {round(float(binary_gen_loss), 5)}, PNSR: {round(gen_pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}> - [D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(gen_loss, 5)}, G mse_loss: {round(mse_gen_loss, 5)}, G binary_loss: {round(binary_gen_loss, 5)}, PNSR: {round(gen_pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
       # Save progress
       if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
@@ -533,13 +541,22 @@ class SRGAN:
     checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
     if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
 
-    self.generator.save_weights(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5")
-    self.discriminator.save_weights(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5")
+    gen_path = f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5"
+    disc_path = f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5"
+
+    if os.path.exists(gen_path): os.rename(gen_path, f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock")
+    if os.path.exists(disc_path): os.rename(disc_path, f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5.lock")
+
+    self.generator.save_weights(gen_path)
+    self.discriminator.save_weights(disc_path)
+
+    if os.path.exists(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock")
+    if os.path.exists(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5.lock")
 
     data = {
       "episode": self.episode_counter,
-      "gen_path": f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5",
-      "disc_path": f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5",
+      "gen_path": gen_path,
+      "disc_path": disc_path,
       "disc_label_noise": self.discriminator_label_noise,
       "test_image": self.progress_test_image_path
     }
