@@ -276,6 +276,7 @@ class DCGAN:
       for idx in range(labels.shape[0]):
         if random.random() < noise_ammount:
           array[idx] = 1 - labels[idx]
+          if array[idx] < 0: array[idx] = -array[idx]
         else:
           array[idx] = labels[idx]
       return labels
