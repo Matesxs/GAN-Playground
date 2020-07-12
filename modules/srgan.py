@@ -300,6 +300,7 @@ class SRGAN:
             disc_real_labels = drl.copy()
 
           real_loss = self.discriminator.train_on_batch(large_images, disc_real_labels)
+          if real_loss < self.DISC_REAL_THRESHOLD: break
 
     fake_loss = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
     if auto_balance:
@@ -314,6 +315,7 @@ class SRGAN:
             disc_fake_labels = dfl.copy()
 
           fake_loss = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+          if fake_loss < self.DISC_FAKE_THRESHOLD: break
 
     return real_loss, fake_loss
 
