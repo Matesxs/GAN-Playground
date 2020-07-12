@@ -68,12 +68,17 @@ def PSNR(y_true, y_pred):
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
 class SRGAN:
-  DISC_REAL_THRESHOLD = 1.5
+  DISC_REAL_THRESHOLD = 1
   DISC_REAL_AUTO_LOOPS_BASE = 2
 
-  DISC_FAKE_THRESHOLD_FOR_GEN = 2
+  DISC_FAKE_THRESHOLD_FOR_GEN = 1
+  GEN_AUTO_LOOPS_BASE = 2
+
   DISC_FAKE_THRESHOLD = 5
-  DISC_FAKE_AUTO_LOOPS_BASE = 5
+  DISC_FAKE_AUTO_LOOPS_BASE = 4
+
+  MAX_GEN_LOOPS = 10
+  MAX_DISC_LOOPS = 20
 
   AGREGATE_STAT_INTERVAL = 2_500  # Interval of saving data
   RESET_SEEDS_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
@@ -286,7 +291,7 @@ class SRGAN:
     real_loss = self.discriminator.train_on_batch(large_images, disc_real_labels)
     if auto_balance:
       if real_loss > self.DISC_REAL_THRESHOLD:
-        for _ in range(int(math.ceil(self.DISC_REAL_AUTO_LOOPS_BASE * (real_loss // self.DISC_REAL_THRESHOLD)))):
+        for _ in range(min([int(math.ceil(self.DISC_REAL_AUTO_LOOPS_BASE * (real_loss // self.DISC_REAL_THRESHOLD))), self.MAX_DISC_LOOPS])):
           large_images, _ = self.batch_maker.get_batch()
 
           if self.discriminator_label_noise and self.discriminator_label_noise > 0:
@@ -299,7 +304,7 @@ class SRGAN:
     fake_loss = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
     if auto_balance:
       if fake_loss > self.DISC_FAKE_THRESHOLD:
-        for _ in range(int(math.ceil(self.DISC_FAKE_AUTO_LOOPS_BASE * (fake_loss // self.DISC_FAKE_THRESHOLD)))):
+        for _ in range(min([int(math.ceil(self.DISC_FAKE_AUTO_LOOPS_BASE * (fake_loss // self.DISC_FAKE_THRESHOLD))), self.MAX_DISC_LOOPS])):
           large_images, small_images = self.batch_maker.get_batch()
           gen_imgs = self.generator.predict(small_images)
 
@@ -377,7 +382,10 @@ class SRGAN:
           _, fl = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
 
           # If fake loss is too low start training generator again
-          if fl < self.DISC_FAKE_THRESHOLD_FOR_GEN: self.train_generator()
+          if training_autobalancer:
+            if fl < self.DISC_FAKE_THRESHOLD_FOR_GEN:
+              for _ in range(min([int(math.ceil(self.GEN_AUTO_LOOPS_BASE * (self.DISC_FAKE_THRESHOLD_FOR_GEN // fl))), self.MAX_GEN_LOOPS])):
+                self.train_generator()
 
       if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         if training_state != "GAN Training":
@@ -389,7 +397,7 @@ class SRGAN:
         self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
 
         ### Train GAN ###
-        # Train generator (wants discriminator to recognize fake images as valid)
+        # Train GAN (wants discriminator to recognize fake images as valid)
         self.train_gan(generator_smooth_labels)
 
       self.episode_counter += 1
@@ -400,7 +408,7 @@ class SRGAN:
         if not generator_train_episodes or generator_train_episodes < self.episode_counter:
           self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
-          if self.discriminator_label_noise != self.discriminator_label_noise_min and (self.discriminator_label_noise - self.discriminator_label_noise_min) < 0.0001:
+          if self.discriminator_label_noise != self.discriminator_label_noise_min and (self.discriminator_label_noise - self.discriminator_label_noise_min) < 0.001:
             self.discriminator_label_noise = self.discriminator_label_noise_min
 
       # Seve stats and print them to console

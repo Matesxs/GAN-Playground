@@ -374,7 +374,7 @@ class DCGAN:
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
         self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
-        if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.0001):
+        if (self.discriminator_label_noise_min == 0) and (self.discriminator_label_noise != 0) and (self.discriminator_label_noise < 0.001):
           self.discriminator_label_noise = 0
 
       # Seve stats and print them to console
