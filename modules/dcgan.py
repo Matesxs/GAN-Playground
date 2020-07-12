@@ -311,7 +311,7 @@ class DCGAN:
     prev_gen_images = deque(maxlen=3*self.batch_size)
     get_gradients = self.gradient_norm_generator()
 
-    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 5)
+    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 10)
 
     # Save starting kernels and biases
     if not self.initiated:
