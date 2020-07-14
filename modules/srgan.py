@@ -40,7 +40,7 @@ def preprocess_vgg(x):
   else:
     return Lambda(lambda x: preprocess_input(tf.add(x, 1) * 127.5))(x)
 
-def build_vgg(image_shape):
+def build_vgg(image_shape, out_layers:list=None):
   # Input image to extract features from
   img = Input(shape=image_shape)
 
@@ -50,7 +50,8 @@ def build_vgg(image_shape):
   for l in vgg.layers:
     l.trainable = False
 
-  vgg.outputs = [vgg.layers[20].output]
+  if not out_layers: vgg.outputs = [vgg.get_layer("block5_conv4").output]
+  else: vgg.outputs = [vgg.get_layer(oln).output for oln in out_layers]
 
   # Create model and compile
   model = Model(inputs=img, outputs=vgg(img))
@@ -176,8 +177,8 @@ class SRGAN:
     #################################
     ###    Create vgg network     ###
     #################################
-    self.vgg = build_vgg(self.target_image_shape)
-    # self.vgg.compile(loss='mse', optimizer=Adam(0.0001, 0.9), metrics=['accuracy'])
+    self.vgg = build_vgg(self.target_image_shape, ["block5_conv4"])
+    self.vgg.compile(loss='mse', optimizer=Adam(0.0001, 0.9), metrics=['accuracy'])
 
     #################################
     ### Create combined generator ###
