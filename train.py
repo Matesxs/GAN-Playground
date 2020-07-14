@@ -76,48 +76,44 @@ if __name__ == '__main__':
 
     elif gan_selection == 2:
       training_object = SRGAN(DATASET_SR_PATH, testing_dataset_path=TESTING_DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
-                                 batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
-                                 gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
-                                 generator_optimizer=optimizers.Adam(1e-4, 0.9), discriminator_optimizer=optimizers.Adam(1e-4, 0.9),
-                                 discriminator_label_noise=DISCRIMINATOR_START_NOISE_OF_SRGAN, discriminator_label_noise_decay=DISCRIMINATOR_NOISE_DECAY_OF_SRGAN, discriminator_label_noise_min=DISCRIMINATOR_TARGET_NOISE_OF_SRGAN,
-                                 generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
-                                 start_episode=START_EPISODE_SR,
-                                 load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                                 custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
+                              batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
+                              gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
+                              generator_optimizer=optimizers.Adam(1e-4, 0.9), discriminator_optimizer=optimizers.Adam(1e-4, 0.9),
+                              discriminator_label_noise=DISCRIMINATOR_START_NOISE_OF_SRGAN, discriminator_label_noise_decay=DISCRIMINATOR_NOISE_DECAY_OF_SRGAN, discriminator_label_noise_min=DISCRIMINATOR_TARGET_NOISE_OF_SRGAN,
+                              generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
+                              start_episode=START_EPISODE_SR,
+                              load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
+                              custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
 
       training_object.save_models_structure_images()
 
-      while True:
-        training_object.train(COMBINED_TRAINING_EPISODES_SRGAN, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
-                              weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                              discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
-                              generator_smooth_labels=False,
-                              generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
-                              training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)
-        if input("Continue? ") == "n": break
+      training_object.train(COMBINED_TRAINING_EPISODES_SRGAN, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
+                            weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+                            discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
+                            generator_smooth_labels=False,
+                            generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
+                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)
 
     elif gan_selection == 3:
       # Same as SRGAN but with lower LR
       training_object = SRGAN(DATASET_SR_PATH, testing_dataset_path=TESTING_DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
-                                 batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
-                                 gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
-                                 generator_optimizer=optimizers.Adam(1e-5, 0.9), discriminator_optimizer=optimizers.Adam(1e-5, 0.9),
-                                 discriminator_label_noise=DISCRIMINATOR_START_NOISE_OF_SRGAN, discriminator_label_noise_decay=DISCRIMINATOR_NOISE_DECAY_OF_SRGAN, discriminator_label_noise_min=DISCRIMINATOR_TARGET_NOISE_OF_SRGAN,
-                                 generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
-                                 start_episode=START_EPISODE_SR,
-                                 load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                                 custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
+                              batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR, test_batches=NUM_OF_TEST_BATCHES,
+                              gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
+                              generator_optimizer=optimizers.Adam(1e-5, 0.9), discriminator_optimizer=optimizers.Adam(1e-5, 0.9),
+                              discriminator_label_noise=DISCRIMINATOR_START_NOISE_OF_SRGAN, discriminator_label_noise_decay=DISCRIMINATOR_NOISE_DECAY_OF_SRGAN, discriminator_label_noise_min=DISCRIMINATOR_TARGET_NOISE_OF_SRGAN,
+                              generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
+                              start_episode=START_EPISODE_SR,
+                              load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
+                              custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
 
       training_object.save_models_structure_images()
 
-      while True:
-        training_object.train(COMBINED_TRAINING_EPISODES_SRGAN + FINETUNE_TRAIN_EPISODES_OF_SRGAN, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
-                              weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                              discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
-                              generator_smooth_labels=False,
-                              generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
-                              training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)
-        if input("Continue? ") == "n": break
+      training_object.train(COMBINED_TRAINING_EPISODES_SRGAN + FINETUNE_TRAIN_EPISODES_OF_SRGAN, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
+                            weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+                            discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
+                            generator_smooth_labels=False,
+                            generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
+                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)
 
     else: print(Fore.RED + "Invalid training object index entered" + Fore.RESET)
 

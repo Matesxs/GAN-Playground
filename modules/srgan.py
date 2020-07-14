@@ -60,12 +60,7 @@ def build_vgg(image_shape, out_layers:list=None):
 
 # TODO: Try it
 def Charbonnier_loss(y_true, y_pred):
-  y_true = tf.convert_to_tensor(y_true, np.float32)
-  y_pred = tf.convert_to_tensor(y_pred, np.float32)
-  diff = y_true - y_pred
-  error = K.sqrt(diff * diff + 1e-6)
-  loss = K.sum(error)
-  return loss
+  return K.sqrt(K.square(y_true - y_pred) + 0.01**2)
 
 def PSNR(y_true, y_pred):
   """
@@ -172,13 +167,13 @@ class SRGAN:
     #################################
     self.generator = self.__build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception("Invalid image input size for this generator model")
-    self.generator.compile(loss="mse", optimizer=generator_optimizer, metrics=[PSNR])
+    self.generator.compile(loss=Charbonnier_loss, optimizer=generator_optimizer, metrics=[PSNR])
 
     #################################
     ###    Create vgg network     ###
     #################################
     self.vgg = build_vgg(self.target_image_shape, ["block5_conv4"])
-    self.vgg.compile(loss='mse', optimizer=Adam(0.0001, 0.9), metrics=['accuracy'])
+    self.vgg.compile(loss=Charbonnier_loss, optimizer=Adam(0.0001, 0.9), metrics=['accuracy'])
 
     #################################
     ### Create combined generator ###
@@ -197,7 +192,7 @@ class SRGAN:
     # Combine models
     # Train generator to fool discriminator
     self.combined_generator_model = Model(small_image_input, outputs=[generated_features, validity], name="srgan_model")
-    self.combined_generator_model.compile(loss=["mse", "binary_crossentropy"],
+    self.combined_generator_model.compile(loss=[Charbonnier_loss, "binary_crossentropy"],
                                           loss_weights=[0.006, 1e-3],
                                           optimizer=generator_optimizer)
 
