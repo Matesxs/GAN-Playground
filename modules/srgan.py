@@ -57,6 +57,15 @@ def build_vgg(image_shape):
   model.trainable = False
   return model
 
+# TODO: Try it
+def Charbonnier_loss(y_true, y_pred):
+  y_true = tf.convert_to_tensor(y_true, np.float32)
+  y_pred = tf.convert_to_tensor(y_pred, np.float32)
+  diff = y_true - y_pred
+  error = K.sqrt(diff * diff + 1e-6)
+  loss = K.sum(error)
+  return loss
+
 def PSNR(y_true, y_pred):
   """
   PSNR is Peek Signal to Noise Ratio, see https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio
@@ -72,13 +81,13 @@ class SRGAN:
   DISC_REAL_AUTO_LOOPS_BASE = 2
 
   DISC_FAKE_THRESHOLD_FOR_GEN = 1
-  GEN_AUTO_LOOPS_BASE = 2
+  GEN_AUTO_LOOPS_BASE = 1
 
   DISC_FAKE_THRESHOLD = 5
-  DISC_FAKE_AUTO_LOOPS_BASE = 4
+  DISC_FAKE_AUTO_LOOPS_BASE = 2
 
-  MAX_GEN_LOOPS = 10
-  MAX_DISC_LOOPS = 20
+  MAX_GEN_LOOPS = 5
+  MAX_DISC_LOOPS = 10
 
   AGREGATE_STAT_INTERVAL = 2_500  # Interval of saving data
   RESET_SEEDS_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
@@ -128,7 +137,7 @@ class SRGAN:
 
     # Check validity of whole datasets
     if check_dataset:
-      self.validate_dataset()
+      self.__validate_dataset()
 
     # Initialize training data folder and logging
     self.training_progress_save_path = training_progress_save_path
@@ -158,13 +167,13 @@ class SRGAN:
     #################################
     ###   Create discriminator    ###
     #################################
-    self.discriminator = self.build_discriminator(disc_mod_name)
+    self.discriminator = self.__build_discriminator(disc_mod_name)
     self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer)
 
     #################################
     ###     Create generator      ###
     #################################
-    self.generator = self.build_generator(gen_mod_name)
+    self.generator = self.__build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception("Invalid image input size for this generator model")
     self.generator.compile(loss="mse", optimizer=generator_optimizer, metrics=[PSNR])
 
@@ -205,14 +214,14 @@ class SRGAN:
 
     # Load checkpoint
     self.initiated = False
-    if load_from_checkpoint: self.load_checkpoint()
+    if load_from_checkpoint: self.__load_checkpoint()
 
     # Load weights from param and override checkpoint weights
     if generator_weights: self.generator.load_weights(generator_weights)
     if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
 
   # Check if datasets have consistent shapes
-  def validate_dataset(self):
+  def __validate_dataset(self):
     def check_image(image_path):
       im_shape = imagesize.get(image_path)
       if im_shape[0] != self.target_image_shape[0] or im_shape[1] != self.target_image_shape[1]:
@@ -227,7 +236,7 @@ class SRGAN:
     print(Fore.BLUE + "Dataset valid" + Fore.RESET)
 
   # Create generator based on template selected by name
-  def build_generator(self, model_name:str):
+  def __build_generator(self, model_name:str):
     small_image_input = Input(shape=self.start_image_shape)
 
     try:
@@ -238,7 +247,7 @@ class SRGAN:
     return Model(small_image_input, m, name="generator_model")
 
   # Create discriminator based on teplate selected by name
-  def build_discriminator(self, model_name:str, classification:bool=True):
+  def __build_discriminator(self, model_name:str, classification:bool=True):
     img = Input(shape=self.target_image_shape)
 
     try:
@@ -251,11 +260,11 @@ class SRGAN:
 
     return Model(img, m, name="discriminator_model")
 
-  def train_generator(self):
+  def __train_generator(self):
     large_images, small_images = self.batch_maker.get_batch()
     self.generator.train_on_batch(small_images, large_images)
 
-  def train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False, auto_balance:bool=False):
+  def __train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False, auto_balance:bool=False):
     # Function for adding random noise to labels (flipping them)
     def noising_labels(labels: np.ndarray, noise_ammount: float = 0.01):
       array = np.zeros(labels.shape)
@@ -319,7 +328,7 @@ class SRGAN:
 
     return real_loss, fake_loss
 
-  def train_gan(self, generator_smooth_labels:bool=False):
+  def __train_gan(self, generator_smooth_labels:bool=False):
     large_images, small_images = self.batch_maker.get_batch()
     if generator_smooth_labels:
       gen_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
@@ -359,7 +368,7 @@ class SRGAN:
     if not self.initiated:
       self.__save_img(save_raw_progress_images)
       self.tensorboard.log_kernels_and_biases(self.generator)
-      self.save_checkpoint()
+      self.__save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
     if training_autobalancer: print(Fore.BLUE + "Discriminator auto balance training active!" + Fore.RESET)
@@ -372,7 +381,7 @@ class SRGAN:
             training_state = "Generator Training"
 
           # Pretrain generator
-          self.train_generator()
+          self.__train_generator()
 
       if discriminator_train_episodes:
         if (discriminator_train_episodes + (generator_train_episodes if generator_train_episodes else 0)) > self.episode_counter >= (generator_train_episodes if generator_train_episodes else 0):
@@ -381,13 +390,13 @@ class SRGAN:
             training_state = "Discriminator Training"
 
           # Pretrain discriminator
-          _, fl = self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
+          _, fl = self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
 
           # If fake loss is too low start training generator again
           if training_autobalancer:
             if fl < self.DISC_FAKE_THRESHOLD_FOR_GEN:
               for _ in range(min([int(math.ceil(self.GEN_AUTO_LOOPS_BASE * (self.DISC_FAKE_THRESHOLD_FOR_GEN // fl))), self.MAX_GEN_LOOPS])):
-                self.train_generator()
+                self.__train_generator()
 
       if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         if training_state != "GAN Training":
@@ -396,11 +405,16 @@ class SRGAN:
 
         ### Train Discriminator ###
         # Train discriminator (real as ones and fake as zeros)
-        self.train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
+        _, fl = self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
 
         ### Train GAN ###
+        if training_autobalancer:
+          if fl < self.DISC_FAKE_THRESHOLD_FOR_GEN:
+            for _ in range(min([int(math.ceil(self.GEN_AUTO_LOOPS_BASE * (self.DISC_FAKE_THRESHOLD_FOR_GEN // fl))), self.MAX_GEN_LOOPS])):
+              self.__train_gan(generator_smooth_labels)
+
         # Train GAN (wants discriminator to recognize fake images as valid)
-        self.train_gan(generator_smooth_labels)
+        self.__train_gan(generator_smooth_labels)
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
@@ -453,7 +467,7 @@ class SRGAN:
         self.tensorboard.log_kernels_and_biases(self.generator)
         self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss, mse_gen_loss=mse_gen_loss, gen_binary_loss=binary_gen_loss, pnsr=gen_pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}> - [D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(gen_loss, 5)}, G mse_loss: {round(mse_gen_loss, 5)}, G binary_loss: {round(binary_gen_loss, 5)}, PNSR: {round(gen_pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(gen_loss, 5)}, G mse_loss: {round(mse_gen_loss, 5)}, G binary_loss: {round(binary_gen_loss, 5)}, PNSR: {round(gen_pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
       # Save progress
       if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
@@ -465,7 +479,7 @@ class SRGAN:
 
       # Save checkpoint
       if self.episode_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
-        self.save_checkpoint()
+        self.__save_checkpoint()
         print(Fore.BLUE + "Checkpoint created" + Fore.RESET)
 
       # Reset seeds
@@ -479,7 +493,7 @@ class SRGAN:
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
     if self.testing_batchmaker: self.testing_batchmaker.terminate = True
     self.batch_maker.terminate = True
-    self.save_checkpoint()
+    self.__save_checkpoint()
     self.save_weights()
     self.batch_maker.join()
     if self.testing_batchmaker: self.testing_batchmaker.join()
@@ -490,7 +504,7 @@ class SRGAN:
     if not os.path.exists(self.progress_test_image_path):
       print(Fore.YELLOW + "Test image doesnt exist anymore, choosing new one" + Fore.RESET)
       self.progress_test_image_path = random.choice(self.train_data)
-      self.save_checkpoint()
+      self.__save_checkpoint()
 
     original_image = cv.imread(self.progress_test_image_path)
     small_image = cv.resize(original_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
@@ -522,7 +536,7 @@ class SRGAN:
     plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
     plot_model(self.discriminator, os.path.join(save_path, "discriminator.png"), expand_nested=True, show_shapes=True)
 
-  def load_checkpoint(self):
+  def __load_checkpoint(self):
     checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
     if not os.path.exists(os.path.join(checkpoint_base_path, "checkpoint_data.json")): return
 
@@ -548,7 +562,7 @@ class SRGAN:
           self.progress_test_image_path = data["test_image"]
         self.initiated = True
 
-  def save_checkpoint(self):
+  def __save_checkpoint(self):
     checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
     if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
 

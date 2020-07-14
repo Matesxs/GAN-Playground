@@ -38,7 +38,7 @@ GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_500_000
 # Discriminator need to catch up with generator before it will adding details to image
 DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 500_000
 # This is for that separated SRGAN with tag finetune, it will add these episodes to the base and its only used at the end for tuning last details
-FINETUNE_TRAIN_EPISODES_OF_SRGAN = 200_000
+FINETUNE_TRAIN_EPISODES_OF_SRGAN = 100_000
 
 # Discriminator label noise settings
 # Leave as None for not use noise
