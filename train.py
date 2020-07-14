@@ -123,15 +123,15 @@ if __name__ == '__main__':
 
     if training_object:
       training_object.save_weights()
-      training_object.__save_checkpoint()
+      training_object.save_checkpoint()
   except KeyboardInterrupt:
     if training_object:
       print(Fore.BLUE + f"Quiting on epoch: {training_object.episode_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)
-      training_object.__save_checkpoint()
+      training_object.save_checkpoint()
   except Exception as e:
     if training_object:
       print(Fore.RED + f"Exception on epoch: {training_object.episode_counter}" + Fore.RESET)
-      training_object.__save_checkpoint()
+      training_object.save_checkpoint()
     else:
       print(Fore.RED + "Creating training object failed" + Fore.RESET)
     traceback.print_exc()

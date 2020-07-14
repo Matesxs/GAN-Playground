@@ -80,13 +80,9 @@ class SRGAN:
   DISC_REAL_THRESHOLD = 1
   DISC_REAL_AUTO_LOOPS_BASE = 2
 
-  DISC_FAKE_THRESHOLD_FOR_GEN = 1
-  GEN_AUTO_LOOPS_BASE = 1
-
   DISC_FAKE_THRESHOLD = 5
   DISC_FAKE_AUTO_LOOPS_BASE = 2
 
-  MAX_GEN_LOOPS = 5
   MAX_DISC_LOOPS = 10
 
   AGREGATE_STAT_INTERVAL = 2_500  # Interval of saving data
@@ -368,7 +364,7 @@ class SRGAN:
     if not self.initiated:
       self.__save_img(save_raw_progress_images)
       self.tensorboard.log_kernels_and_biases(self.generator)
-      self.__save_checkpoint()
+      self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
     if training_autobalancer: print(Fore.BLUE + "Discriminator auto balance training active!" + Fore.RESET)
@@ -390,13 +386,7 @@ class SRGAN:
             training_state = "Discriminator Training"
 
           # Pretrain discriminator
-          _, fl = self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
-
-          # If fake loss is too low start training generator again
-          if training_autobalancer:
-            if fl < self.DISC_FAKE_THRESHOLD_FOR_GEN:
-              for _ in range(min([int(math.ceil(self.GEN_AUTO_LOOPS_BASE * (self.DISC_FAKE_THRESHOLD_FOR_GEN // fl))), self.MAX_GEN_LOOPS])):
-                self.__train_generator()
+          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
 
       if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         if training_state != "GAN Training":
@@ -405,14 +395,9 @@ class SRGAN:
 
         ### Train Discriminator ###
         # Train discriminator (real as ones and fake as zeros)
-        _, fl = self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
+        self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
 
         ### Train GAN ###
-        if training_autobalancer:
-          if fl < self.DISC_FAKE_THRESHOLD_FOR_GEN:
-            for _ in range(min([int(math.ceil(self.GEN_AUTO_LOOPS_BASE * (self.DISC_FAKE_THRESHOLD_FOR_GEN // fl))), self.MAX_GEN_LOOPS])):
-              self.__train_gan(generator_smooth_labels)
-
         # Train GAN (wants discriminator to recognize fake images as valid)
         self.__train_gan(generator_smooth_labels)
 
@@ -479,7 +464,7 @@ class SRGAN:
 
       # Save checkpoint
       if self.episode_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
-        self.__save_checkpoint()
+        self.save_checkpoint()
         print(Fore.BLUE + "Checkpoint created" + Fore.RESET)
 
       # Reset seeds
@@ -493,7 +478,7 @@ class SRGAN:
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
     if self.testing_batchmaker: self.testing_batchmaker.terminate = True
     self.batch_maker.terminate = True
-    self.__save_checkpoint()
+    self.save_checkpoint()
     self.save_weights()
     self.batch_maker.join()
     if self.testing_batchmaker: self.testing_batchmaker.join()
@@ -504,7 +489,7 @@ class SRGAN:
     if not os.path.exists(self.progress_test_image_path):
       print(Fore.YELLOW + "Test image doesnt exist anymore, choosing new one" + Fore.RESET)
       self.progress_test_image_path = random.choice(self.train_data)
-      self.__save_checkpoint()
+      self.save_checkpoint()
 
     original_image = cv.imread(self.progress_test_image_path)
     small_image = cv.resize(original_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
@@ -562,7 +547,7 @@ class SRGAN:
           self.progress_test_image_path = data["test_image"]
         self.initiated = True
 
-  def __save_checkpoint(self):
+  def save_checkpoint(self):
     checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
     if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
 
