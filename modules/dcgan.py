@@ -38,7 +38,7 @@ class DCGAN:
                testing_dataset_path: str = None,
                generator_optimizer: Optimizer = Adam(0.0002, 0.5), discriminator_optimizer: Optimizer = Adam(0.0002, 0.5),
                discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
-               batch_size: int = 32, buffered_batches:int=20, test_batches:int=1,
+               batch_size: int = 32, buffered_batches:int=20,
                generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
                start_episode:int=0, load_from_checkpoint:bool=False,
                pretrain_episodes:int=None,
@@ -53,9 +53,6 @@ class DCGAN:
 
     self.batch_size = batch_size
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
-
-    self.test_batches = test_batches
-    assert self.test_batches > 0, Fore.RED + "Invalid test batch size" + Fore.RESET
 
     self.pretrain_episodes = pretrain_episodes
 
@@ -379,35 +376,19 @@ class DCGAN:
 
       # Seve stats and print them to console
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
-        disc_real_acc = 0
-        disc_fake_acc = 0
-        disc_real_loss = 0
-        disc_fake_loss = 0
-        gen_loss = 0
-        for _ in range(self.test_batches):
-          # Generate images for statistics
-          if self.testing_batchmaker:
-            imgs = self.testing_batchmaker.get_batch()
-          else:
-            imgs = self.batch_maker.get_batch()
-          gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
+        # Generate images for statistics
+        if self.testing_batchmaker:
+          imgs = self.testing_batchmaker.get_batch()
+        else:
+          imgs = self.batch_maker.get_batch()
+        gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
 
-          # Evaluate models state
-          d_r_l, d_r_a = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
-          d_f_l, d_f_a = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-          gen_loss += self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), np.ones(shape=(self.batch_size, 1)))
+        # Evaluate models state
+        disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
+        disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
+        gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), np.ones(shape=(self.batch_size, 1)))
 
-          disc_real_acc += d_r_a
-          disc_fake_acc += d_f_a
-          disc_real_loss += d_r_l
-          disc_fake_loss += d_f_l
-
-        # Calculate excatc values of stats and convert accuracy to percents
-        disc_real_acc /= self.test_batches
-        disc_fake_acc /= self.test_batches
-        disc_real_loss /= self.test_batches
-        disc_fake_loss /= self.test_batches
-        gen_loss /= self.test_batches
+        # Convert accuracy to percents
         disc_real_acc *= 100.0
         disc_fake_acc *= 100.0
 

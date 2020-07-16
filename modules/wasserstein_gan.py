@@ -63,7 +63,7 @@ class WGANGC:
                training_progress_save_path:str,
                testing_dataset_path: str = None,
                generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
-               batch_size:int=32, buffered_batches:int=20, test_batches:int=1,
+               batch_size:int=32, buffered_batches:int=20,
                generator_weights:Union[str, None, int]=None, critic_weights:Union[str, None, int]=None,
                critic_gradient_penalty_weight:float=10,
                start_episode:int=0, load_from_checkpoint:bool= False,
@@ -76,9 +76,6 @@ class WGANGC:
 
     self.batch_size = batch_size
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
-
-    self.test_batches = test_batches
-    assert self.test_batches > 0, Fore.RED + "Invalid test batch size" + Fore.RESET
 
     self.progress_image_dim = (16, 9)
 
@@ -299,26 +296,19 @@ class WGANGC:
 
       # Show stats
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
-        critic_loss = 0
-        gen_loss = 0
-        for _ in range(self.test_batches):
-          if self.testing_batchmaker:
-            image_batch = self.testing_batchmaker.get_batch()
-          else:
-            image_batch = self.batch_maker.get_batch()
-          critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
+        if self.testing_batchmaker:
+          image_batch = self.testing_batchmaker.get_batch()
+        else:
+          image_batch = self.batch_maker.get_batch()
+        critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
-          self.critic.trainable = True
-          self.generator.trainable = False
-          critic_loss += self.combined_critic_model.test_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
+        self.critic.trainable = True
+        self.generator.trainable = False
+        critic_loss = self.combined_critic_model.test_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
 
-          self.critic.trainable = False
-          self.generator.trainable = True
-          gen_loss += self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
-
-        # Calculate excatc values of stats
-        critic_loss /= self.test_batches
-        gen_loss /= self.test_batches
+        self.critic.trainable = False
+        self.generator.trainable = True
+        gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
 
         # Save stats
         self.tensorboard.log_kernels_and_biases(self.generator)

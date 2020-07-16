@@ -32,20 +32,20 @@ TESTING_DATASET_SR_PATH = None
 CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256\60165.png"
 
 # Training settings
-START_EPISODE_SR = 0
-COMBINED_TRAINING_EPISODES_SRGAN = 100_000
+START_EPISODE_SR = 1_750_000
 GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_500_000
 # Discriminator need to catch up with generator before it will adding details to image
 DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 250_000
+COMBINED_TRAINING_EPISODES_SRGAN = 100_000
 # This is for that separated SRGAN with tag finetune, it will add these episodes to the base and its only used at the end for tuning last details
 FINETUNE_TRAIN_EPISODES_OF_SRGAN = 200_000
 
 # Discriminator label noise settings
 # Leave as None for not use noise
-DISCRIMINATOR_START_NOISE_OF_SRGAN = 0.20
-DISCRIMINATOR_NOISE_DECAY_OF_SRGAN = 0.999994
+DISCRIMINATOR_START_NOISE_OF_SRGAN = 0.05
+DISCRIMINATOR_NOISE_DECAY_OF_SRGAN = 0.999998
 # Noise target where stop decaying
-DISCRIMINATOR_TARGET_NOISE_OF_SRGAN = 0
+DISCRIMINATOR_TARGET_NOISE_OF_SRGAN = 0.005
 
 # Discriminator will be trained more on images where its more behind
 AUTOBALANCE_TRAINING_OF_SRGAN = True
@@ -57,17 +57,14 @@ BUFFERED_BATCHES_SR = 30
 # Model settings
 NUM_OF_UPSCALES = 2
 GEN_SR_MODEL = "mod_srgan_base_sub"
-GEN_SR_WEIGHTS = None
+GEN_SR_WEIGHTS = r"F:\Projekty\Python\GANTest\training_data\srgan_normal\mod_srgan_base_sub__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\2000000\generator_mod_srgan_base_sub.h5"
 DISC_SR_MODEL = "mod_base_9layers"
-DICS_SR_WEIGHTS = None
+DICS_SR_WEIGHTS = r"F:\Projekty\Python\GANTest\training_data\srgan_normal\mod_srgan_base_sub__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\2000000\discriminator_mod_base_9layers.h5"
 
 
 ########################
 ### General settings ###
 ########################
-# Number of batches used for testing step
-NUM_OF_TEST_BATCHES = 5
-
 # Check if you want to load last autocheckpoint (If weights were provided thne checkpoint will be overriden by them)
 LOAD_FROM_CHECKPOINTS = True
 # Leave this false only when you are sure your dataset is consistent (Check whole dataset if all images have same dimensions before training)

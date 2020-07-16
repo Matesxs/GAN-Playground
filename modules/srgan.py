@@ -72,6 +72,16 @@ def PSNR(y_true, y_pred):
   """
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
+DISC_LOSS_WEIGHT = 0.003
+VGG_LAYERS_SETTINGS_DICT = {
+  # "block1_conv2": [Charbonnier_loss, 0.006/850],
+  # "block2_conv2": [Charbonnier_loss, 0.006/800],
+  # "block3_conv2": [Charbonnier_loss, 0.006/900],
+  "block4_conv2": [Charbonnier_loss, 0.006/15_000],
+  "block5_conv2": [Charbonnier_loss, 0.006/1_000],
+  "block5_conv4": [Charbonnier_loss, 0.006],
+}
+
 class SRGAN:
   DISC_REAL_THRESHOLD = 1
   DISC_REAL_AUTO_LOOPS_BASE = 2
@@ -91,7 +101,7 @@ class SRGAN:
                testing_dataset_path: str = None,
                generator_optimizer: Optimizer = Adam(0.0001, 0.9), discriminator_optimizer: Optimizer = Adam(0.0001, 0.9),
                discriminator_label_noise: float = None, discriminator_label_noise_decay: float = None, discriminator_label_noise_min: float = 0.001,
-               batch_size: int = 32, buffered_batches:int=20, test_batches:int=1,
+               batch_size: int = 32, buffered_batches:int=20,
                generator_weights: Union[str, None, int] = None, discriminator_weights: Union[str, None, int] = None,
                start_episode: int = 0, load_from_checkpoint: bool = False,
                custom_hr_test_image_path:str=None, check_dataset:bool=True):
@@ -107,9 +117,6 @@ class SRGAN:
 
     self.batch_size = batch_size
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
-
-    self.test_batches = test_batches
-    assert self.test_batches > 0, Fore.RED + "Invalid test batch size" + Fore.RESET
 
     if start_episode < 0: start_episode = 0
     self.episode_counter = start_episode
@@ -172,7 +179,7 @@ class SRGAN:
     #################################
     ###    Create vgg network     ###
     #################################
-    self.vgg = build_vgg(self.target_image_shape, ["block5_conv4"])
+    self.vgg = build_vgg(self.target_image_shape, list(VGG_LAYERS_SETTINGS_DICT.keys()))
     self.vgg.compile(loss=Charbonnier_loss, optimizer=Adam(0.0001, 0.9), metrics=['accuracy'])
 
     #################################
@@ -191,9 +198,21 @@ class SRGAN:
 
     # Combine models
     # Train generator to fool discriminator
-    self.combined_generator_model = Model(small_image_input, outputs=[generated_features, validity], name="srgan_model")
-    self.combined_generator_model.compile(loss=[Charbonnier_loss, "binary_crossentropy"],
-                                          loss_weights=[0.006, 1e-3],
+    outputs = [validity]
+    if isinstance(generated_features, list):
+      for l in generated_features:
+        outputs.append(l)
+    else: outputs.append(generated_features)
+
+    losses = ["binary_crossentropy"]
+    loss_weights = [DISC_LOSS_WEIGHT]
+    for set in VGG_LAYERS_SETTINGS_DICT.values():
+      losses.append(set[0])
+      loss_weights.append(set[1])
+
+    self.combined_generator_model = Model(small_image_input, outputs=outputs, name="srgan_model")
+    self.combined_generator_model.compile(loss=losses,
+                                          loss_weights=loss_weights,
                                           optimizer=generator_optimizer)
 
     # Print all summaries
@@ -328,7 +347,13 @@ class SRGAN:
       gen_labels = np.ones(shape=(self.batch_size, 1))
     predicted_features = self.vgg.predict(preprocess_vgg(large_images))
 
-    self.combined_generator_model.train_on_batch(small_images, [predicted_features, gen_labels])
+    labels = [gen_labels]
+    if isinstance(predicted_features, list):
+      for v in predicted_features:
+        labels.append(v)
+    else: labels.append(predicted_features)
+
+    self.combined_generator_model.train_on_batch(small_images, labels)
 
   def train(self, target_episode: int, generator_train_episodes:int=None, discriminator_train_episodes:int=None,
             progress_images_save_interval: int = None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
@@ -410,45 +435,31 @@ class SRGAN:
 
       # Seve stats and print them to console
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
-        gen_loss = 0
-        mse_gen_loss = 0
-        binary_gen_loss = 0
-        gen_pnsr = 0
-        disc_real_loss = 0
-        disc_fake_loss = 0
-        for _ in range(self.test_batches):
-          if self.testing_batchmaker:
-            large_images, small_images = self.testing_batchmaker.get_batch()
-          else:
-            large_images, small_images = self.batch_maker.get_batch()
-          gen_imgs = self.generator.predict(small_images)
+        if self.testing_batchmaker:
+          large_images, small_images = self.testing_batchmaker.get_batch()
+        else:
+          large_images, small_images = self.batch_maker.get_batch()
+        gen_imgs = self.generator.predict(small_images)
 
-          # Evaluate models state
-          d_r_l = self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
-          d_f_l = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-          predicted_features = self.vgg.predict(preprocess_vgg(large_images))
-          g_l = self.combined_generator_model.test_on_batch(small_images, [predicted_features, np.ones(shape=(large_images.shape[0], 1))])
-          _, pnsr = self.generator.test_on_batch(small_images, large_images)
+        # Evaluate models state
+        disc_real_loss = self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
+        disc_fake_loss = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
 
-          gen_loss += g_l[0]
-          mse_gen_loss += g_l[1]
-          binary_gen_loss += g_l[2]
-          gen_pnsr += pnsr
-          disc_real_loss += d_r_l
-          disc_fake_loss += d_f_l
+        predicted_features = self.vgg.predict(preprocess_vgg(large_images))
+        labels = [np.ones(shape=(large_images.shape[0], 1))]
+        if isinstance(predicted_features, list):
+          for v in predicted_features:
+            labels.append(v)
+        else: labels.append(predicted_features)
 
-        # Calculate excatc values of stats and convert accuracy to percents
-        gen_loss /= self.test_batches
-        mse_gen_loss /= self.test_batches
-        binary_gen_loss /= self.test_batches
-        gen_pnsr /= self.test_batches
-        disc_real_loss /= self.test_batches
-        disc_fake_loss /= self.test_batches
+        gen_loss = self.combined_generator_model.test_on_batch(small_images, labels)
+
+        _, pnsr = self.generator.test_on_batch(small_images, large_images)
 
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss, mse_gen_loss=mse_gen_loss, gen_binary_loss=binary_gen_loss, pnsr=gen_pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss[0], pnsr=pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(gen_loss, 5)}, G mse_loss: {round(mse_gen_loss, 5)}, G binary_loss: {round(binary_gen_loss, 5)}, PNSR: {round(gen_pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(gen_loss[0], 5)}, Separated losses: {gen_loss[1:]} ,PNSR: {round(pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
       # Save progress
       if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
