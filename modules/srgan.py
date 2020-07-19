@@ -58,10 +58,6 @@ def build_vgg(image_shape, out_layers:list=None):
   model.trainable = False
   return model
 
-# TODO: Try it
-def Charbonnier_loss(y_true, y_pred):
-  return K.sqrt(K.square(y_true - y_pred) + 0.01**2)
-
 def PSNR(y_true, y_pred):
   """
   PSNR is Peek Signal to Noise Ratio, see https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio
@@ -72,18 +68,18 @@ def PSNR(y_true, y_pred):
   """
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
-DISC_LOSS_WEIGHT = 0.003
+DISC_LOSS_WEIGHT = 0.001
 VGG_LAYERS_SETTINGS_DICT = {
-  # "block1_conv2": [Charbonnier_loss, 0.006/850],
-  # "block2_conv2": [Charbonnier_loss, 0.006/800],
-  # "block3_conv2": [Charbonnier_loss, 0.006/900],
-  "block4_conv2": [Charbonnier_loss, 0.006/15_000],
-  "block5_conv2": [Charbonnier_loss, 0.006/1_000],
-  "block5_conv4": [Charbonnier_loss, 0.006],
+  # "block1_conv2": ["mse", 0.002/10_000],
+  # "block2_conv2": ["mse", 0.002/800],
+  # "block3_conv2": ["mse", 0.002/900],
+  # "block4_conv2": ["mse", 0.002/15_000],
+  # "block5_conv2": ["mse", 0.002/100_000],
+  "block5_conv4": ["mse", 0.002],
 }
 
 class SRGAN:
-  DISC_REAL_THRESHOLD = 1
+  DISC_REAL_THRESHOLD = 2
   DISC_REAL_AUTO_LOOPS_BASE = 2
 
   DISC_FAKE_THRESHOLD = 5
@@ -174,13 +170,13 @@ class SRGAN:
     #################################
     self.generator = self.__build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception("Invalid image input size for this generator model")
-    self.generator.compile(loss=Charbonnier_loss, optimizer=generator_optimizer, metrics=[PSNR])
+    self.generator.compile(loss="mse", optimizer=generator_optimizer, metrics=[PSNR])
 
     #################################
     ###    Create vgg network     ###
     #################################
     self.vgg = build_vgg(self.target_image_shape, list(VGG_LAYERS_SETTINGS_DICT.keys()))
-    self.vgg.compile(loss=Charbonnier_loss, optimizer=Adam(0.0001, 0.9), metrics=['accuracy'])
+    self.vgg.compile(loss="mse", optimizer=Adam(0.0001, 0.9), metrics=['accuracy'])
 
     #################################
     ### Create combined generator ###

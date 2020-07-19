@@ -57,9 +57,9 @@ BUFFERED_BATCHES_SR = 30
 # Model settings
 NUM_OF_UPSCALES = 2
 GEN_SR_MODEL = "mod_srgan_base_sub"
-GEN_SR_WEIGHTS = r"F:\Projekty\Python\GANTest\training_data\srgan_normal\mod_srgan_base_sub__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\2000000\generator_mod_srgan_base_sub.h5"
+GEN_SR_WEIGHTS = None # r"F:\Projekty\Python\GANTest\training_data\srgan_normal\mod_srgan_base_sub__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\2000000\generator_mod_srgan_base_sub.h5"
 DISC_SR_MODEL = "mod_base_9layers"
-DICS_SR_WEIGHTS = r"F:\Projekty\Python\GANTest\training_data\srgan_normal\mod_srgan_base_sub__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\2000000\discriminator_mod_base_9layers.h5"
+DICS_SR_WEIGHTS = None # r"F:\Projekty\Python\GANTest\training_data\srgan_normal\mod_srgan_base_sub__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\2000000\discriminator_mod_base_9layers.h5"
 
 
 ########################
