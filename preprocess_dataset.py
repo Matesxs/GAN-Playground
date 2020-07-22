@@ -118,11 +118,14 @@ def resize_and_save_file(args):
       image = cv.imread(args[1])
       if image is not None:
         orig_shape = image.shape[:-1]
-        interpolation = cv.INTER_AREA
-        if orig_shape[0] <= scaled_dim[0] or orig_shape[1] <= scaled_dim[1]:
-          interpolation = cv.INTER_CUBIC
 
-        image = cv.resize(image, (scaled_dim[0], scaled_dim[1]), interpolation=interpolation)
+        if orig_shape[0] != scaled_dim[0] and orig_shape[1] != scaled_dim[1]:
+          interpolation = cv.INTER_AREA
+          if orig_shape[0] <= scaled_dim[0] or orig_shape[1] <= scaled_dim[1]:
+            interpolation = cv.INTER_CUBIC
+
+          image = cv.resize(image, (scaled_dim[0], scaled_dim[1]), interpolation=interpolation)
+
         cv.imwrite(f"{output_folder}/{args[0]}.png", image)
     except:
       try:

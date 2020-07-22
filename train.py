@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 import colorama
+import subprocess
 from colorama import Fore
 
 colorama.init()
@@ -31,6 +32,9 @@ from settings import *
 
 if __name__ == '__main__':
   training_object = None
+  if not os.path.exists("training_data"): os.makedirs("training_data")
+  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data --samples_per_plugin=images=100", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
   try:
     gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n3 - SRGAN - Fine tune\nSelected trainer: "))
     if gan_selection == 0:
@@ -134,3 +138,9 @@ if __name__ == '__main__':
 
   if training_object:
     if input("Create gif of progress? ") == "y": training_object.make_progress_gif(frame_duration=GIF_FRAME_DURATION)
+
+  try:
+    tbmanager.send_signal(subprocess.signal.CTRL_C_EVENT)
+    tbmanager.wait()
+  except:
+    pass

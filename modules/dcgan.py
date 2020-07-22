@@ -261,7 +261,7 @@ class DCGAN:
 
     return Model(img, m, name="discriminator_model")
 
-  def train(self, target_episodes:int,
+  def train(self, target_episode:int,
             feed_prev_gen_batch:bool=False, feed_old_perc_amount:float=0.2,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
@@ -287,17 +287,18 @@ class DCGAN:
       return orig_images
 
     # Check arguments and input data
-    assert target_episodes > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
-    if progress_images_save_interval is not None and progress_images_save_interval <= target_episodes and target_episodes%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
-    if weights_save_interval is not None and weights_save_interval <= target_episodes and target_episodes%weights_save_interval != 0: raise Exception("Invalid weights save interval")
-    if self.train_data is None: raise Exception("No datasets loaded")
+    assert target_episode > 0, Fore.RED + "Invalid number of epochs" + Fore.RESET
+    if progress_images_save_interval:
+      assert progress_images_save_interval <= target_episode, Fore.RED + "Invalid progress save interval" + Fore.RESET
+    if weights_save_interval:
+      assert weights_save_interval <= target_episode, Fore.RED + "Invalid weights save interval" + Fore.RESET
 
     # Calculate epochs to go
     if self.pretrain_episodes:
-      target_episodes += self.pretrain_episodes
-    end_episode = target_episodes
-    target_episodes = target_episodes - self.episode_counter
-    assert target_episodes > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
+      target_episode += self.pretrain_episodes
+    end_episode = target_episode
+    target_episode = target_episode - self.episode_counter
+    assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
     # Save noise for progress consistency
     if progress_images_save_interval is not None:
@@ -316,8 +317,8 @@ class DCGAN:
       self.tensorboard.log_kernels_and_biases(self.generator)
       self.save_checkpoint()
 
-    print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episodes} episodes" + Fore.RESET)
-    for _ in range(target_episodes):
+    print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episodes" + Fore.RESET)
+    for _ in range(target_episode):
       ep_start = time.time()
 
       ### Train Discriminator ###

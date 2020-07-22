@@ -27,6 +27,17 @@ from modules.custom_tensorboard import TensorBoardCustom
 from modules.batch_maker import BatchMaker
 from modules.helpers import time_to_format, get_paths_of_files_from_path
 
+
+def L1_Charbonnier_loss(y_true, y_pred):
+  """L1 Charbonnierloss."""
+  eps = 1e-6
+  y_true = tf.convert_to_tensor(y_true, np.float32)
+  y_pred = tf.convert_to_tensor(y_pred, np.float32)
+  diff = y_true - y_pred
+  error = K.sqrt(diff * diff + eps)
+  loss = K.sum(error)
+  return loss
+
 # Calculate start image size based on final image size and number of upscales
 def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
   upsc = (target_image_shape[0] // (2 ** num_of_upscales), target_image_shape[1] // (2 ** num_of_upscales), target_image_shape[2])
@@ -40,7 +51,7 @@ def preprocess_vgg(x):
   else:
     return Lambda(lambda x: preprocess_input(tf.add(x, 1) * 127.5))(x)
 
-def build_vgg(image_shape, out_layers:list=None):
+def build_vgg(image_shape):
   # Input image to extract features from
   img = Input(shape=image_shape)
 
@@ -50,8 +61,7 @@ def build_vgg(image_shape, out_layers:list=None):
   for l in vgg.layers:
     l.trainable = False
 
-  if not out_layers: vgg.outputs = [vgg.get_layer("block5_conv4").output]
-  else: vgg.outputs = [vgg.get_layer(oln).output for oln in out_layers]
+  vgg.outputs = [vgg.layers[20].output]
 
   # Create model and compile
   model = Model(inputs=img, outputs=vgg(img))
@@ -68,15 +78,11 @@ def PSNR(y_true, y_pred):
   """
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
-DISC_LOSS_WEIGHT = 0.001
-VGG_LAYERS_SETTINGS_DICT = {
-  # "block1_conv2": ["mse", 0.002/10_000],
-  # "block2_conv2": ["mse", 0.002/800],
-  # "block3_conv2": ["mse", 0.002/900],
-  # "block4_conv2": ["mse", 0.002/15_000],
-  # "block5_conv2": ["mse", 0.002/100_000],
-  "block5_conv4": ["mse", 0.002],
-}
+GAN_LOSS = "mse"
+DISC_LOSS = "binary_crossentropy"
+
+# GAN, percept (vgg)
+LOSS_WEIGHTS = [0.003, 0.006]
 
 class SRGAN:
   DISC_REAL_THRESHOLD = 2
@@ -94,7 +100,7 @@ class SRGAN:
   def __init__(self, dataset_path:str, num_of_upscales:int,
                gen_mod_name: str, disc_mod_name: str,
                training_progress_save_path:str,
-               testing_dataset_path: str = None,
+               testing_dataset_path:str=None,
                generator_optimizer: Optimizer = Adam(0.0001, 0.9), discriminator_optimizer: Optimizer = Adam(0.0001, 0.9),
                discriminator_label_noise: float = None, discriminator_label_noise_decay: float = None, discriminator_label_noise_min: float = 0.001,
                batch_size: int = 32, buffered_batches:int=20,
@@ -163,20 +169,20 @@ class SRGAN:
     ###   Create discriminator    ###
     #################################
     self.discriminator = self.__build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer)
+    self.discriminator.compile(loss=DISC_LOSS, optimizer=discriminator_optimizer)
 
     #################################
     ###     Create generator      ###
     #################################
     self.generator = self.__build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception("Invalid image input size for this generator model")
-    self.generator.compile(loss="mse", optimizer=generator_optimizer, metrics=[PSNR])
+    self.generator.compile(loss=GAN_LOSS, optimizer=generator_optimizer, metrics=[PSNR])
 
     #################################
     ###    Create vgg network     ###
     #################################
-    self.vgg = build_vgg(self.target_image_shape, list(VGG_LAYERS_SETTINGS_DICT.keys()))
-    self.vgg.compile(loss="mse", optimizer=Adam(0.0001, 0.9), metrics=['accuracy'])
+    self.vgg = build_vgg(self.target_image_shape)
+    self.vgg.compile(loss=GAN_LOSS, optimizer=generator_optimizer, metrics=['accuracy'])
 
     #################################
     ### Create combined generator ###
@@ -194,21 +200,9 @@ class SRGAN:
 
     # Combine models
     # Train generator to fool discriminator
-    outputs = [validity]
-    if isinstance(generated_features, list):
-      for l in generated_features:
-        outputs.append(l)
-    else: outputs.append(generated_features)
-
-    losses = ["binary_crossentropy"]
-    loss_weights = [DISC_LOSS_WEIGHT]
-    for set in VGG_LAYERS_SETTINGS_DICT.values():
-      losses.append(set[0])
-      loss_weights.append(set[1])
-
-    self.combined_generator_model = Model(small_image_input, outputs=outputs, name="srgan_model")
-    self.combined_generator_model.compile(loss=losses,
-                                          loss_weights=loss_weights,
+    self.combined_generator_model = Model(small_image_input, outputs=[validity, generated_features], name="srgan_model")
+    self.combined_generator_model.compile(loss=[DISC_LOSS, GAN_LOSS],
+                                          loss_weights=LOSS_WEIGHTS,
                                           optimizer=generator_optimizer)
 
     # Print all summaries
@@ -343,25 +337,22 @@ class SRGAN:
       gen_labels = np.ones(shape=(self.batch_size, 1))
     predicted_features = self.vgg.predict(preprocess_vgg(large_images))
 
-    labels = [gen_labels]
-    if isinstance(predicted_features, list):
-      for v in predicted_features:
-        labels.append(v)
-    else: labels.append(predicted_features)
+    self.combined_generator_model.train_on_batch(small_images, [gen_labels, predicted_features])
 
-    self.combined_generator_model.train_on_batch(small_images, labels)
-
-  def train(self, target_episode: int, generator_train_episodes:int=None, discriminator_train_episodes:int=None,
-            progress_images_save_interval: int = None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
+  def train(self, target_episode:int, generator_train_episodes:int=None, discriminator_train_episodes:int=None,
+            progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False,
             training_autobalancer:bool=False):
 
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
-    assert generator_train_episodes > 0 or generator_train_episodes is None, Fore.RED + "Invalid pretrain episodes" + Fore.RESET
-    if progress_images_save_interval is not None and progress_images_save_interval <= target_episode and target_episode % progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
-    if weights_save_interval is not None and weights_save_interval <= target_episode and target_episode % weights_save_interval != 0: raise Exception("Invalid weights save interval")
+    assert generator_train_episodes > 0 or generator_train_episodes is None, Fore.RED + "Invalid generator train episodes" + Fore.RESET
+    assert discriminator_train_episodes > 0 or discriminator_train_episodes is None, Fore.RED + "Invalid discriminator train episodes" + Fore.RESET
+    if progress_images_save_interval:
+      assert progress_images_save_interval <= target_episode, Fore.RED + "Invalid progress save interval" + Fore.RESET
+    if weights_save_interval:
+      assert weights_save_interval <= target_episode, Fore.RED + "Invalid weights save interval" + Fore.RESET
 
     if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
 
@@ -403,7 +394,7 @@ class SRGAN:
             training_state = "Discriminator Training"
 
           # Pretrain discriminator
-          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
+          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, False)
 
       if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         if training_state != "GAN Training":
@@ -442,27 +433,22 @@ class SRGAN:
         disc_fake_loss = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
 
         predicted_features = self.vgg.predict(preprocess_vgg(large_images))
-        labels = [np.ones(shape=(large_images.shape[0], 1))]
-        if isinstance(predicted_features, list):
-          for v in predicted_features:
-            labels.append(v)
-        else: labels.append(predicted_features)
 
-        gen_loss = self.combined_generator_model.test_on_batch(small_images, labels)
+        gen_loss = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
 
         _, pnsr = self.generator.test_on_batch(small_images, large_images)
 
         self.tensorboard.log_kernels_and_biases(self.generator)
         self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss[0], pnsr=pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(gen_loss[0], 5)}, Separated losses: {gen_loss[1:]} ,PNSR: {round(pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(gen_loss[0], 5)}, Separated losses: {gen_loss[1:]}, PNSR: {round(pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
       # Save progress
       if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
         self.__save_img(save_raw_progress_images)
 
       # Save weights of models
-      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0:
+      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0 and training_state == "GAN Training":
         self.save_weights()
 
       # Save checkpoint

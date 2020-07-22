@@ -26,23 +26,23 @@ DICS_WEIGHTS = None
 ### Settings of SR GANs and SR Resnets ###
 ##########################################
 # Data source settings
-DATASET_SR_PATH = "datasets/all_normalized__256x256"
-TESTING_DATASET_SR_PATH = None
+DATASET_SR_PATH = "datasets/all_normalized__256x256__train"
+TESTING_DATASET_SR_PATH = "datasets/all_normalized__256x256__test"
 # If none will be provided then script will select some random one
-CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256\60165.png"
+CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256__test\71242.png"
 
 # Training settings
-START_EPISODE_SR = 1_750_000
-GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_500_000
+START_EPISODE_SR = 0
+GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_000_000
 # Discriminator need to catch up with generator before it will adding details to image
-DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 250_000
+DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 100_000
 COMBINED_TRAINING_EPISODES_SRGAN = 100_000
 # This is for that separated SRGAN with tag finetune, it will add these episodes to the base and its only used at the end for tuning last details
 FINETUNE_TRAIN_EPISODES_OF_SRGAN = 200_000
 
 # Discriminator label noise settings
 # Leave as None for not use noise
-DISCRIMINATOR_START_NOISE_OF_SRGAN = 0.05
+DISCRIMINATOR_START_NOISE_OF_SRGAN = 0.20
 DISCRIMINATOR_NOISE_DECAY_OF_SRGAN = 0.999998
 # Noise target where stop decaying
 DISCRIMINATOR_TARGET_NOISE_OF_SRGAN = 0.005
@@ -55,11 +55,12 @@ BATCH_SIZE_SR = 4
 BUFFERED_BATCHES_SR = 30
 
 # Model settings
+# Number of doubling resolution
 NUM_OF_UPSCALES = 2
-GEN_SR_MODEL = "mod_srgan_base_sub"
-GEN_SR_WEIGHTS = None # r"F:\Projekty\Python\GANTest\training_data\srgan_normal\mod_srgan_base_sub__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\2000000\generator_mod_srgan_base_sub.h5"
+GEN_SR_MODEL = "mod_srgan_exp"
+GEN_SR_WEIGHTS = r"F:\Projekty\Python\GANTest\training_data\srgan\mod_srgan_exp__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\1200000\generator_mod_srgan_exp.h5"
 DISC_SR_MODEL = "mod_base_9layers"
-DICS_SR_WEIGHTS = None # r"F:\Projekty\Python\GANTest\training_data\srgan_normal\mod_srgan_base_sub__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\2000000\discriminator_mod_base_9layers.h5"
+DICS_SR_WEIGHTS = r"F:\Projekty\Python\GANTest\training_data\srgan\mod_srgan_exp__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\1200000\discriminator_mod_base_9layers.h5"
 
 
 ########################

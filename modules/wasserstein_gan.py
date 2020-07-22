@@ -247,20 +247,22 @@ class WGANGC:
     m = Dense(1)(m)
     return Model(img_input, m, name="critic_model")
 
-  def train(self, target_episodes:int,
+  def train(self, target_episode:int,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             critic_train_multip:int=5):
 
     # Check arguments and input data
-    assert target_episodes > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
-    if progress_images_save_interval is not None and progress_images_save_interval <= target_episodes and target_episodes%progress_images_save_interval != 0: raise Exception("Invalid progress save interval")
-    if weights_save_interval is not None and weights_save_interval <= target_episodes and target_episodes%weights_save_interval != 0: raise Exception("Invalid weights save interval")
-    if critic_train_multip < 1: raise Exception("Invalid critic training multiplier")
+    assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
+    if progress_images_save_interval:
+      assert progress_images_save_interval <= target_episode, Fore.RED + "Invalid progress save interval" + Fore.RESET
+    if weights_save_interval:
+      assert weights_save_interval <= target_episode, Fore.RED + "Invalid weights save interval" + Fore.RESET
+    assert critic_train_multip >= 1, Fore.RED + "Invalid critic training multiplier" + Fore.RESET
 
     # Calculate epochs to go
-    end_episode = target_episodes
-    target_episodes = target_episodes - self.episode_counter
-    assert target_episodes > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
+    end_episode = target_episode
+    target_episode = target_episode - self.episode_counter
+    assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
     # Save noise for progress consistency
     if progress_images_save_interval is not None:
@@ -275,8 +277,8 @@ class WGANGC:
       self.tensorboard.log_kernels_and_biases(self.generator)
       self.save_checkpoint()
 
-    print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episodes} episodes" + Fore.RESET)
-    for _ in range(target_episodes):
+    print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episodes" + Fore.RESET)
+    for _ in range(target_episode):
       ep_start = time.time()
 
       ### Train Critic ###
