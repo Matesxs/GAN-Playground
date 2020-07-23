@@ -89,7 +89,12 @@ class WGANGC:
 
     # Create array of input image paths
     self.train_data = get_paths_of_files_from_path(dataset_path)
-    assert self.train_data, Fore.RED + "Dataset is not loaded" + Fore.RESET
+    assert self.train_data, Fore.RED + "Training dataset is not loaded" + Fore.RESET
+
+    self.testing_data = None
+    if testing_dataset_path:
+      self.testing_data = get_paths_of_files_from_path(testing_dataset_path)
+      assert self.testing_data, Fore.RED + "Testing dataset is not loaded" + Fore.RESET
 
     # Load one image to get shape of it
     tmp_image = cv.imread(self.train_data[0])
@@ -197,11 +202,7 @@ class WGANGC:
     self.batch_maker.start()
 
     self.testing_batchmaker = None
-    self.testing_data = None
-    if testing_dataset_path:
-      self.testing_data = get_paths_of_files_from_path(testing_dataset_path)
-      assert self.testing_data, Fore.RED + "Testing dataset is not loaded" + Fore.RESET
-
+    if self.testing_data:
       self.testing_batchmaker = BatchMaker(self.testing_data, self.batch_size, buffered_batches=buffered_batches)
       self.testing_batchmaker.start()
 
