@@ -38,6 +38,7 @@ class BatchMaker(Thread):
 
       for im_p in data:
         original_image = cv.imread(im_p)
+        if not original_image: break
         batch.append(cv.cvtColor(original_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0)
         if self.secondary_size:
           resized_batch.append(cv.cvtColor(cv.resize(original_image, dsize=(self.secondary_size[0], self.secondary_size[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.secondary_size[0] and original_image.shape[1] > self.secondary_size[1]) else cv.INTER_CUBIC)), cv.COLOR_BGR2RGB) / 127.5 - 1.0)

@@ -29,7 +29,7 @@ DICS_WEIGHTS = None
 DATASET_SR_PATH = "datasets/all_normalized__256x256__train"
 TESTING_DATASET_SR_PATH = "datasets/all_normalized__256x256__test"
 # If none will be provided then script will select some random one
-CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256__test\71242.png"
+CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256__test\72720.png"
 
 # Training settings
 START_EPISODE_SR = 0
