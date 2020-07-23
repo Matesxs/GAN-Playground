@@ -12,9 +12,6 @@ Date: 20.07.2020
 """
 
 class ConvSN2D(Conv2D):
-  def __init__(self, filters, kernel_size, strides=(1, 1), padding='valid', data_format=None, dilation_rate=(1, 1), activation=None, use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', kernel_regularizer=None, bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None, **kwargs):
-    super(ConvSN2D, self).__init__(filters, kernel_size, strides, padding, data_format, dilation_rate, activation, use_bias, kernel_initializer, bias_initializer, kernel_regularizer, bias_regularizer, activity_regularizer, kernel_constraint, bias_constraint, **kwargs)
-
   def build(self, input_shape):
     if self.data_format == 'channels_first':
       channel_axis = 1
@@ -96,9 +93,6 @@ class ConvSN2D(Conv2D):
     return outputs
 
 class ConvSN2DTranspose(Conv2DTranspose):
-  def __init__(self, filters, kernel_size, strides=(1, 1), padding='valid', output_padding=None, data_format=None, dilation_rate=(1, 1), activation=None, use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros', kernel_regularizer=None, bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None, **kwargs):
-    super(ConvSN2DTranspose, self).__init__(filters, kernel_size, strides, padding, output_padding, data_format, dilation_rate, activation, use_bias, kernel_initializer, bias_initializer, kernel_regularizer, bias_regularizer, activity_regularizer, kernel_constraint, bias_constraint, **kwargs)
-
   def build(self, input_shape):
     if len(input_shape) != 4:
       raise ValueError('Inputs should have rank ' + str(4) +
