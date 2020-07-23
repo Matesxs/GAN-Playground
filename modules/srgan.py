@@ -52,19 +52,14 @@ def preprocess_vgg(x):
     return Lambda(lambda x: preprocess_input(tf.add(x, 1) * 127.5))(x)
 
 def build_vgg(image_shape):
-  # Input image to extract features from
-  img = Input(shape=image_shape)
-
   # Get the vgg network. Extract features from last conv layer
-  vgg = VGG19(weights="imagenet")
+  vgg = VGG19(include_top=False, weights="imagenet", input_shape=image_shape)
   vgg.trainable = False
   for l in vgg.layers:
     l.trainable = False
 
-  vgg.outputs = [vgg.layers[20].output]
-
   # Create model and compile
-  model = Model(inputs=img, outputs=vgg(img), name="vgg_feature_extractor")
+  model = Model(inputs=vgg.input, outputs=vgg.layers[20].output, name="vgg_feature_extractor")
   model.trainable = False
   return model
 
