@@ -229,6 +229,7 @@ class SRGAN:
     def check_image(image_path):
       im_shape = imagesize.get(image_path)
       if im_shape[0] != self.target_image_shape[0] or im_shape[1] != self.target_image_shape[1]:
+        print(f"Image {image_path} have not valid shape")
         return False
       return True
 

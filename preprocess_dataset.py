@@ -119,7 +119,7 @@ def resize_and_save_file(args):
       if image is not None:
         orig_shape = image.shape[:-1]
 
-        if orig_shape[0] != scaled_dim[0] and orig_shape[1] != scaled_dim[1]:
+        if orig_shape[0] != scaled_dim[0] or orig_shape[1] != scaled_dim[1]:
           interpolation = cv.INTER_AREA
           if orig_shape[0] <= scaled_dim[0] or orig_shape[1] <= scaled_dim[1]:
             interpolation = cv.INTER_CUBIC
