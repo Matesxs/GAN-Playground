@@ -33,7 +33,7 @@ from settings import *
 if __name__ == '__main__':
   training_object = None
   if not os.path.exists("training_data"): os.makedirs("training_data")
-  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data --samples_per_plugin=images=100", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data --samples_per_plugin=images=200", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   try:
     gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n3 - SRGAN - Fine tune\nSelected trainer: "))
@@ -96,7 +96,7 @@ if __name__ == '__main__':
                             discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
                             generator_smooth_labels=False,
                             generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
-                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)
+                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=False)
 
     elif gan_selection == 3:
       # Same as SRGAN but with lower LR
@@ -117,7 +117,7 @@ if __name__ == '__main__':
                             discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
                             generator_smooth_labels=False,
                             generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
-                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN)
+                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=False)
 
     else: print(Fore.RED + "Invalid training object index entered" + Fore.RESET)
 

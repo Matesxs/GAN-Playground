@@ -213,6 +213,9 @@ class SRGAN:
     print("\nGAN Summary")
     self.combined_generator_model.summary()
 
+    # Stats
+    self.pnsr_record = None
+
     # Load checkpoint
     self.initiated = False
     if load_from_checkpoint: self.__load_checkpoint()
@@ -343,7 +346,7 @@ class SRGAN:
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False,
-            training_autobalancer:bool=False):
+            training_autobalancer:bool=False, save_only_best_pnsr_weights:bool=False):
 
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
@@ -437,18 +440,27 @@ class SRGAN:
         gen_loss = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
 
         _, pnsr = self.generator.test_on_batch(small_images, large_images)
+        if training_state == "GAN Training":
+          if not self.pnsr_record:
+            self.pnsr_record = {"episode": self.episode_counter, "value": pnsr}
+          elif self.pnsr_record["value"] < pnsr:
+            print(Fore.MAGENTA + f"New PNSR record <{round(pnsr, 5)}> on episode {self.episode_counter}!" + Fore.RESET)
+            self.pnsr_record = {"episode": self.episode_counter, "value": pnsr}
+            self.save_weights()
 
         self.tensorboard.log_kernels_and_biases(self.generator)
         self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss[0], pnsr=pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
         print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(gen_loss[0], 5)}, Separated losses: {gen_loss[1:]}, PNSR: {round(pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        if self.pnsr_record:
+          print(Fore.GREEN + f"Actual PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 
       # Save progress
       if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
         self.__save_img(save_raw_progress_images)
 
       # Save weights of models
-      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0 and training_state == "GAN Training":
+      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0 and training_state == "GAN Training" and not save_only_best_pnsr_weights:
         self.save_weights()
 
       # Save checkpoint
@@ -503,6 +515,16 @@ class SRGAN:
     self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
     self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
 
+  def load_weights_from_episode(self, episode:int):
+    weights_dir = self.training_progress_save_path + "/weights/" + str(episode)
+    if not os.path.exists(weights_dir): return
+
+    gen_weights_path = weights_dir + f"/generator_{self.gen_mod_name}.h5"
+    disc_weights_path = weights_dir + f"/discriminator_{self.disc_mod_name}.h5"
+    if os.path.exists(gen_weights_path) and os.path.exists(disc_weights_path):
+      self.generator.load_weights(gen_weights_path)
+      self.discriminator.load_weights(disc_weights_path)
+
   def save_models_structure_images(self):
     save_path = self.training_progress_save_path + "/model_structures"
     if not os.path.exists(save_path): os.makedirs(save_path)
@@ -530,8 +552,12 @@ class SRGAN:
         except:
           print(Fore.YELLOW + "Failed to load discriminator weights from checkpoint" + Fore.RESET)
 
-        if data["disc_label_noise"]:
+        if "disc_label_noise" in data.keys():
           self.discriminator_label_noise = float(data["disc_label_noise"])
+
+        if "pnsr_record" in data.keys():
+          self.pnsr_record = data["pnsr_record"]
+
         if not self.custom_hr_test_image_path:
           self.progress_test_image_path = data["test_image"]
         self.initiated = True
@@ -557,7 +583,8 @@ class SRGAN:
       "gen_path": gen_path,
       "disc_path": disc_path,
       "disc_label_noise": self.discriminator_label_noise,
-      "test_image": self.progress_test_image_path
+      "test_image": self.progress_test_image_path,
+      "pnsr_record": self.pnsr_record
     }
 
     with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "w", encoding='utf-8') as f:
