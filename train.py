@@ -96,7 +96,7 @@ if __name__ == '__main__':
                             discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
                             generator_smooth_labels=False,
                             generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
-                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=False)
+                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)
 
     elif gan_selection == 3:
       # Same as SRGAN but with lower LR
@@ -117,7 +117,7 @@ if __name__ == '__main__':
                             discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
                             generator_smooth_labels=False,
                             generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
-                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=False)
+                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)
 
     else: print(Fore.RED + "Invalid training object index entered" + Fore.RESET)
 

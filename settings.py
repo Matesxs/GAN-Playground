@@ -62,6 +62,9 @@ GEN_SR_WEIGHTS = None
 DISC_SR_MODEL = "mod_base_9layers_sn"
 DICS_SR_WEIGHTS = None
 
+# Saving settings
+SAVE_ONLY_BEST_PNSR_WEIGHTS = True
+
 
 ########################
 ### General settings ###
