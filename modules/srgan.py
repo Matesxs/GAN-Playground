@@ -64,7 +64,7 @@ def build_vgg(image_shape):
   vgg.outputs = [vgg.layers[20].output]
 
   # Create model and compile
-  model = Model(inputs=img, outputs=vgg(img))
+  model = Model(inputs=img, outputs=vgg(img), name="vgg_feature_extractor")
   model.trainable = False
   return model
 
