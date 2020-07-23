@@ -35,7 +35,7 @@ CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256
 START_EPISODE_SR = 0
 GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_000_000
 # Discriminator need to catch up with generator before it will adding details to image
-DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 100_000
+DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 200_000
 COMBINED_TRAINING_EPISODES_SRGAN = 100_000
 # This is for that separated SRGAN with tag finetune, it will add these episodes to the base and its only used at the end for tuning last details
 FINETUNE_TRAIN_EPISODES_OF_SRGAN = 200_000
@@ -57,10 +57,10 @@ BUFFERED_BATCHES_SR = 30
 # Model settings
 # Number of doubling resolution
 NUM_OF_UPSCALES = 2
-GEN_SR_MODEL = "mod_srgan_exp"
-GEN_SR_WEIGHTS = r"F:\Projekty\Python\GANTest\training_data\srgan\mod_srgan_exp__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\1200000\generator_mod_srgan_exp.h5"
-DISC_SR_MODEL = "mod_base_9layers"
-DICS_SR_WEIGHTS = r"F:\Projekty\Python\GANTest\training_data\srgan\mod_srgan_exp__mod_base_9layers__(64, 64, 3)_to_(256, 256, 3)\weights\1200000\discriminator_mod_base_9layers.h5"
+GEN_SR_MODEL = "mod_srgan_exp_sn"
+GEN_SR_WEIGHTS = None
+DISC_SR_MODEL = "mod_base_9layers_sn"
+DICS_SR_WEIGHTS = None
 
 
 ########################
@@ -84,4 +84,4 @@ GIF_FRAME_DURATION = 100
 NUM_OF_LOADING_WORKERS = 8
 
 ## NOTE ##
-# Tensorboard console command: tensorboard --logdir training_data --samples_per_plugin=images=100
+# Tensorboard console command: tensorboard --logdir training_data --samples_per_plugin=images=200
