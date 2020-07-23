@@ -158,11 +158,12 @@ class SRGAN:
     self.batch_maker.start()
 
     self.testing_batchmaker = None
+    self.testing_data = None
     if testing_dataset_path:
-      testing_dataset = get_paths_of_files_from_path(testing_dataset_path)
-      assert testing_dataset, Fore.RED + "Testing dataset is not loaded" + Fore.RESET
+      self.testing_data = get_paths_of_files_from_path(testing_dataset_path)
+      assert self.testing_data, Fore.RED + "Testing dataset is not loaded" + Fore.RESET
 
-      self.testing_batchmaker = BatchMaker(testing_dataset, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
+      self.testing_batchmaker = BatchMaker(self.testing_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
       self.testing_batchmaker.start()
 
     #################################
@@ -229,14 +230,17 @@ class SRGAN:
     def check_image(image_path):
       im_shape = imagesize.get(image_path)
       if im_shape[0] != self.target_image_shape[0] or im_shape[1] != self.target_image_shape[1]:
-        print(f"Image {image_path} have not valid shape")
         return False
       return True
 
     print(Fore.BLUE + "Checking dataset validity" + Fore.RESET)
     with ThreadPool(processes=8) as p:
       res = p.map(check_image, self.train_data)
-      if not all(res): raise Exception("Inconsistent dataset")
+      if not all(res): raise Exception("Inconsistent training dataset")
+
+      if self.testing_data:
+        res = p.map(check_image, self.testing_data)
+        if not all(res): raise Exception("Inconsistent testing dataset")
 
     print(Fore.BLUE + "Dataset valid" + Fore.RESET)
 
