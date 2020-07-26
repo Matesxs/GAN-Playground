@@ -457,7 +457,7 @@ class SRGAN:
           print(Fore.GREEN + f"Actual PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 
       # Save progress
-      if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
+      if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0 and training_state != "Discriminator Training":
         self.__save_img(save_raw_progress_images)
 
       # Save weights of models

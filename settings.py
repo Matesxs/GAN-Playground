@@ -33,7 +33,7 @@ CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256
 
 # Training settings
 START_EPISODE_SR = 0
-GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_000_000
+GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_500_000
 # Discriminator need to catch up with generator before it will adding details to image
 DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 200_000
 COMBINED_TRAINING_EPISODES_SRGAN = 100_000
@@ -43,7 +43,7 @@ FINETUNE_TRAIN_EPISODES_OF_SRGAN = 200_000
 # Discriminator label noise settings
 # Leave as None for not use noise
 DISCRIMINATOR_START_NOISE_OF_SRGAN = 0.20
-DISCRIMINATOR_NOISE_DECAY_OF_SRGAN = 0.999998
+DISCRIMINATOR_NOISE_DECAY_OF_SRGAN = 0.999997
 # Noise target where stop decaying
 DISCRIMINATOR_TARGET_NOISE_OF_SRGAN = 0.005
 
