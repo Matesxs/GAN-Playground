@@ -438,9 +438,9 @@ class SRGAN:
 
         predicted_features = self.vgg.predict(preprocess_vgg(large_images))
 
-        gen_loss = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
+        gan_loss = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
+        g_loss , pnsr = self.generator.test_on_batch(small_images, large_images)
 
-        _, pnsr = self.generator.test_on_batch(small_images, large_images)
         if training_state == "GAN Training":
           if not self.pnsr_record:
             self.pnsr_record = {"episode": self.episode_counter, "value": pnsr}
@@ -449,10 +449,11 @@ class SRGAN:
             self.pnsr_record = {"episode": self.episode_counter, "value": pnsr}
             self.save_weights()
 
+        # TODO: Rewrite logging after training done
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gen_loss[0], pnsr=pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gan_loss[0], pnsr=pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(gen_loss[0], 5)}, Separated losses: {gen_loss[1:]}, PNSR: {round(pnsr, 3)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss: {round(float(g_loss), 5)}, PNSR: {round(float(pnsr), 3)}] [GAN loss: {round(float(gan_loss[0]), 5)}, Separated losses: {gan_loss[1:]}] - Epsilon: {round(float(self.discriminator_label_noise), 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
         if self.pnsr_record:
           print(Fore.GREEN + f"Actual PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 

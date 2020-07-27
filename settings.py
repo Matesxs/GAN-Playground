@@ -29,13 +29,13 @@ DICS_WEIGHTS = None
 DATASET_SR_PATH = "datasets/all_normalized__256x256__train"
 TESTING_DATASET_SR_PATH = "datasets/all_normalized__256x256__test"
 # If none will be provided then script will select some random one
-CUSTOM_HR_TEST_IMAGE = r"F:\Projekty\Python\GANTest\datasets\all_normalized__256x256__test\113565.png"
+CUSTOM_HR_TEST_IMAGE = "datasets/testing_image.png"
 
 # Training settings
 START_EPISODE_SR = 0
 GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_500_000
 # Discriminator need to catch up with generator before it will adding details to image
-DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 200_000
+DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 500_000
 COMBINED_TRAINING_EPISODES_SRGAN = 100_000
 # This is for that separated SRGAN with tag finetune, it will add these episodes to the base and its only used at the end for tuning last details
 FINETUNE_TRAIN_EPISODES_OF_SRGAN = 200_000
