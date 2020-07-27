@@ -4,15 +4,17 @@ import time
 import shutil
 import os
 import asyncio
+from tqdm import tqdm
 import concurrent.futures
 from multiprocessing import Pool, cpu_count
 
 IMGS_TO_DOWNLOAD = 50_000
 SAVE_PATH = "datasets/random_images"
 PATH_TO_CHROME_DRIVER = r"lib/chromedriver.exe"
-RESOLUTION = 1024
+SCRAPE_URL = "https://source.unsplash.com/random/1024x1024" # https://picsum.photos/1024 https://loremflickr.com/1024/1024/all
+DELAY_AFTER_GETTING_URL = 5
 
-NUM_OF_DOWNLOAD_WORKERS = 10
+NUM_OF_DOWNLOAD_WORKERS = 1
 
 def download_image(img_url):
   img_stream = requests.get(img_url, stream=True)
@@ -33,15 +35,17 @@ image_urls = []
 def worker(images_to_download):
   driver = webdriver.Chrome(executable_path=PATH_TO_CHROME_DRIVER)
 
-  for _ in range(images_to_download):
+  for _ in range(images_to_download) if NUM_OF_DOWNLOAD_WORKERS > 1 else tqdm(range(images_to_download)):
     try:
-      driver.get(f"https://picsum.photos/{RESOLUTION}")
+      driver.get(SCRAPE_URL)
       el = driver.find_element_by_xpath("/html/body/img")
       if el.get_attribute("src") not in image_urls:
         image_urls.append(el.get_attribute("src"))
-      time.sleep(0.01)
+      time.sleep(DELAY_AFTER_GETTING_URL)
     except KeyboardInterrupt:
       break
+    except Exception:
+      pass
 
   time.sleep(1)
   driver.close()
@@ -60,7 +64,12 @@ async def scraper_manager():
   executor.shutdown()
 
 if __name__ == '__main__':
-  asyncio.run(scraper_manager())
+  try:
+    asyncio.run(scraper_manager())
+  except KeyboardInterrupt:
+    pass
+  except Exception:
+    pass
 
   print(f"Found {len(image_urls)} unique images")
 
