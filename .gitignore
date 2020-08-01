@@ -1,6 +1,7 @@
 .idea/
 __pycache__/
 datasets/*/
+datasets/*.png
 venv/
 training_data/
 models_notes
