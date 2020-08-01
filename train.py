@@ -101,21 +101,18 @@ if __name__ == '__main__':
                             training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)
 
     else: print(Fore.RED + "Invalid training object index entered" + Fore.RESET)
-
-    if training_object:
-      training_object.save_weights()
-      training_object.save_checkpoint()
   except KeyboardInterrupt:
     if training_object:
       print(Fore.BLUE + f"Quiting on epoch: {training_object.episode_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)
-      training_object.save_checkpoint()
   except Exception as e:
     if training_object:
       print(Fore.RED + f"Exception on epoch: {training_object.episode_counter}" + Fore.RESET)
-      training_object.save_checkpoint()
     else:
       print(Fore.RED + "Creating training object failed" + Fore.RESET)
     traceback.print_exc()
+  finally:
+    if training_object:
+      training_object.save_checkpoint()
 
   if training_object:
     if input("Create gif of progress? ") == "y": training_object.make_progress_gif(frame_duration=GIF_FRAME_DURATION)

@@ -417,7 +417,7 @@ class DCGAN:
 
       # Save weights of models
       if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0:
-        self.save_weights()
+        self.__save_weights()
 
       # Save checkpoint
       if self.episode_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
@@ -455,7 +455,7 @@ class DCGAN:
     if self.testing_batchmaker: self.testing_batchmaker.terminate = True
     self.batch_maker.terminate = True
     self.save_checkpoint()
-    self.save_weights()
+    self.__save_weights()
     self.batch_maker.join()
     if self.testing_batchmaker: self.testing_batchmaker.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
@@ -532,7 +532,7 @@ class DCGAN:
     with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "w", encoding='utf-8') as f:
       json.dump(data, f)
 
-  def save_weights(self):
+  def __save_weights(self):
     save_dir = self.training_progress_save_path + "/weights/" + str(self.episode_counter)
     if not os.path.exists(save_dir): os.makedirs(save_dir)
     self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")

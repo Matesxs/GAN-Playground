@@ -423,7 +423,7 @@ class SRGAN:
             self.load_gen_weights_from_episode(self.pnsr_record["episode"])
             self.pnsr_record = None
             self.save_checkpoint()
-            self.save_weights()
+            self.__save_weights()
 
           print(Fore.BLUE + "Starting GAN training" + Fore.RESET)
           training_state = "GAN Training"
@@ -494,7 +494,7 @@ class SRGAN:
           elif self.pnsr_record["value"] < pnsr:
             print(Fore.MAGENTA + f"New PNSR record <{round(pnsr, 5)}> on episode {self.episode_counter}!" + Fore.RESET)
             self.pnsr_record = {"episode": self.episode_counter, "value": pnsr}
-            self.save_weights()
+            self.__save_weights()
 
         # TODO: Rewrite logging after training done
         self.tensorboard.log_kernels_and_biases(self.generator)
@@ -510,7 +510,7 @@ class SRGAN:
 
       # Save weights of models
       if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0 and training_state == "GAN Training" and not save_only_best_pnsr_weights:
-        self.save_weights()
+        self.__save_weights()
 
       # Save checkpoint
       if self.episode_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
@@ -529,7 +529,7 @@ class SRGAN:
     if self.testing_batchmaker: self.testing_batchmaker.terminate = True
     self.batch_maker.terminate = True
     self.save_checkpoint()
-    self.save_weights()
+    self.__save_weights()
     self.batch_maker.join()
     if self.testing_batchmaker: self.testing_batchmaker.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
@@ -559,7 +559,7 @@ class SRGAN:
       cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.episode_counter}.png", final_image)
     self.tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32))
 
-  def save_weights(self):
+  def __save_weights(self):
     save_dir = self.training_progress_save_path + "/weights/" + str(self.episode_counter)
     if not os.path.exists(save_dir): os.makedirs(save_dir)
     self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
