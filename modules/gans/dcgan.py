@@ -22,7 +22,7 @@ from multiprocessing.pool import ThreadPool
 
 from modules.batch_maker import BatchMaker
 from modules.models import discriminator_models_spreadsheet, generator_models_spreadsheet
-from modules.custom_tensorboard import TensorBoardCustom
+from modules.keras_exttensions.custom_tensorboard import TensorBoardCustom
 from modules.helpers import time_to_format, get_paths_of_files_from_path
 
 class DCGAN:

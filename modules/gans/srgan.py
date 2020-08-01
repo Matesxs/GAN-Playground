@@ -23,9 +23,11 @@ import imagesize
 from multiprocessing.pool import ThreadPool
 
 from modules.models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet
-from modules.custom_tensorboard import TensorBoardCustom
+from modules.keras_exttensions.custom_tensorboard import TensorBoardCustom
+from modules.keras_exttensions.custom_lrscheduler import LearningRateScheduler
 from modules.batch_maker import BatchMaker
 from modules.helpers import time_to_format, get_paths_of_files_from_path
+from settings import RESTORE_BEST_PNSR_MODELS_EPISODES
 
 
 def L1_Charbonnier_loss(y_true, y_pred):
@@ -73,14 +75,14 @@ def PSNR(y_true, y_pred):
   """
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
-GAN_LOSS = "mse"
+GAN_LOSS = "mae"
 DISC_LOSS = "binary_crossentropy"
 
 # GAN, percept (vgg)
 LOSS_WEIGHTS = [0.003, 0.006]
 
 class SRGAN:
-  DISC_REAL_THRESHOLD = 2
+  DISC_REAL_THRESHOLD = 3
   DISC_REAL_AUTO_LOOPS_BASE = 2
 
   DISC_FAKE_THRESHOLD = 5
@@ -93,14 +95,15 @@ class SRGAN:
   CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
 
   def __init__(self, dataset_path:str, num_of_upscales:int,
-               gen_mod_name: str, disc_mod_name: str,
+               gen_mod_name:str, disc_mod_name:str,
                training_progress_save_path:str,
                testing_dataset_path:str=None,
-               generator_optimizer: Optimizer = Adam(0.0001, 0.9), discriminator_optimizer: Optimizer = Adam(0.0001, 0.9),
-               discriminator_label_noise: float = None, discriminator_label_noise_decay: float = None, discriminator_label_noise_min: float = 0.001,
-               batch_size: int = 32, buffered_batches:int=20,
-               generator_weights: Union[str, None, int] = None, discriminator_weights: Union[str, None, int] = None,
-               start_episode: int = 0, load_from_checkpoint: bool = False,
+               generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
+               generator_lr_schedule:Union[None, dict]=None, discriminator_lr_schedule:Union[None, dict]=None,
+               discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
+               batch_size:int=32, buffered_batches:int=20,
+               generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
+               start_episode:int=0, load_from_checkpoint:bool=False,
                custom_hr_test_image_path:str=None, check_dataset:bool=True):
 
     self.disc_mod_name = disc_mod_name
@@ -162,6 +165,10 @@ class SRGAN:
       self.testing_batchmaker = BatchMaker(self.testing_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
       self.testing_batchmaker.start()
 
+    # Create LR Schedulers for both "Optimizer"
+    self.gen_lr_scheduler = LearningRateScheduler(lr_plan=generator_lr_schedule, start_lr=float(K.get_value(generator_optimizer.lr)))
+    self.disc_lr_scheduler = LearningRateScheduler(lr_plan=discriminator_lr_schedule, start_lr=float(K.get_value(discriminator_optimizer.lr)))
+
     #################################
     ###   Create discriminator    ###
     #################################
@@ -220,6 +227,14 @@ class SRGAN:
     # Load weights from param and override checkpoint weights
     if generator_weights: self.generator.load_weights(generator_weights)
     if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
+
+    # Set LR
+    new_gen_lr = self.gen_lr_scheduler.set_lr(self.generator)
+    self.gen_lr_scheduler.set_lr(self.combined_generator_model)
+    new_disc_lr = self.disc_lr_scheduler.set_lr(self.discriminator)
+    if new_gen_lr or new_disc_lr: self.save_checkpoint()
+    if new_gen_lr: print(Fore.MAGENTA + f"New LR for generator is {new_gen_lr}" + Fore.RESET)
+    if new_disc_lr: print(Fore.MAGENTA + f"New LR for discriminator is {new_disc_lr}" + Fore.RESET)
 
   # Check if datasets have consistent shapes
   def __validate_dataset(self):
@@ -343,7 +358,7 @@ class SRGAN:
 
     self.combined_generator_model.train_on_batch(small_images, [gen_labels, predicted_features])
 
-  def train(self, target_episode:int, generator_train_episodes:int=None, discriminator_train_episodes:int=None,
+  def train(self, target_episode:int, generator_train_episodes:int=None, discriminator_train_episodes:int=None, discriminator_training_multiplier:int=1,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False,
@@ -351,6 +366,7 @@ class SRGAN:
 
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
+    assert discriminator_training_multiplier > 0, Fore.RED + "Invalid discriminator training multiplier" + Fore.RESET
     assert generator_train_episodes > 0 or generator_train_episodes is None, Fore.RED + "Invalid generator train episodes" + Fore.RESET
     assert discriminator_train_episodes > 0 or discriminator_train_episodes is None, Fore.RED + "Invalid discriminator train episodes" + Fore.RESET
     if progress_images_save_interval:
@@ -402,12 +418,20 @@ class SRGAN:
 
       if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         if training_state != "GAN Training":
+          if (training_state != "Standby") and self.pnsr_record:
+            print(Fore.MAGENTA + "Loading best generator model from pretrain" + Fore.RESET)
+            self.load_gen_weights_from_episode(self.pnsr_record["episode"])
+            self.pnsr_record = None
+            self.save_checkpoint()
+            self.save_weights()
+
           print(Fore.BLUE + "Starting GAN training" + Fore.RESET)
           training_state = "GAN Training"
 
         ### Train Discriminator ###
         # Train discriminator (real as ones and fake as zeros)
-        self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
+        for _ in range(discriminator_training_multiplier):
+          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
 
         ### Train GAN ###
         # Train GAN (wants discriminator to recognize fake images as valid)
@@ -415,10 +439,28 @@ class SRGAN:
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
+      self.gen_lr_scheduler.episode = self.episode_counter
+      self.disc_lr_scheduler.episode = self.episode_counter
+
+      # Set LR based on episode count and schedule
+      new_gen_lr = self.gen_lr_scheduler.set_lr(self.generator)
+      self.gen_lr_scheduler.set_lr(self.combined_generator_model)
+      new_disc_lr = self.disc_lr_scheduler.set_lr(self.discriminator)
+
+      if new_gen_lr: print(Fore.MAGENTA + f"New LR for generator is {new_gen_lr}" + Fore.RESET)
+      if new_disc_lr: print(Fore.MAGENTA + f"New LR for discriminator is {new_disc_lr}" + Fore.RESET)
+      if new_gen_lr or new_disc_lr: self.save_checkpoint()
+
+      # Restore models with best pnsr and restart record
+      if (self.episode_counter in RESTORE_BEST_PNSR_MODELS_EPISODES) and self.pnsr_record:
+        self.load_gen_weights_from_episode(self.pnsr_record["episode"])
+        self.load_disc_weights_from_episode(self.pnsr_record["episode"])
+        self.pnsr_record = None
+        print(Fore.MAGENTA + "Best models weights restored and PNSR record restarted" + Fore.RESET)
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
-        if not generator_train_episodes or generator_train_episodes < self.episode_counter:
+        if training_state in ["GAN Training", "Discriminator Training"]:
           self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
 
           if self.discriminator_label_noise != self.discriminator_label_noise_min and (self.discriminator_label_noise - self.discriminator_label_noise_min) < 0.001:
@@ -435,13 +477,18 @@ class SRGAN:
         # Evaluate models state
         disc_real_loss = self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
         disc_fake_loss = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
+        disc_real_loss = float(disc_real_loss)
+        disc_fake_loss = float(disc_fake_loss)
+        disc_loss = (disc_real_loss + disc_fake_loss) * 0.5
 
         predicted_features = self.vgg.predict(preprocess_vgg(large_images))
 
         gan_loss = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
         g_loss , pnsr = self.generator.test_on_batch(small_images, large_images)
+        pnsr = float(pnsr)
+        g_loss = float(g_loss)
 
-        if training_state == "GAN Training":
+        if training_state in ["GAN Training", "Generator Training"]:
           if not self.pnsr_record:
             self.pnsr_record = {"episode": self.episode_counter, "value": pnsr}
           elif self.pnsr_record["value"] < pnsr:
@@ -451,9 +498,9 @@ class SRGAN:
 
         # TODO: Rewrite logging after training done
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gan_loss[0], pnsr=pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=disc_loss, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gan_loss[0], pnsr=pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss: {round(float(g_loss), 5)}, PNSR: {round(float(pnsr), 3)}] [GAN loss: {round(float(gan_loss[0]), 5)}, Separated losses: {gan_loss[1:]}] - Epsilon: {round(float(self.discriminator_label_noise), 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D Loss: {round(disc_loss, 5)}, D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(g_loss, 5)}, PNSR: {round(pnsr, 3)}] [GAN loss: {round(float(gan_loss[0]), 5)}, Separated losses: {gan_loss[1:]}] - Epsilon: {round(float(self.discriminator_label_noise), 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
         if self.pnsr_record:
           print(Fore.GREEN + f"Actual PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 
@@ -486,6 +533,7 @@ class SRGAN:
     self.batch_maker.join()
     if self.testing_batchmaker: self.testing_batchmaker.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
+    print(Fore.MAGENTA + f"PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 
   def __save_img(self, save_raw_progress_images:bool=True):
     if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
@@ -517,14 +565,20 @@ class SRGAN:
     self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
     self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
 
-  def load_weights_from_episode(self, episode:int):
+  def load_gen_weights_from_episode(self, episode:int):
     weights_dir = self.training_progress_save_path + "/weights/" + str(episode)
     if not os.path.exists(weights_dir): return
 
     gen_weights_path = weights_dir + f"/generator_{self.gen_mod_name}.h5"
-    disc_weights_path = weights_dir + f"/discriminator_{self.disc_mod_name}.h5"
-    if os.path.exists(gen_weights_path) and os.path.exists(disc_weights_path):
+    if os.path.exists(gen_weights_path):
       self.generator.load_weights(gen_weights_path)
+
+  def load_disc_weights_from_episode(self, episode:int):
+    weights_dir = self.training_progress_save_path + "/weights/" + str(episode)
+    if not os.path.exists(weights_dir): return
+
+    disc_weights_path = weights_dir + f"/discriminator_{self.disc_mod_name}.h5"
+    if os.path.exists(disc_weights_path):
       self.discriminator.load_weights(disc_weights_path)
 
   def save_models_structure_images(self):
@@ -558,7 +612,16 @@ class SRGAN:
           self.discriminator_label_noise = float(data["disc_label_noise"])
 
         if "pnsr_record" in data.keys():
-          self.pnsr_record = data["pnsr_record"]
+          if data["pnsr_record"]:
+            self.pnsr_record = data["pnsr_record"]
+
+        if "gen_lr" in data.keys():
+          if data["gen_lr"]:
+            self.gen_lr_scheduler.lr = data["gen_lr"]
+
+        if "disc_lr" in data.keys():
+          if data["disc_lr"]:
+            self.disc_lr_scheduler.lr = data["disc_lr"]
 
         if not self.custom_hr_test_image_path:
           self.progress_test_image_path = data["test_image"]
@@ -586,7 +649,9 @@ class SRGAN:
       "disc_path": disc_path,
       "disc_label_noise": self.discriminator_label_noise,
       "test_image": self.progress_test_image_path,
-      "pnsr_record": self.pnsr_record
+      "pnsr_record": self.pnsr_record,
+      "gen_lr": float(self.gen_lr_scheduler.lr),
+      "disc_lr": float(self.disc_lr_scheduler.lr)
     }
 
     with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "w", encoding='utf-8') as f:

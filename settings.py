@@ -35,20 +35,28 @@ CUSTOM_HR_TEST_IMAGE = "datasets/testing_image.png"
 START_EPISODE_SR = 0
 GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_500_000
 # Discriminator need to catch up with generator before it will adding details to image
-DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 500_000
-COMBINED_TRAINING_EPISODES_SRGAN = 100_000
-# This is for that separated SRGAN with tag finetune, it will add these episodes to the base and its only used at the end for tuning last details
-FINETUNE_TRAIN_EPISODES_OF_SRGAN = 200_000
+DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 100_000
+COMBINED_TRAINING_EPISODES_SRGAN = 500_000
+
+# Base LRs
+GEN_LR_SRGAN = 1e-4
+DISC_LR_SRGAN = 1e-4
+
+# Schedule of LR
+GEN_LR_SCHEDULE_SRGAN = {1_000_000: 5e-5, 1_650_000: 1e-5, 1_750_000: 5e-6, 1_900_000: 1e-6, 2_000_000: 1e-7}
+DISC_LR_SCHEDULE_SRGAN = {1_650_000: 1e-5, 1_750_000: 5e-6, 1_900_000: 1e-6, 2_000_000: 1e-7}
+RESTORE_BEST_PNSR_MODELS_EPISODES = [1_000_000, 1_500_000, 1_750_000, 1_900_000, 2_000_000]
 
 # Discriminator label noise settings
 # Leave as None for not use noise
 DISCRIMINATOR_START_NOISE_OF_SRGAN = 0.20
-DISCRIMINATOR_NOISE_DECAY_OF_SRGAN = 0.999997
+DISCRIMINATOR_NOISE_DECAY_OF_SRGAN = 0.999993
 # Noise target where stop decaying
-DISCRIMINATOR_TARGET_NOISE_OF_SRGAN = 0.005
+DISCRIMINATOR_TARGET_NOISE_OF_SRGAN = 0
 
-# Discriminator will be trained more on images where its more behind
+# Discriminator training settings
 AUTOBALANCE_TRAINING_OF_SRGAN = True
+DISCRIMINATOR_TRAINING_MULTIPLIER = 2
 
 BATCH_SIZE_SR = 4
 # Num of batches preloaded in buffer
@@ -63,7 +71,7 @@ DISC_SR_MODEL = "mod_base_9layers_sn"
 DICS_SR_WEIGHTS = None
 
 # Saving settings
-SAVE_ONLY_BEST_PNSR_WEIGHTS = True
+SAVE_ONLY_BEST_PNSR_WEIGHTS = False
 
 
 ########################

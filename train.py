@@ -25,9 +25,9 @@ if gpus:
     pass
 
 from keras import optimizers
-from modules.dcgan import DCGAN
-from modules.wasserstein_gan import WGANGC
-from modules.srgan import SRGAN
+from modules.gans.dcgan import DCGAN
+from modules.gans.wasserstein_gan import WGANGC
+from modules.gans.srgan import SRGAN
 from settings import *
 
 if __name__ == '__main__':
@@ -36,7 +36,7 @@ if __name__ == '__main__':
   tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data --samples_per_plugin=images=200", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   try:
-    gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\n3 - SRGAN - Fine tune\nSelected trainer: "))
+    gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\nSelected trainer: "))
     if gan_selection == 0:
       training_object = DCGAN(DATASET_PATH, testing_dataset_path=TESTING_DATASET_PATH, training_progress_save_path="training_data/dcgan",
                               batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
@@ -82,7 +82,8 @@ if __name__ == '__main__':
       training_object = SRGAN(DATASET_SR_PATH, testing_dataset_path=TESTING_DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
                               batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR,
                               gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
-                              generator_optimizer=optimizers.Adam(1e-4, 0.9), discriminator_optimizer=optimizers.Adam(1e-4, 0.9),
+                              generator_optimizer=optimizers.Adam(GEN_LR_SRGAN, 0.9), discriminator_optimizer=optimizers.Adam(DISC_LR_SRGAN, 0.9),
+                              generator_lr_schedule=GEN_LR_SCHEDULE_SRGAN, discriminator_lr_schedule=DISC_LR_SCHEDULE_SRGAN,
                               discriminator_label_noise=DISCRIMINATOR_START_NOISE_OF_SRGAN, discriminator_label_noise_decay=DISCRIMINATOR_NOISE_DECAY_OF_SRGAN, discriminator_label_noise_min=DISCRIMINATOR_TARGET_NOISE_OF_SRGAN,
                               generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
                               start_episode=START_EPISODE_SR,
@@ -91,32 +92,12 @@ if __name__ == '__main__':
 
       training_object.save_models_structure_images()
 
-      training_object.train(COMBINED_TRAINING_EPISODES_SRGAN, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
+      training_object.train(COMBINED_TRAINING_EPISODES_SRGAN, generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
+                            discriminator_training_multiplier=DISCRIMINATOR_TRAINING_MULTIPLIER,
+                            progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                             weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                            discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
+                            discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
                             generator_smooth_labels=False,
-                            generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
-                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)
-
-    elif gan_selection == 3:
-      # Same as SRGAN but with lower LR
-      training_object = SRGAN(DATASET_SR_PATH, testing_dataset_path=TESTING_DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
-                              batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR,
-                              gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
-                              generator_optimizer=optimizers.Adam(1e-5, 0.9), discriminator_optimizer=optimizers.Adam(1e-5, 0.9),
-                              discriminator_label_noise=DISCRIMINATOR_START_NOISE_OF_SRGAN, discriminator_label_noise_decay=DISCRIMINATOR_NOISE_DECAY_OF_SRGAN, discriminator_label_noise_min=DISCRIMINATOR_TARGET_NOISE_OF_SRGAN,
-                              generator_weights=GEN_SR_WEIGHTS, discriminator_weights=DICS_SR_WEIGHTS,
-                              start_episode=START_EPISODE_SR,
-                              load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                              custom_hr_test_image_path=CUSTOM_HR_TEST_IMAGE, check_dataset=CHECK_DATASET)
-
-      training_object.save_models_structure_images()
-
-      training_object.train(COMBINED_TRAINING_EPISODES_SRGAN + FINETUNE_TRAIN_EPISODES_OF_SRGAN, progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
-                            weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                            discriminator_smooth_real_labels=False, discriminator_smooth_fake_labels=False,
-                            generator_smooth_labels=False,
-                            generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
                             training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)
 
     else: print(Fore.RED + "Invalid training object index entered" + Fore.RESET)
