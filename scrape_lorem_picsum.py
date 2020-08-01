@@ -1,3 +1,4 @@
+from selenium.common.exceptions import NoSuchElementException
 from selenium import webdriver
 import requests
 import time
@@ -6,9 +7,11 @@ import os
 import asyncio
 from tqdm import tqdm
 import concurrent.futures
+import hashlib
 from multiprocessing import Pool, cpu_count
+from multiprocessing.pool import ThreadPool
 
-IMGS_TO_DOWNLOAD = 50_000
+IMGS_TO_DOWNLOAD = 2_000
 SAVE_PATH = "datasets/random_images"
 PATH_TO_CHROME_DRIVER = r"lib/chromedriver.exe"
 SCRAPE_URL = "https://source.unsplash.com/random/1024x1024" # https://picsum.photos/1024 https://loremflickr.com/1024/1024/all
@@ -33,7 +36,7 @@ def download_image(img_url):
 
 image_urls = []
 def worker(images_to_download):
-  driver = webdriver.Chrome(executable_path=PATH_TO_CHROME_DRIVER)
+  driver = webdriver.Chrome(executable_path=PATH_TO_CHROME_DRIVER, service_log_path=os.devnull)
 
   for _ in range(images_to_download) if NUM_OF_DOWNLOAD_WORKERS > 1 else tqdm(range(images_to_download)):
     try:
@@ -42,9 +45,7 @@ def worker(images_to_download):
       if el.get_attribute("src") not in image_urls:
         image_urls.append(el.get_attribute("src"))
       time.sleep(DELAY_AFTER_GETTING_URL)
-    except KeyboardInterrupt:
-      break
-    except Exception:
+    except NoSuchElementException:
       pass
 
   time.sleep(1)
@@ -63,6 +64,24 @@ async def scraper_manager():
     await asyncio.wait_for(future, timeout=None, loop=asyncio.get_event_loop())
   executor.shutdown()
 
+used_hashes = []
+duplicate_file_paths = []
+def check_for_duplicates(file_path):
+  if os.path.isfile(file_path):
+    with open(file_path, 'rb') as f:
+      filehash = hashlib.md5(f.read()).hexdigest()
+
+      if filehash not in used_hashes:
+        used_hashes.append(filehash)
+      else:
+        duplicate_file_paths.append(file_path)
+
+def remove_duplicate(file_path):
+  try:
+    os.remove(file_path)
+  except:
+    pass
+
 if __name__ == '__main__':
   try:
     asyncio.run(scraper_manager())
@@ -71,7 +90,18 @@ if __name__ == '__main__':
   except Exception:
     pass
 
-  print(f"Found {len(image_urls)} unique images")
+  print(f"Found {len(image_urls)} images")
 
   with Pool(processes=cpu_count()) as p:
     p.map(download_image, image_urls)
+
+  all_images_paths = [os.path.join(SAVE_PATH, x) for x in os.listdir(SAVE_PATH)]
+  with ThreadPool(processes=8) as tp:
+    tp.map(check_for_duplicates, all_images_paths)
+    print(f"Found {len(duplicate_file_paths)} duplicates")
+    if len(duplicate_file_paths) > 0:
+      tp.map(remove_duplicate, duplicate_file_paths)
+
+  all_images_paths = [os.path.join(SAVE_PATH, x) for x in os.listdir(SAVE_PATH)]
+  print(f"In {SAVE_PATH} folder is {len(all_images_paths)} images")
+  print(f"Added {len(image_urls) - len(duplicate_file_paths)} images")
