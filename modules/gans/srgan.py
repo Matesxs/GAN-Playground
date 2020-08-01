@@ -529,7 +529,8 @@ class SRGAN:
     if self.testing_batchmaker: self.testing_batchmaker.terminate = True
     self.batch_maker.terminate = True
     self.save_checkpoint()
-    self.__save_weights()
+    if not save_only_best_pnsr_weights:
+      self.__save_weights()
     self.batch_maker.join()
     if self.testing_batchmaker: self.testing_batchmaker.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
