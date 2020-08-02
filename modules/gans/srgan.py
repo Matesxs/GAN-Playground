@@ -491,21 +491,23 @@ class SRGAN:
 
           stats_raw.append([disc_loss, disc_real_loss, disc_fake_loss, float(g_loss), float(pnsr)] + [float(l) for l in gan_losses])
 
-        stats = np.mean(stats_raw, 0)
+        mean_stats = np.mean(stats_raw, 0)
+        min_stats = np.min(stats_raw, 0)
+        max_stats = np.max(stats_raw, 0)
         del stats_raw
 
         if training_state in ["GAN Training", "Generator Training"]:
           if not self.pnsr_record:
-            self.pnsr_record = {"episode": self.episode_counter, "value": stats[4]}
-          elif self.pnsr_record["value"] < stats[4]:
-            print(Fore.MAGENTA + f"New PNSR record <{round(stats[4], 5)}> on episode {self.episode_counter}!" + Fore.RESET)
-            self.pnsr_record = {"episode": self.episode_counter, "value": stats[4]}
+            self.pnsr_record = {"episode": self.episode_counter, "value": mean_stats[4]}
+          elif self.pnsr_record["value"] < mean_stats[4]:
+            print(Fore.MAGENTA + f"New PNSR record <{round(mean_stats[4], 5)}> on episode {self.episode_counter}!" + Fore.RESET)
+            self.pnsr_record = {"episode": self.episode_counter, "value": mean_stats[4]}
             self.__save_weights()
 
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=stats[0], disc_real_loss=stats[1], disc_fake_loss=stats[2], gan_loss=stats[5], gen_loss=stats[3], pnsr=stats[4], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=mean_stats[0], disc_real_loss=mean_stats[1], disc_fake_loss=mean_stats[2], gan_loss=mean_stats[5], gen_loss=mean_stats[3], pnsr=mean_stats[4], pnsr_min=min_stats[4], pnsr_max=max_stats[4], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D Loss: {round(stats[0], 5)}, D-R loss: {round(stats[1], 5)}, D-F loss: {round(stats[2], 5)}] [G loss: {round(stats[3], 5)}, PNSR: {round(stats[4], 3)}] [GAN loss: {round(stats[5], 5)}, Separated losses: {stats[6:]}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D Loss: {round(mean_stats[0], 5)}, D-R loss: {round(mean_stats[1], 5)}, D-F loss: {round(mean_stats[2], 5)}] [G loss: {round(mean_stats[3], 5)}, PNSR: [Min: {round(min_stats[4], 3)}db, Mean: {round(mean_stats[4], 3)}db, Max: {round(max_stats[4], 3)}db]] [GAN loss: {round(mean_stats[5], 5)}, Separated losses: {mean_stats[6:]}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
         if self.pnsr_record:
           print(Fore.GREEN + f"Actual PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 

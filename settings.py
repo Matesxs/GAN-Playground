@@ -61,7 +61,7 @@ DISCRIMINATOR_TRAINING_MULTIPLIER = 2
 BATCH_SIZE_SR = 4
 TESTING_BATCH_SIZE_SR = 32
 # Num of batches preloaded in buffer
-BUFFERED_BATCHES_SR = 20
+BUFFERED_BATCHES_SR = 50
 
 # Model settings
 # Number of doubling resolution
