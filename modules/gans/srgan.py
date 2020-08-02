@@ -101,7 +101,7 @@ class SRGAN:
                generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
                generator_lr_schedule:Union[None, dict]=None, discriminator_lr_schedule:Union[None, dict]=None,
                discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
-               batch_size:int=32, buffered_batches:int=20,
+               batch_size:int=4, testing_batch_size:int=32, buffered_batches:int=20,
                generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
                start_episode:int=0, load_from_checkpoint:bool=False,
                custom_hr_test_image_path:str=None, check_dataset:bool=True):
@@ -117,6 +117,8 @@ class SRGAN:
 
     self.batch_size = batch_size
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
+    self.testing_batch_size = testing_batch_size
+    assert self.testing_batch_size > 0, Fore.RED + "Invalid testing batch size" + Fore.RESET
 
     if start_episode < 0: start_episode = 0
     self.episode_counter = start_episode
@@ -162,7 +164,7 @@ class SRGAN:
 
     self.testing_batchmaker = None
     if self.testing_data:
-      self.testing_batchmaker = BatchMaker(self.testing_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
+      self.testing_batchmaker = BatchMaker(self.testing_data, self.testing_batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
       self.testing_batchmaker.start()
 
     # Create LR Schedulers for both "Optimizer"
@@ -456,6 +458,7 @@ class SRGAN:
         self.load_gen_weights_from_episode(self.pnsr_record["episode"])
         self.load_disc_weights_from_episode(self.pnsr_record["episode"])
         self.pnsr_record = None
+        self.save_checkpoint()
         print(Fore.MAGENTA + "Best models weights restored and PNSR record restarted" + Fore.RESET)
 
       # Decay label noise
@@ -468,39 +471,41 @@ class SRGAN:
 
       # Seve stats and print them to console
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
-        if self.testing_batchmaker:
-          large_images, small_images = self.testing_batchmaker.get_batch()
-        else:
-          large_images, small_images = self.batch_maker.get_batch()
-        gen_imgs = self.generator.predict(small_images)
+        testing_batchmaker = self.testing_batchmaker if self.testing_batchmaker else self.batch_maker
 
-        # Evaluate models state
-        disc_real_loss = self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1)))
-        disc_fake_loss = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-        disc_real_loss = float(disc_real_loss)
-        disc_fake_loss = float(disc_fake_loss)
-        disc_loss = (disc_real_loss + disc_fake_loss) * 0.5
+        stats_raw = deque()
+        for _ in range(testing_batchmaker.get_number_of_batches_in_dataset()):
+          large_images, small_images = testing_batchmaker.get_batch()
 
-        predicted_features = self.vgg.predict(preprocess_vgg(large_images))
+          gen_imgs = self.generator.predict(small_images)
 
-        gan_loss = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
-        g_loss , pnsr = self.generator.test_on_batch(small_images, large_images)
-        pnsr = float(pnsr)
-        g_loss = float(g_loss)
+          # Evaluate models state
+          disc_real_loss = float(self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1))))
+          disc_fake_loss = float(self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1))))
+          disc_loss = (disc_real_loss + disc_fake_loss) * 0.5
+
+          predicted_features = self.vgg.predict(preprocess_vgg(large_images))
+
+          gan_losses = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
+          g_loss , pnsr = self.generator.test_on_batch(small_images, large_images)
+
+          stats_raw.append([disc_loss, disc_real_loss, disc_fake_loss, float(g_loss), float(pnsr)] + [float(l) for l in gan_losses])
+
+        stats = np.mean(stats_raw, 0)
+        del stats_raw
 
         if training_state in ["GAN Training", "Generator Training"]:
           if not self.pnsr_record:
-            self.pnsr_record = {"episode": self.episode_counter, "value": pnsr}
-          elif self.pnsr_record["value"] < pnsr:
-            print(Fore.MAGENTA + f"New PNSR record <{round(pnsr, 5)}> on episode {self.episode_counter}!" + Fore.RESET)
-            self.pnsr_record = {"episode": self.episode_counter, "value": pnsr}
+            self.pnsr_record = {"episode": self.episode_counter, "value": stats[4]}
+          elif self.pnsr_record["value"] < stats[4]:
+            print(Fore.MAGENTA + f"New PNSR record <{round(stats[4], 5)}> on episode {self.episode_counter}!" + Fore.RESET)
+            self.pnsr_record = {"episode": self.episode_counter, "value": stats[4]}
             self.__save_weights()
 
-        # TODO: Rewrite logging after training done
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=disc_loss, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gen_loss=gan_loss[0], pnsr=pnsr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=stats[0], disc_real_loss=stats[1], disc_fake_loss=stats[2], gan_loss=stats[5], gen_loss=stats[3], pnsr=stats[4], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D Loss: {round(disc_loss, 5)}, D-R loss: {round(disc_real_loss, 5)}, D-F loss: {round(disc_fake_loss, 5)}] [G loss: {round(g_loss, 5)}, PNSR: {round(pnsr, 3)}] [GAN loss: {round(float(gan_loss[0]), 5)}, Separated losses: {gan_loss[1:]}] - Epsilon: {round(float(self.discriminator_label_noise), 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D Loss: {round(stats[0], 5)}, D-R loss: {round(stats[1], 5)}, D-F loss: {round(stats[2], 5)}] [G loss: {round(stats[3], 5)}, PNSR: {round(stats[4], 3)}] [GAN loss: {round(stats[5], 5)}, Separated losses: {stats[6:]}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
         if self.pnsr_record:
           print(Fore.GREEN + f"Actual PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 
@@ -509,7 +514,7 @@ class SRGAN:
         self.__save_img(save_raw_progress_images)
 
       # Save weights of models
-      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0 and training_state == "GAN Training" and not save_only_best_pnsr_weights:
+      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0 and training_state in ["GAN Training", "Generator Training"] and not save_only_best_pnsr_weights:
         self.__save_weights()
 
       # Save checkpoint

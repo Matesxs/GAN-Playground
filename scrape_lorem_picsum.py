@@ -11,7 +11,7 @@ import hashlib
 from multiprocessing import Pool, cpu_count
 from multiprocessing.pool import ThreadPool
 
-IMGS_TO_DOWNLOAD = 2_000
+IMGS_TO_DOWNLOAD = 5_000
 SAVE_PATH = "datasets/random_images"
 PATH_TO_CHROME_DRIVER = r"lib/chromedriver.exe"
 SCRAPE_URL = "https://source.unsplash.com/random/1024x1024" # https://picsum.photos/1024 https://loremflickr.com/1024/1024/all

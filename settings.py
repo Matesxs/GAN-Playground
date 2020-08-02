@@ -43,9 +43,9 @@ GEN_LR_SRGAN = 1e-4
 DISC_LR_SRGAN = 1e-4
 
 # Schedule of LR
-GEN_LR_SCHEDULE_SRGAN = {1_000_000: 5e-5, 1_650_000: 1e-5, 1_750_000: 5e-6, 1_900_000: 1e-6, 2_000_000: 1e-7}
-DISC_LR_SCHEDULE_SRGAN = {1_650_000: 1e-5, 1_750_000: 5e-6, 1_900_000: 1e-6, 2_000_000: 1e-7}
-RESTORE_BEST_PNSR_MODELS_EPISODES = [1_000_000, 1_500_000, 1_750_000, 1_900_000, 2_000_000]
+GEN_LR_SCHEDULE_SRGAN =  {1_650_000: 1e-5, 1_850_000: 5e-6, 1_900_000: 1e-6, 2_000_000: 1e-7}
+DISC_LR_SCHEDULE_SRGAN = {1_650_000: 1e-5, 1_850_000: 5e-6, 1_900_000: 1e-6, 2_000_000: 1e-7}
+RESTORE_BEST_PNSR_MODELS_EPISODES = [1_500_000, 1_900_000, 2_000_000]
 
 # Discriminator label noise settings
 # Leave as None for not use noise
@@ -59,8 +59,9 @@ AUTOBALANCE_TRAINING_OF_SRGAN = True
 DISCRIMINATOR_TRAINING_MULTIPLIER = 2
 
 BATCH_SIZE_SR = 4
+TESTING_BATCH_SIZE_SR = 32
 # Num of batches preloaded in buffer
-BUFFERED_BATCHES_SR = 30
+BUFFERED_BATCHES_SR = 20
 
 # Model settings
 # Number of doubling resolution
@@ -71,7 +72,7 @@ DISC_SR_MODEL = "mod_base_9layers_sn"
 DICS_SR_WEIGHTS = None
 
 # Saving settings
-SAVE_ONLY_BEST_PNSR_WEIGHTS = False
+SAVE_ONLY_BEST_PNSR_WEIGHTS = True
 
 
 ########################

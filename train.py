@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     elif gan_selection == 2:
       training_object = SRGAN(DATASET_SR_PATH, testing_dataset_path=TESTING_DATASET_SR_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
-                              batch_size=BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR,
+                              batch_size=BATCH_SIZE_SR, testing_batch_size=TESTING_BATCH_SIZE_SR, buffered_batches=BUFFERED_BATCHES_SR,
                               gen_mod_name=GEN_SR_MODEL, disc_mod_name=DISC_SR_MODEL,
                               generator_optimizer=optimizers.Adam(GEN_LR_SRGAN, 0.9), discriminator_optimizer=optimizers.Adam(DISC_LR_SRGAN, 0.9),
                               generator_lr_schedule=GEN_LR_SCHEDULE_SRGAN, discriminator_lr_schedule=DISC_LR_SCHEDULE_SRGAN,
