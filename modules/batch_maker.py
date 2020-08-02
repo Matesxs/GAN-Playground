@@ -10,7 +10,7 @@ from colorama import Fore
 from settings import NUM_OF_LOADING_WORKERS
 
 class BatchMaker(Thread):
-  def __init__(self, train_data:list, batch_size: int, buffered_batches:int=5, secondary_size:tuple=None):
+  def __init__(self, train_data:list, batch_size:int, buffered_batches:int=5, secondary_size:tuple=None, missing_threshold_perc:float=0.2):
     super().__init__()
     self.daemon = True
 
@@ -18,6 +18,7 @@ class BatchMaker(Thread):
     self.__secondary_size = secondary_size
 
     self.__batches_in_buffer_number = buffered_batches
+    self.__missing_threshold_number = int(self.__batches_in_buffer_number * missing_threshold_perc)
     self.__batches = deque(maxlen=self.__batches_in_buffer_number)
     self.__resized_batches = deque(maxlen=self.__batches_in_buffer_number)
 
@@ -89,7 +90,7 @@ class BatchMaker(Thread):
         self.__lock_confirm = False
 
       batches_to_create = self.__batches_in_buffer_number - len(self.__batches)
-      if batches_to_create > 0:
+      if batches_to_create > self.__missing_threshold_number:
         self.__worker_pool.map(self.__make_batch, self.__make_data(batches_to_create))
 
       time.sleep(0.01)

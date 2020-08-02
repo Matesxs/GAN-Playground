@@ -504,6 +504,7 @@ class SRGAN:
             self.pnsr_record = {"episode": self.episode_counter, "value": mean_stats[4]}
             self.__save_weights()
 
+        # TODO: Change pnsr on logging to tensorboard to pnsr_mean
         self.tensorboard.log_kernels_and_biases(self.generator)
         self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=mean_stats[0], disc_real_loss=mean_stats[1], disc_fake_loss=mean_stats[2], gan_loss=mean_stats[5], gen_loss=mean_stats[3], pnsr=mean_stats[4], pnsr_min=min_stats[4], pnsr_max=max_stats[4], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
