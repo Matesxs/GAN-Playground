@@ -9,6 +9,7 @@ from multiprocessing.pool import ThreadPool
 from modules.helpers import get_paths_of_files_from_path
 
 datasets_folder = "datasets"
+IMAGES_TO_REMOVE_FROM_DATASETS = ["./datasets/testing_image.png"]
 
 assert os.path.exists(datasets_folder) and os.path.isdir(datasets_folder), "Invalid datasets folder"
 
@@ -134,6 +135,34 @@ def resize_and_save_file(args):
         pass
 
 worker_pool.map(resize_and_save_file, enumerate(filepaths_to_use))
+
+used_hashes = []
+for path in IMAGES_TO_REMOVE_FROM_DATASETS:
+  if os.path.exists(path):
+    with open(path, 'rb') as f:
+      filehash = hashlib.md5(f.read()).hexdigest()
+      if filehash not in used_hashes:
+        used_hashes.append(filehash)
+
+removed_blacklisted_files = 0
+def check_and_remove_duplicates(file_path):
+  global removed_blacklisted_files
+
+  if os.path.isfile(file_path):
+    with open(file_path, 'rb') as f:
+      filehash = hashlib.md5(f.read()).hexdigest()
+
+      if filehash not in used_hashes:
+        used_hashes.append(filehash)
+      else:
+        try:
+          os.remove(file_path)
+          removed_blacklisted_files += 1
+        except:
+          pass
+
+worker_pool.map(check_and_remove_duplicates, get_paths_of_files_from_path(output_folder))
+print(f"Removed {removed_blacklisted_files} blacklisted files")
 
 if testing_split:
   testing_folder_path = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}__test")
