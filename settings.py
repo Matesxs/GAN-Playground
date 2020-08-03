@@ -11,7 +11,7 @@ NUM_OF_TRAINING_EPISODES = 1_000_000
 
 BATCH_SIZE = 16
 # Num of batches preloaded in buffer
-BUFFERED_BATCHES = 30
+BUFFERED_BATCHES = 100
 
 # Model settings
 # Latent dim is size of "tweakable" parameters fed to generator
@@ -61,7 +61,7 @@ DISCRIMINATOR_TRAINING_MULTIPLIER = 2
 BATCH_SIZE_SR = 4
 TESTING_BATCH_SIZE_SR = 32
 # Num of batches preloaded in buffer
-BUFFERED_BATCHES_SR = 50
+BUFFERED_BATCHES_SR = 100
 
 # Model settings
 # Number of doubling resolution
