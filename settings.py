@@ -9,6 +9,9 @@ TESTING_DATASET_PATH = "datasets/dogs_normalized__64x64__test"
 START_EPISODE = 0
 NUM_OF_TRAINING_EPISODES = 1_000_000
 
+# Num of episodes after whitch progress image/s will be created to "track" progress of training
+PROGRESS_IMAGE_SAVE_INTERVAL = 2_500
+
 BATCH_SIZE = 16
 # Num of batches preloaded in buffer
 BUFFERED_BATCHES = 100
@@ -37,6 +40,9 @@ GENERATOR_TRAIN_EPISODES_OF_SRGAN = 1_500_000
 # Discriminator need to catch up with generator before it will adding details to image
 DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 100_000
 COMBINED_TRAINING_EPISODES_SRGAN = 500_000
+
+# Num of episodes after whitch progress image/s will be created to "track" progress of training
+PROGRESS_IMAGE_SAVE_INTERVAL_SR = 5_000
 
 # Base LRs
 GEN_LR_SRGAN = 1e-4
@@ -85,8 +91,6 @@ CHECK_DATASET = False
 
 # Num of episodes after whitch weights will be saved (Its not the same as checkpoint!)
 WEIGHTS_SAVE_INTERVAL = 10_000
-# Num of episodes after whitch progress image/s will be created to "track" progress of training
-PROGRESS_IMAGE_SAVE_INTERVAL = 2_500
 # Save progress images to folder too (if false then they will be saved only to tensorboard)
 SAVE_RAW_IMAGES = True
 # Duration of one frame if gif is created from progress images after training

@@ -90,7 +90,7 @@ class SRGAN:
 
   MAX_DISC_LOOPS = 10
 
-  AGREGATE_STAT_INTERVAL = 2_500  # Interval of saving data
+  AGREGATE_STAT_INTERVAL = 5_000  # Interval of saving data
   RESET_SEEDS_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
   CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
 
@@ -461,35 +461,35 @@ class SRGAN:
         self.save_checkpoint()
         print(Fore.MAGENTA + "Best models weights restored and PNSR record restarted" + Fore.RESET)
 
-      # Decay label noise
-      if self.discriminator_label_noise and self.discriminator_label_noise_decay:
-        if training_state in ["GAN Training", "Discriminator Training"]:
-          self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
-
-          if self.discriminator_label_noise != self.discriminator_label_noise_min and (self.discriminator_label_noise - self.discriminator_label_noise_min) < 0.001:
-            self.discriminator_label_noise = self.discriminator_label_noise_min
-
       # Seve stats and print them to console
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
+        print(Fore.MAGENTA + "Stat evaluation started" + Fore.RESET)
+
         testing_batchmaker = self.testing_batchmaker if self.testing_batchmaker else self.batch_maker
-
         stats_raw = deque()
-        for _ in range(testing_batchmaker.get_number_of_batches_in_dataset()):
-          large_images, small_images = testing_batchmaker.get_batch()
 
-          gen_imgs = self.generator.predict(small_images)
+        try:
+          for _ in range(testing_batchmaker.get_number_of_batches_in_dataset()):
+            large_images, small_images = testing_batchmaker.get_batch()
 
-          # Evaluate models state
-          disc_real_loss = float(self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1))))
-          disc_fake_loss = float(self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1))))
-          disc_loss = (disc_real_loss + disc_fake_loss) * 0.5
+            gen_imgs = self.generator.predict(small_images)
 
-          predicted_features = self.vgg.predict(preprocess_vgg(large_images))
+            # Evaluate models state
+            disc_real_loss = float(self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1))))
+            disc_fake_loss = float(self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1))))
+            disc_loss = (disc_real_loss + disc_fake_loss) * 0.5
 
-          gan_losses = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
-          g_loss , pnsr = self.generator.test_on_batch(small_images, large_images)
+            predicted_features = self.vgg.predict(preprocess_vgg(large_images))
 
-          stats_raw.append([disc_loss, disc_real_loss, disc_fake_loss, float(g_loss), float(pnsr)] + [float(l) for l in gan_losses])
+            gan_losses = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
+            g_loss , pnsr = self.generator.test_on_batch(small_images, large_images)
+
+            stats_raw.append([disc_loss, disc_real_loss, disc_fake_loss, float(g_loss), float(pnsr)] + [float(l) for l in gan_losses])
+        except KeyboardInterrupt:
+          print(Fore.YELLOW + "Stat evaluation interrupted" + Fore.RESET)
+          self.episode_counter -= 1
+          self.save_checkpoint()
+          raise KeyboardInterrupt("Stat evaluation interrupted")
 
         mean_stats = np.mean(stats_raw, 0)
         min_stats = np.min(stats_raw, 0)
@@ -510,6 +510,14 @@ class SRGAN:
         print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D Loss: {round(mean_stats[0], 5)}, D-R loss: {round(mean_stats[1], 5)}, D-F loss: {round(mean_stats[2], 5)}] [G loss: {round(mean_stats[3], 5)}, PNSR: [Min: {round(min_stats[4], 3)}db, Mean: {round(mean_stats[4], 3)}db, Max: {round(max_stats[4], 3)}db]] [GAN loss: {round(mean_stats[5], 5)}, Separated losses: {mean_stats[6:]}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
         if self.pnsr_record:
           print(Fore.GREEN + f"Actual PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
+
+      # Decay label noise
+      if self.discriminator_label_noise and self.discriminator_label_noise_decay:
+        if training_state in ["GAN Training", "Discriminator Training"]:
+          self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
+
+          if self.discriminator_label_noise != self.discriminator_label_noise_min and (self.discriminator_label_noise - self.discriminator_label_noise_min) < 0.001:
+            self.discriminator_label_noise = self.discriminator_label_noise_min
 
       # Save progress
       if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0 and training_state != "Discriminator Training":

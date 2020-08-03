@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
       training_object.train(COMBINED_TRAINING_EPISODES_SRGAN, generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
                             discriminator_training_multiplier=DISCRIMINATOR_TRAINING_MULTIPLIER,
-                            progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
+                            progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL_SR, save_raw_progress_images=SAVE_RAW_IMAGES,
                             weights_save_interval=WEIGHTS_SAVE_INTERVAL,
                             discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
                             generator_smooth_labels=False,
