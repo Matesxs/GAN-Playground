@@ -144,6 +144,8 @@ for path in IMAGES_TO_REMOVE_FROM_DATASETS:
       if filehash not in used_hashes:
         used_hashes.append(filehash)
 
+print(f"{len(used_hashes)} blacklisted files were added to already used list")
+
 removed_blacklisted_files = 0
 def check_and_remove_duplicates(file_path):
   global removed_blacklisted_files
