@@ -18,6 +18,7 @@ class BatchMaker(Thread):
     self.__secondary_size = secondary_size
 
     self.__batches_in_buffer_number = buffered_batches
+    assert 0 <= missing_threshold_perc <= 1, Fore.RED + "Invalid missing threshold" + Fore.RESET
     self.__missing_threshold_number = int(self.__batches_in_buffer_number * missing_threshold_perc)
     self.__batches = deque(maxlen=self.__batches_in_buffer_number)
     self.__resized_batches = deque(maxlen=self.__batches_in_buffer_number)
