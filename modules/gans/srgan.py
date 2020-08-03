@@ -504,9 +504,8 @@ class SRGAN:
             self.pnsr_record = {"episode": self.episode_counter, "value": mean_stats[4]}
             self.__save_weights()
 
-        # TODO: Change pnsr on logging to tensorboard to pnsr_mean
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=mean_stats[0], disc_real_loss=mean_stats[1], disc_fake_loss=mean_stats[2], gan_loss=mean_stats[5], gen_loss=mean_stats[3], pnsr=mean_stats[4], pnsr_min=min_stats[4], pnsr_max=max_stats[4], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=mean_stats[0], disc_real_loss=mean_stats[1], disc_fake_loss=mean_stats[2], gan_loss=mean_stats[5], gen_loss=mean_stats[3], pnsr_mean=mean_stats[4], pnsr_min=min_stats[4], pnsr_max=max_stats[4], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
         print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}, State: <{training_state}>\t\t[D Loss: {round(mean_stats[0], 5)}, D-R loss: {round(mean_stats[1], 5)}, D-F loss: {round(mean_stats[2], 5)}] [G loss: {round(mean_stats[3], 5)}, PNSR: [Min: {round(min_stats[4], 3)}db, Mean: {round(mean_stats[4], 3)}db, Max: {round(max_stats[4], 3)}db]] [GAN loss: {round(mean_stats[5], 5)}, Separated losses: {mean_stats[6:]}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
         if self.pnsr_record:
