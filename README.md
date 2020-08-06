@@ -6,6 +6,7 @@
 * [Setup](#setup)
 * [Usage](#usage)
 * [Utility](#utility)
+* [Results](#results)
 * [TODO](#todo)
 
 ## General info
@@ -38,6 +39,8 @@ scrape_lorem_picsum.py - Script for scraping lorem picsum like websites
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
 ```
 
+## Results
+
 ## TODO
 - [x] Implement DCGAN
 - [x] Implement WGAN
@@ -57,3 +60,6 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [ ] Test difference between models with conv2 layers with enabled and disabled bias
 - [ ] Add sources to this readme
 - [ ] Optimize interface scripts with more acessible settings
+- [ ] Publish DCGAN results
+- [ ] Publish WGAN results
+- [ ] Publish SRGAN results
