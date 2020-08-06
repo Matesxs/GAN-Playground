@@ -5,7 +5,7 @@
 * [General info](#general-info)
 * [Setup](#setup)
 * [Usage](#usage)
-* [Utility Scripts](#utility scripts)
+* [Utility Scripts](#utility)
 * [TODO](#todo)
 
 ## General info
@@ -32,7 +32,7 @@ After training use
 (These scripts still needs tweaking because settings for them are hardcoded in them)
 ```
 
-## Utility Scripts
+## Utility
 ```
 scrape_lorem_picsum.py - Script for scraping lorem picsum like websites
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
