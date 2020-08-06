@@ -5,7 +5,7 @@
 * [General info](#general-info)
 * [Setup](#setup)
 * [Usage](#usage)
-* [Utility Scripts](#utility)
+* [Utility](#utility)
 * [TODO](#todo)
 
 ## General info
