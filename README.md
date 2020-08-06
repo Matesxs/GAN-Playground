@@ -5,6 +5,7 @@
 * [General info](#general-info)
 * [Setup](#setup)
 * [Usage](#usage)
+* [Utility Scripts](#utility scripts)
 * [TODO](#todo)
 
 ## General info
@@ -31,6 +32,12 @@ After training use
 (These scripts still needs tweaking because settings for them are hardcoded in them)
 ```
 
+## Utility Scripts
+```
+scrape_lorem_picsum.py - Script for scraping lorem picsum like websites
+preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
+```
+
 ## TODO
 - [x] Implement DCGAN
 - [x] Implement WGAN
@@ -49,3 +56,4 @@ After training use
 - [ ] Optimize preprocessing dataset (Too slow)
 - [ ] Test difference between models with conv2 layers with enabled and disabled bias
 - [ ] Add sources to this readme
+- [ ] Optimize interface scripts with more acessible settings
