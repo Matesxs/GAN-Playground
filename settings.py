@@ -42,7 +42,7 @@ DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN = 100_000
 COMBINED_TRAINING_EPISODES_SRGAN = 500_000
 
 # Num of episodes after whitch progress image/s will be created to "track" progress of training
-PROGRESS_IMAGE_SAVE_INTERVAL_SR = 5_000
+PROGRESS_IMAGE_SAVE_INTERVAL_SR = 2_500
 
 # Base LRs
 GEN_LR_SRGAN = 1e-4
@@ -51,7 +51,7 @@ DISC_LR_SRGAN = 1e-4
 # Schedule of LR
 GEN_LR_SCHEDULE_SRGAN =  {1_650_000: 1e-5, 1_850_000: 5e-6, 1_900_000: 1e-6, 2_000_000: 1e-7}
 DISC_LR_SCHEDULE_SRGAN = {1_650_000: 1e-5, 1_850_000: 5e-6, 1_900_000: 1e-6, 2_000_000: 1e-7}
-RESTORE_BEST_PNSR_MODELS_EPISODES = [1_500_000, 1_900_000, 2_000_000]
+RESTORE_BEST_PNSR_MODELS_EPISODES = [1_850_000, 1_900_000, 2_000_000]
 
 # Discriminator label noise settings
 # Leave as None for not use noise
@@ -78,7 +78,7 @@ DISC_SR_MODEL = "mod_base_9layers_sn"
 DICS_SR_WEIGHTS = None
 
 # Saving settings
-SAVE_ONLY_BEST_PNSR_WEIGHTS = True
+SAVE_ONLY_BEST_PNSR_WEIGHTS = False
 
 
 ########################

@@ -90,7 +90,8 @@ class SRGAN:
 
   MAX_DISC_LOOPS = 10
 
-  AGREGATE_STAT_INTERVAL = 5_000  # Interval of saving data
+  AGREGATE_STAT_INTERVAL = 20_000  # Interval of saving data for pretrains
+  AGREGATE_STAT_DIVIDER = 8 # Divider for agregate stat interval for gan training
   RESET_SEEDS_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
   CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
 
@@ -421,11 +422,9 @@ class SRGAN:
       if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         if training_state != "GAN Training":
           if (training_state != "Standby") and self.pnsr_record:
-            print(Fore.MAGENTA + "Loading best generator model from pretrain" + Fore.RESET)
-            self.load_gen_weights_from_episode(self.pnsr_record["episode"])
+            print(Fore.MAGENTA + "Reseting PNSR record" + Fore.RESET)
             self.pnsr_record = None
             self.save_checkpoint()
-            self.__save_weights()
 
           print(Fore.BLUE + "Starting GAN training" + Fore.RESET)
           training_state = "GAN Training"
@@ -461,8 +460,8 @@ class SRGAN:
         self.save_checkpoint()
         print(Fore.MAGENTA + "Best models weights restored and PNSR record restarted" + Fore.RESET)
 
-      # Seve stats and print them to console
-      if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
+      # Save stats and print them to console
+      if self.episode_counter % (self.AGREGATE_STAT_INTERVAL if (training_state in ["Generator Training", "Discriminator Training"]) else (self.AGREGATE_STAT_INTERVAL // self.AGREGATE_STAT_DIVIDER)) == 0:
         print(Fore.LIGHTBLUE_EX + "Stat evaluation started" + Fore.RESET)
 
         testing_batchmaker = self.testing_batchmaker if self.testing_batchmaker else self.batch_maker
@@ -558,19 +557,24 @@ class SRGAN:
       self.progress_test_image_path = random.choice(self.train_data)
       self.save_checkpoint()
 
+    # Load image for upscale and resize it to starting (small) image size
     original_image = cv.imread(self.progress_test_image_path)
     small_image = cv.resize(original_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
+
+    # Conver image to RGB colors and upscale it
     gen_img = self.generator.predict(np.array([cv.cvtColor(small_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0]))[0]
 
     # Rescale images 0 to 255
     gen_img = (0.5 * gen_img + 0.5) * 255
     gen_img = cv.cvtColor(gen_img, cv.COLOR_RGB2BGR)
 
+    # Place side by side image resized by opencv, original (large) image and upscaled by gan
     final_image = np.zeros(shape=(gen_img.shape[0], gen_img.shape[1] * 3, gen_img.shape[2])).astype(np.float32)
     final_image[:, 0:gen_img.shape[0], :] = cv.resize(small_image, dsize=(self.target_image_shape[0], self.target_image_shape[1]), interpolation=(cv.INTER_AREA if (small_image.shape[0] > self.target_image_shape[0] and small_image.shape[1] > self.target_image_shape[1]) else cv.INTER_CUBIC))
     final_image[:, gen_img.shape[0]:gen_img.shape[0] * 2, :] = original_image
     final_image[:, gen_img.shape[0] * 2:gen_img.shape[0] * 3, :] = gen_img
 
+    # Save image to folder and to tensorboard
     if save_raw_progress_images:
       cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.episode_counter}.png", final_image)
     self.tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32))
