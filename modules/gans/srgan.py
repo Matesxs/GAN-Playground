@@ -388,7 +388,7 @@ class SRGAN:
     target_episode = target_episode - self.episode_counter
     assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
-    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 10)
+    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 50)
     training_state = "Standby"
 
     # Save starting kernels and biases
@@ -485,6 +485,8 @@ class SRGAN:
 
             stats_raw.append([disc_loss, disc_real_loss, disc_fake_loss, float(g_loss), float(pnsr)] + [float(l) for l in gan_losses])
         except KeyboardInterrupt:
+          # On keyboard interrupt return one step back, save a checkpoint and create new keybord interrupt exception
+          # This is done to prevent skipping the evaluating step
           print(Fore.YELLOW + "Stat evaluation interrupted" + Fore.RESET)
           self.episode_counter -= 1
           self.save_checkpoint()

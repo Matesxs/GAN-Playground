@@ -77,7 +77,7 @@ elif isinstance(input_folder, list):
 else:
   raise Exception("Invalid input folder format")
 
-worker_pool = ThreadPool(processes=8)
+worker_pool = ThreadPool(processes=16)
 
 if os.path.exists(output_folder): shutil.rmtree(output_folder)
 os.mkdir(output_folder)
@@ -88,6 +88,16 @@ print(f"Found {len(raw_file_paths)} files")
 duplicate_files = []
 used_hashes = []
 filepaths_to_use = []
+
+for path in IMAGES_TO_REMOVE_FROM_DATASETS:
+  if os.path.exists(path):
+    with open(path, 'rb') as f:
+      filehash = hashlib.md5(f.read()).hexdigest()
+      if filehash not in used_hashes:
+        used_hashes.append(filehash)
+
+print(f"{len(used_hashes)} blacklisted files were added to already used list")
+
 def check_for_duplicates(file_path):
   if os.path.isfile(file_path):
     with open(file_path, 'rb') as f:
@@ -135,36 +145,6 @@ def resize_and_save_file(args):
         pass
 
 worker_pool.map(resize_and_save_file, enumerate(filepaths_to_use))
-
-used_hashes = []
-for path in IMAGES_TO_REMOVE_FROM_DATASETS:
-  if os.path.exists(path):
-    with open(path, 'rb') as f:
-      filehash = hashlib.md5(f.read()).hexdigest()
-      if filehash not in used_hashes:
-        used_hashes.append(filehash)
-
-print(f"{len(used_hashes)} blacklisted files were added to already used list")
-
-removed_blacklisted_files = 0
-def check_and_remove_duplicates(file_path):
-  global removed_blacklisted_files
-
-  if os.path.isfile(file_path):
-    with open(file_path, 'rb') as f:
-      filehash = hashlib.md5(f.read()).hexdigest()
-
-      if filehash not in used_hashes:
-        used_hashes.append(filehash)
-      else:
-        try:
-          os.remove(file_path)
-          removed_blacklisted_files += 1
-        except:
-          pass
-
-worker_pool.map(check_and_remove_duplicates, get_paths_of_files_from_path(output_folder))
-print(f"Removed {removed_blacklisted_files} blacklisted files")
 
 if testing_split:
   testing_folder_path = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}__test")
