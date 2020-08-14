@@ -5,7 +5,7 @@ from keras.layers import Layer, Conv2D, UpSampling2D, BatchNormalization, Dropou
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers import Activation
 
-from modules.keras_exttensions.spectral_normalization import ConvSN2D
+from modules.keras_extensions.spectral_normalization import ConvSN2D
 
 subpixel_index = 0
 def SubpixelConv2D(scale=2):

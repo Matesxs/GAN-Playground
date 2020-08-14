@@ -3,6 +3,7 @@ import os
 from typing import Union
 import tensorflow as tf
 import keras.backend as K
+from keras import losses
 from keras.optimizers import Optimizer, Adam
 from keras.layers import Input, Dense, Lambda
 from keras.models import Model
@@ -16,29 +17,17 @@ import numpy as np
 import cv2 as cv
 from collections import deque
 import json
-import math
 import random
 import time
 import imagesize
 from multiprocessing.pool import ThreadPool
 
 from modules.models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet
-from modules.keras_exttensions.custom_tensorboard import TensorBoardCustom
-from modules.keras_exttensions.custom_lrscheduler import LearningRateScheduler
+from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
+from modules.keras_extensions.custom_lrscheduler import LearningRateScheduler
 from modules.batch_maker import BatchMaker
 from modules.helpers import time_to_format, get_paths_of_files_from_path
 from settings import RESTORE_BEST_PNSR_MODELS_EPISODES
-
-
-def L1_Charbonnier_loss(y_true, y_pred):
-  """L1 Charbonnierloss."""
-  eps = 1e-6
-  y_true = tf.convert_to_tensor(y_true, np.float32)
-  y_pred = tf.convert_to_tensor(y_pred, np.float32)
-  diff = y_true - y_pred
-  error = K.sqrt(diff * diff + eps)
-  loss = K.sum(error)
-  return loss
 
 # Calculate start image size based on final image size and number of upscales
 def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
@@ -75,23 +64,15 @@ def PSNR(y_true, y_pred):
   """
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
-GAN_LOSS = "mae"
+GAN_LOSS = losses.Huber(delta=1.0)
 DISC_LOSS = "binary_crossentropy"
 
 # GAN, percept (vgg)
 LOSS_WEIGHTS = [0.003, 0.006]
 
 class SRGAN:
-  DISC_REAL_THRESHOLD = 3
-  DISC_REAL_AUTO_LOOPS_BASE = 2
-
-  DISC_FAKE_THRESHOLD = 5
-  DISC_FAKE_AUTO_LOOPS_BASE = 2
-
-  MAX_DISC_LOOPS = 10
-
   AGREGATE_STAT_INTERVAL = 20_000  # Interval of saving data for pretrains
-  AGREGATE_STAT_DIVIDER = 8 # Divider for agregate stat interval for gan training
+  AGREGATE_STAT_DIVIDER = 4 # Divider for agregate stat interval for gan training
   RESET_SEEDS_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
   CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
 
@@ -287,7 +268,7 @@ class SRGAN:
     large_images, small_images = self.batch_maker.get_batch()
     self.generator.train_on_batch(small_images, large_images)
 
-  def __train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False, auto_balance:bool=False):
+  def __train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
     # Function for adding random noise to labels (flipping them)
     def noising_labels(labels: np.ndarray, noise_ammount: float = 0.01):
       array = np.zeros(labels.shape)
@@ -321,34 +302,7 @@ class SRGAN:
     gen_imgs = self.generator.predict(small_images)
 
     real_loss = self.discriminator.train_on_batch(large_images, disc_real_labels)
-    if auto_balance:
-      if real_loss > self.DISC_REAL_THRESHOLD:
-        for _ in range(min([int(math.ceil(self.DISC_REAL_AUTO_LOOPS_BASE * (real_loss // self.DISC_REAL_THRESHOLD))), self.MAX_DISC_LOOPS])):
-          large_images, _ = self.batch_maker.get_batch()
-
-          if self.discriminator_label_noise and self.discriminator_label_noise > 0:
-            disc_real_labels = noising_labels(drl, self.discriminator_label_noise / 2)
-          else:
-            disc_real_labels = drl.copy()
-
-          real_loss = self.discriminator.train_on_batch(large_images, disc_real_labels)
-          if real_loss < self.DISC_REAL_THRESHOLD: break
-
     fake_loss = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-    if auto_balance:
-      if fake_loss > self.DISC_FAKE_THRESHOLD:
-        for _ in range(min([int(math.ceil(self.DISC_FAKE_AUTO_LOOPS_BASE * (fake_loss // self.DISC_FAKE_THRESHOLD))), self.MAX_DISC_LOOPS])):
-          large_images, small_images = self.batch_maker.get_batch()
-          gen_imgs = self.generator.predict(small_images)
-
-          if self.discriminator_label_noise and self.discriminator_label_noise > 0:
-            disc_fake_labels = noising_labels(dfl, self.discriminator_label_noise / 2)
-          else:
-            disc_fake_labels = dfl.copy()
-
-          fake_loss = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-          if fake_loss < self.DISC_FAKE_THRESHOLD: break
-
     return real_loss, fake_loss
 
   def __train_gan(self, generator_smooth_labels:bool=False):
@@ -365,7 +319,7 @@ class SRGAN:
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False,
-            training_autobalancer:bool=False, save_only_best_pnsr_weights:bool=False):
+            save_only_best_pnsr_weights:bool=False):
 
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
@@ -398,7 +352,6 @@ class SRGAN:
       self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
-    if training_autobalancer: print(Fore.BLUE + "Discriminator auto balance training active!" + Fore.RESET)
     for _ in range(target_episode):
       ep_start = time.time()
       if generator_train_episodes:
@@ -417,7 +370,7 @@ class SRGAN:
             training_state = "Discriminator Training"
 
           # Pretrain discriminator
-          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, False)
+          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
 
       if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         if training_state != "GAN Training":
@@ -432,7 +385,7 @@ class SRGAN:
         ### Train Discriminator ###
         # Train discriminator (real as ones and fake as zeros)
         for _ in range(discriminator_training_multiplier):
-          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels, training_autobalancer)
+          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
 
         ### Train GAN ###
         # Train GAN (wants discriminator to recognize fake images as valid)
@@ -451,14 +404,6 @@ class SRGAN:
       if new_gen_lr: print(Fore.MAGENTA + f"New LR for generator is {new_gen_lr}" + Fore.RESET)
       if new_disc_lr: print(Fore.MAGENTA + f"New LR for discriminator is {new_disc_lr}" + Fore.RESET)
       if new_gen_lr or new_disc_lr: self.save_checkpoint()
-
-      # Restore models with best pnsr and restart record
-      if (self.episode_counter in RESTORE_BEST_PNSR_MODELS_EPISODES) and self.pnsr_record:
-        self.load_gen_weights_from_episode(self.pnsr_record["episode"])
-        self.load_disc_weights_from_episode(self.pnsr_record["episode"])
-        self.pnsr_record = None
-        self.save_checkpoint()
-        print(Fore.MAGENTA + "Best models weights restored and PNSR record restarted" + Fore.RESET)
 
       # Save stats and print them to console
       if self.episode_counter % (self.AGREGATE_STAT_INTERVAL if (training_state in ["Generator Training", "Discriminator Training"]) else (self.AGREGATE_STAT_INTERVAL // self.AGREGATE_STAT_DIVIDER)) == 0:
@@ -537,6 +482,14 @@ class SRGAN:
       if self.episode_counter % self.RESET_SEEDS_INTERVAL == 0:
         np.random.seed(None)
         random.seed()
+
+      # Restore models with best pnsr and restart record
+      if (self.episode_counter in RESTORE_BEST_PNSR_MODELS_EPISODES) and self.pnsr_record:
+        self.load_gen_weights_from_episode(self.pnsr_record["episode"])
+        self.load_disc_weights_from_episode(self.pnsr_record["episode"])
+        self.pnsr_record = None
+        self.save_checkpoint()
+        print(Fore.MAGENTA + "Best models weights restored and PNSR record restarted" + Fore.RESET)
 
       epochs_time_history.append(time.time() - ep_start)
 

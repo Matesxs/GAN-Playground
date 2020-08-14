@@ -98,7 +98,7 @@ if __name__ == '__main__':
                             weights_save_interval=WEIGHTS_SAVE_INTERVAL,
                             discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
                             generator_smooth_labels=False,
-                            training_autobalancer=AUTOBALANCE_TRAINING_OF_SRGAN, save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)
+                            save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)
 
     else: print(Fore.RED + "Invalid training object index entered" + Fore.RESET)
   except KeyboardInterrupt:
