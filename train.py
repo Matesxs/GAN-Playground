@@ -41,12 +41,11 @@ if __name__ == '__main__':
       training_object = DCGAN(DATASET_PATH, testing_dataset_path=TESTING_DATASET_PATH, training_progress_save_path="training_data/dcgan",
                               batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
                               latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
-                              generator_optimizer=optimizers.Adam(0.0002, 0.5), discriminator_optimizer=optimizers.Adam(0.00018, 0.5),
+                              generator_optimizer=optimizers.Adam(0.0001, 0.5), discriminator_optimizer=optimizers.Adam(0.0001, 0.5),
                               discriminator_label_noise=0.2, discriminator_label_noise_decay=0.997, discriminator_label_noise_min=0.03,
                               generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
                               start_episode=START_EPISODE,
                               load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
-                              pretrain_episodes=500_000,
                               check_dataset=CHECK_DATASET)
 
       training_object.save_models_structure_images()
@@ -95,7 +94,7 @@ if __name__ == '__main__':
       training_object.train(COMBINED_TRAINING_EPISODES_SRGAN, generator_train_episodes=GENERATOR_TRAIN_EPISODES_OF_SRGAN, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES_OF_SRGAN,
                             discriminator_training_multiplier=DISCRIMINATOR_TRAINING_MULTIPLIER,
                             progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL_SR, save_raw_progress_images=SAVE_RAW_IMAGES,
-                            weights_save_interval=WEIGHTS_SAVE_INTERVAL,
+                            weights_save_interval=WEIGHTS_SAVE_INTERVAL_SR,
                             discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
                             generator_smooth_labels=False,
                             save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)

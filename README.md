@@ -55,7 +55,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [x] Implement spectral normalization layer
 - [x] Test Charbonnier loss instead of MSE loss in SRGAN
 - [ ] Test Huber loss instead of MSE loss in SRGAN
-- [ ] Test MAE loss instead of MSE loss in SRGAN
+- [x] Test MAE loss instead of MSE loss in SRGAN
 - [ ] Optimize training loop of SRGAN (Too much time is spending of testing performance)
 - [x] Implement custom batch maker
 - [ ] Optimize batch maker to use generator class from keras
@@ -68,7 +68,8 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [ ] Publish SRGAN results
 
 ## Notes
-Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again.
+Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
+MAE loss is causing lot of artifacts and image distortions (like color shifting, "image bleedoff", etc) (example will be added) in results from SRGAN.
 
 ## Resources
 ##### Basic DCGAN

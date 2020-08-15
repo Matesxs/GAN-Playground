@@ -64,7 +64,7 @@ def PSNR(y_true, y_pred):
   """
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
-GAN_LOSS = losses.Huber(delta=1.0)
+GAN_LOSS = losses.Huber(delta=0.3)
 DISC_LOSS = "binary_crossentropy"
 
 # GAN, percept (vgg)

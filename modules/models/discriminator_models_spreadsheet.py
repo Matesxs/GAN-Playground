@@ -48,6 +48,7 @@ def mod_base_6layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stdd
   m = Flatten()(m)
   return m
 
+# Disc for SRGAN
 def mod_base_9layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   m = conv_layer(inp, 64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, kernel_initializer=kernel_initializer)
   m = conv_layer(m, 64, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, act="leaky", use_bias=False, kernel_initializer=kernel_initializer)
@@ -68,6 +69,7 @@ def mod_base_9layers(inp:Layer, kernel_initializer:Initializer=RandomNormal(stdd
   m = LeakyReLU(0.2)(m)
   return m
 
+# Disc for SRGAN
 def mod_base_9layers_sn(inp:Layer, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   m = conv_layer(inp, 64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
   m = conv_layer(m, 64, kernel_size=3, strides=2, dropout=None, batch_norm=0.5, act="leaky", use_bias=False, use_sn=True, kernel_initializer=kernel_initializer)

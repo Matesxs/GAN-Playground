@@ -11,7 +11,6 @@ from PIL import Image
 import cv2 as cv
 import random
 import time
-from tqdm import tqdm
 from colorama import Fore
 from collections import deque
 from typing import Union
@@ -26,10 +25,10 @@ from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
 from modules.helpers import time_to_format, get_paths_of_files_from_path
 
 class DCGAN:
-  CONTROL_THRESHOLD = 500_000 # Threshold when after whitch we will be testing training process
+  CONTROL_THRESHOLD = 100_000 # Threshold when after whitch we will be testing training process
   AGREGATE_STAT_INTERVAL = 2_500  # Interval of saving data
-  GRADIENT_CHECK_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
-  CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
+  GRADIENT_CHECK_INTERVAL = 10_000  # Interval of checking norm gradient value of combined model
+  CHECKPOINT_SAVE_INTERVAL = 2_500  # Interval of saving checkpoint
 
   def __init__(self, dataset_path:str,
                gen_mod_name: str, disc_mod_name: str,
@@ -41,7 +40,6 @@ class DCGAN:
                batch_size: int = 32, buffered_batches:int=20,
                generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
                start_episode:int=0, load_from_checkpoint:bool=False,
-               pretrain_episodes:int=None,
                check_dataset:bool=True):
 
     self.disc_mod_name = disc_mod_name
@@ -54,8 +52,6 @@ class DCGAN:
     self.batch_size = batch_size
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
 
-    self.pretrain_episodes = pretrain_episodes
-
     self.discriminator_label_noise = discriminator_label_noise
     self.discriminator_label_noise_decay = discriminator_label_noise_decay
     self.discriminator_label_noise_min = discriminator_label_noise_min
@@ -67,7 +63,7 @@ class DCGAN:
 
     # Initialize training data folder and logging
     self.training_progress_save_path = training_progress_save_path
-    self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{pretrain_episodes}pt")
+    self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}")
     self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
     # Create array of input image paths
@@ -118,12 +114,6 @@ class DCGAN:
       self.testing_batchmaker = BatchMaker(self.testing_data, self.batch_size, buffered_batches=buffered_batches)
       self.testing_batchmaker.start()
 
-    # Pretrain generator
-    gen_warmed_weights = None
-    if self.pretrain_episodes and self.episode_counter < self.pretrain_episodes:
-      gen_warmed_weights = self.pretrain_generator()
-      K.clear_session()
-
     #################################
     ###   Create discriminator    ###
     #################################
@@ -162,10 +152,6 @@ class DCGAN:
     print("\nGAN Summary")
     self.combined_generator_model.summary()
 
-    # When warming happened then load that weights
-    if gen_warmed_weights:
-      self.generator.set_weights(gen_warmed_weights)
-
     # Load weights from checkpoint
     try:
       if loaded_gen_weights_path: self.generator.load_weights(loaded_gen_weights_path)
@@ -180,39 +166,6 @@ class DCGAN:
     # Load weights from param and override checkpoint weights
     if generator_weights: self.generator.load_weights(generator_weights)
     if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
-
-  # Create basic encoder-decoder architecture and uset it to initialize generator network to not default values
-  def pretrain_generator(self):
-    dec = self.build_generator(self.gen_mod_name)
-    if dec.output_shape[1:] != self.image_shape: raise Exception("Invalid image input size for this generator model")
-    enc = self.build_discriminator(self.disc_mod_name, classification=False)
-
-    image_input = Input(shape=self.image_shape, name="image_input")
-    last_layer = enc(image_input)
-    latent_output = Dense(self.latent_dim, activation="hard_sigmoid")(last_layer)
-    image_output = dec(latent_output)
-
-    encdec = Model(inputs=image_input, outputs=image_output, name="Enc-Dec")
-    encdec.compile(loss="mse", optimizer=self.generator_optimizer)
-    print("\nWarmup model summary:")
-    encdec.summary()
-
-    failed = False
-    print(Fore.GREEN + "Generator warmup started" + Fore.RESET)
-    try:
-      for _ in tqdm(range((self.pretrain_episodes - self.episode_counter)), unit="ep", leave=False):
-        images = self.batch_maker.get_batch()
-        encdec.train_on_batch(images, images)
-        self.episode_counter += 1
-    except Exception as e:
-      print(Fore.RED + f"Failed to pretrain generator\n{e}" + Fore.RESET)
-      failed = True
-    finally:
-      print(Fore.GREEN + "Generator warmup finished" + Fore.RESET)
-
-    if failed:
-      return None
-    return dec.get_weights()
 
   # Function for creating gradient generator
   def gradient_norm_generator(self):
@@ -300,8 +253,6 @@ class DCGAN:
       assert weights_save_interval <= target_episode, Fore.RED + "Invalid weights save interval" + Fore.RESET
 
     # Calculate epochs to go
-    if self.pretrain_episodes:
-      target_episode += self.pretrain_episodes
     end_episode = target_episode
     target_episode = target_episode - self.episode_counter
     assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
@@ -315,7 +266,7 @@ class DCGAN:
     prev_gen_images = deque(maxlen=3*self.batch_size)
     get_gradients = self.gradient_norm_generator()
 
-    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 10)
+    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 50)
 
     # Save starting kernels and biases
     if not self.initiated:

@@ -2,24 +2,26 @@
 ### Settings of classic GANs ###
 ################################
 # Data source settings
-DATASET_PATH = "datasets/dogs_normalized__64x64__train"
-TESTING_DATASET_PATH = "datasets/dogs_normalized__64x64__test"
+DATASET_PATH = "datasets/faces_normalized__128x128__train"
+TESTING_DATASET_PATH = "datasets/faces_normalized__128x128__test"
 
 # Training settings
 START_EPISODE = 0
-NUM_OF_TRAINING_EPISODES = 1_000_000
+NUM_OF_TRAINING_EPISODES = 500_000
 
 # Num of episodes after whitch progress image/s will be created to "track" progress of training
-PROGRESS_IMAGE_SAVE_INTERVAL = 2_500
+PROGRESS_IMAGE_SAVE_INTERVAL = 1_000
+# Num of episodes after whitch weights will be saved (Its not the same as checkpoint!)
+WEIGHTS_SAVE_INTERVAL = 5_000
 
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 # Num of batches preloaded in buffer
 BUFFERED_BATCHES = 100
 
 # Model settings
 # Latent dim is size of "tweakable" parameters fed to generator
 LATENT_DIM = 128
-GEN_MODEL = "mod_ext2_4upscl"
+GEN_MODEL = "mod_base_4upscl"
 GEN_WEIGHTS = None
 DISC_MODEL = "mod_ext_5layers"
 DICS_WEIGHTS = None
@@ -43,6 +45,8 @@ COMBINED_TRAINING_EPISODES_SRGAN = 600_000
 
 # Num of episodes after whitch progress image/s will be created to "track" progress of training
 PROGRESS_IMAGE_SAVE_INTERVAL_SR = 2_500
+# Num of episodes after whitch weights will be saved (Its not the same as checkpoint!)
+WEIGHTS_SAVE_INTERVAL_SR = 10_000
 
 # Base LRs
 GEN_LR_SRGAN = 1e-4
@@ -88,8 +92,6 @@ LOAD_FROM_CHECKPOINTS = True
 # Leave this false only when you are sure your dataset is consistent (Check whole dataset if all images have same dimensions before training)
 CHECK_DATASET = False
 
-# Num of episodes after whitch weights will be saved (Its not the same as checkpoint!)
-WEIGHTS_SAVE_INTERVAL = 10_000
 # Save progress images to folder too (if false then they will be saved only to tensorboard)
 SAVE_RAW_IMAGES = True
 # Duration of one frame if gif is created from progress images after training

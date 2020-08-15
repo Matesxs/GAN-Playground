@@ -30,7 +30,7 @@ def wasserstein_loss(y_true, y_pred):
   return K.mean(y_true * y_pred)
 
 # Gradient penalty loss function
-def gradient_penalty_loss(y_true, y_pred, averaged_samples):
+def gradient_penalty_loss(_, y_pred, averaged_samples):
   gradients = K.gradients(y_pred, averaged_samples)[0]
   gradients_sqr = K.square(gradients)
   gradients_sqr_sum = K.sum(gradients_sqr, axis=np.arange(1, len(gradients_sqr.shape)))
@@ -53,9 +53,9 @@ class RandomWeightedAverage(Layer):
     return input_shape[0]
 
 class WGANGC:
-  AGREGATE_STAT_INTERVAL = 2_500 # Interval of saving data
-  RESET_SEEDS_INTERVAL = 20_000 # Interval of reseting seeds for random generators
-  CHECKPOINT_SAVE_INTERVAL = 5_000 # Interval of saving checkpoint
+  AGREGATE_STAT_INTERVAL = 1_000 # Interval of saving data
+  RESET_SEEDS_INTERVAL = 10_000 # Interval of reseting seeds for random generators
+  CHECKPOINT_SAVE_INTERVAL = 2_000 # Interval of saving checkpoint
 
   def __init__(self, dataset_path:str,
                gen_mod_name:str, critic_mod_name:str,
@@ -275,7 +275,7 @@ class WGANGC:
       if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
       np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
-    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 10)
+    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 50)
 
     # Save starting kernels and biases
     if not self.initiated:
@@ -320,9 +320,9 @@ class WGANGC:
 
         # Save stats
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, critic_loss=critic_loss, gen_loss=gen_loss)
+        self.tensorboard.update_stats(self.episode_counter, critic_loss=critic_loss[0], gen_loss=gen_loss)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[Critic loss: {round(float(critic_loss[0]), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
       # Save progress
       if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
