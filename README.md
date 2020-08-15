@@ -42,6 +42,9 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 ```
 
 ## Results
+##### SRGAN Results - (Upscaled by opencv, Original, Upscaled by SRGAN)
+Model without using bias (batch normalization "bias" is used instead) and without using spectral normalization \
+![SRGAN_image_1](images/srganResultImage1.png?raw=true)
 
 ## TODO
 - [x] Implement DCGAN
@@ -69,7 +72,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
-MAE loss is causing lot of artifacts and image distortions (like color shifting, "image bleedoff", etc) (example will be added) in results from SRGAN.
+MAE loss is causing lot of artifacts and image distortions (like color shifting, "image bleedoff", etc) in results from SRGAN.
 
 ## Resources
 ##### Basic DCGAN
