@@ -89,28 +89,3 @@ def mod_base_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_ini
   # (16*st_s, 16*st_s, 128) -> (16*st_s, 16*st_s, image_channels)
   m = Conv2D(image_channels, kernel_size=(3, 3), padding="same", activation="tanh", kernel_initializer=kernel_initializer, use_bias=False)(m)
   return m
-
-def mod_exp_4upscl(inp:Layer, image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
-  st_s = count_upscaling_start_size(image_shape, 4)
-
-  m = Dense(32 * st_s[0] * st_s[1], kernel_initializer=kernel_initializer, activation=None)(inp)
-  m = Activation("relu")(m)
-  m = Reshape((st_s[0], st_s[1], 32))(m)
-
-  m = Conv2D(filters=64, kernel_size=9, strides=1, padding="same", kernel_initializer=kernel_initializer, activation=None)(m)
-  m = PReLU(alpha_initializer='zeros', alpha_regularizer=None, alpha_constraint=None, shared_axes=[1, 2])(m)
-
-  skip = m
-
-  for _ in range(16):
-    m = res_block(m, 64, 3, 1, batch_norm=0.5, use_bias=False, kernel_initializer=kernel_initializer)
-
-  m = Conv2D(filters=64, kernel_size=3, strides=1, padding="same", kernel_initializer=kernel_initializer, use_bias=False, activation=None)(m)
-  m = BatchNormalization(momentum=0.5, axis=-1)(m)
-  m = Add()(inputs=[skip, m])
-
-  for _ in range(4):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, act="leaky", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=False, kernel_initializer=kernel_initializer)
-
-  m = Conv2D(filters=image_channels, kernel_size=9, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer, use_bias=False)(m)
-  return m
