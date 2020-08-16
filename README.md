@@ -59,8 +59,8 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 ## Used models
 ```
     Generator / Discriminator (Critic)
-1. mod_srgan_exp / mod_base_9_layers
-2. mod_srgan_exp_sn / mod_base_9_layers_sn
+1. mod_srgan_exp / mod_base_9layers
+2. mod_srgan_exp_sn / mod_base_9layers_sn
 ```
 
 ## TODO
