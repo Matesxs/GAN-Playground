@@ -8,20 +8,22 @@ from keras.initializers import RandomNormal
 from keras.utils import plot_model
 from keras.layers import Layer
 import keras.backend as K
-from tqdm import tqdm
 from PIL import Image
 import cv2 as cv
 import random
+import time
 from colorama import Fore
 from functools import partial
 from typing import Union
+from collections import deque
+from statistics import mean
 import imagesize
 from multiprocessing.pool import ThreadPool
 
 from modules.batch_maker import BatchMaker
 from modules.models import discriminator_models_spreadsheet, generator_models_spreadsheet
 from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
-from modules.helpers import get_paths_of_files_from_path
+from modules.helpers import time_to_format, get_paths_of_files_from_path
 
 # Custom loss function
 def wasserstein_loss(y_true, y_pred):
@@ -273,6 +275,8 @@ class WGANGC:
       if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
       np.save(f"{self.training_progress_save_path}/static_noise.npy", self.static_noise)
 
+    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 50)
+
     # Save starting kernels and biases
     if not self.initiated:
       self.__save_imgs(save_raw_progress_images)
@@ -280,7 +284,9 @@ class WGANGC:
       self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episodes" + Fore.RESET)
-    for _ in tqdm(range(target_episode), unit="ep"):
+    for _ in range(target_episode):
+      ep_start = time.time()
+
       ### Train Critic ###
       for _ in range(critic_train_multip):
         # Load image batch and generate new latent noise
@@ -316,7 +322,7 @@ class WGANGC:
         self.tensorboard.log_kernels_and_biases(self.generator)
         self.tensorboard.update_stats(self.episode_counter, critic_loss=critic_loss[0], gen_loss=gen_loss)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}\t\t[Critic loss: {round(float(critic_loss[0]), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[Critic loss: {round(float(critic_loss[0]), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
       # Save progress
       if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
@@ -334,6 +340,8 @@ class WGANGC:
       if self.episode_counter % self.RESET_SEEDS_INTERVAL == 0:
         np.random.seed(None)
         random.seed()
+
+      epochs_time_history.append(time.time() - ep_start)
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
