@@ -307,6 +307,7 @@ class WGANGC:
       # Save checkpoint
       if self.episode_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
         self.save_checkpoint()
+        print(Fore.BLUE + "Checkpoint created" + Fore.RESET)
 
       # Reset seeds
       if self.episode_counter % self.RESET_SEEDS_INTERVAL == 0:
