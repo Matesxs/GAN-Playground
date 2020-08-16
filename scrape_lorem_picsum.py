@@ -1,5 +1,6 @@
 from selenium.common.exceptions import NoSuchElementException
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 import requests
 import time
 import shutil
@@ -19,6 +20,9 @@ DELAY_AFTER_GETTING_URL = 5
 
 NUM_OF_DOWNLOAD_WORKERS = 1
 
+driver_opt = Options()
+driver_opt.add_argument("--headless")
+
 def download_image(img_url):
   img_stream = requests.get(img_url, stream=True)
   img_stream.raw.decode_content = True
@@ -36,7 +40,7 @@ def download_image(img_url):
 
 image_urls = []
 def worker(images_to_download):
-  driver = webdriver.Chrome(executable_path=PATH_TO_CHROME_DRIVER, service_log_path=os.devnull)
+  driver = webdriver.Chrome(executable_path=PATH_TO_CHROME_DRIVER, service_log_path=os.devnull, options=driver_opt)
 
   for _ in range(images_to_download) if NUM_OF_DOWNLOAD_WORKERS > 1 else tqdm(range(images_to_download)):
     try:
