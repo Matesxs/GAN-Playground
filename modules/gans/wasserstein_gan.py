@@ -61,12 +61,12 @@ class WGANGC:
                gen_mod_name:str, critic_mod_name:str,
                latent_dim:int,
                training_progress_save_path:str,
-               testing_dataset_path: str = None,
+               testing_dataset_path:str=None,
                generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
                batch_size:int=32, buffered_batches:int=20,
                generator_weights:Union[str, None]=None, critic_weights:Union[str, None]=None,
                critic_gradient_penalty_weight:float=10,
-               start_episode:int=0, load_from_checkpoint:bool= False,
+               start_episode:int=0, load_from_checkpoint:bool=False,
                check_dataset:bool=True):
 
     self.critic_mod_name = critic_mod_name
