@@ -10,7 +10,7 @@ START_EPISODE = 0
 NUM_OF_TRAINING_EPISODES = 500_000
 
 # Num of episodes after whitch progress image/s will be created to "track" progress of training
-PROGRESS_IMAGE_SAVE_INTERVAL = 1_000
+PROGRESS_IMAGE_SAVE_INTERVAL = 2_000
 # Num of episodes after whitch weights will be saved (Its not the same as checkpoint!)
 WEIGHTS_SAVE_INTERVAL = 5_000
 
@@ -21,9 +21,9 @@ BUFFERED_BATCHES = 100
 # Model settings
 # Latent dim is size of "tweakable" parameters fed to generator
 LATENT_DIM = 128
-GEN_MODEL = "mod_base_4upscl"
+GEN_MODEL = "mod_exp_4upscl"
 GEN_WEIGHTS = None
-DISC_MODEL = "mod_ext_5layers"
+DISC_MODEL = "mod_base_9layers"
 DICS_WEIGHTS = None
 
 

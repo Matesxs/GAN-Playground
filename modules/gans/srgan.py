@@ -11,14 +11,13 @@ from keras.engine.network import Network
 from keras.applications.vgg19 import VGG19, preprocess_input
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
-from statistics import mean
+from tqdm import tqdm
 from PIL import Image
 import numpy as np
 import cv2 as cv
 from collections import deque
 import json
 import random
-import time
 import imagesize
 from multiprocessing.pool import ThreadPool
 
@@ -26,7 +25,7 @@ from modules.models import upscaling_generator_models_spreadsheet, discriminator
 from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
 from modules.keras_extensions.custom_lrscheduler import LearningRateScheduler
 from modules.batch_maker import BatchMaker
-from modules.helpers import time_to_format, get_paths_of_files_from_path
+from modules.helpers import get_paths_of_files_from_path
 from settings import RESTORE_BEST_PNSR_MODELS_EPISODES
 
 # Calculate start image size based on final image size and number of upscales
@@ -81,10 +80,10 @@ class SRGAN:
                training_progress_save_path:str,
                testing_dataset_path:str=None,
                generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
-               generator_lr_schedule:Union[None, dict]=None, discriminator_lr_schedule:Union[None, dict]=None,
+               generator_lr_schedule:Union[dict, None]=None, discriminator_lr_schedule:Union[dict, None]=None,
                discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
                batch_size:int=4, testing_batch_size:int=32, buffered_batches:int=20,
-               generator_weights:Union[str, None, int]=None, discriminator_weights:Union[str, None, int]=None,
+               generator_weights:Union[str, None]=None, discriminator_weights:Union[str, None]=None,
                start_episode:int=0, load_from_checkpoint:bool=False,
                custom_hr_test_image_path:str=None, check_dataset:bool=True):
 
@@ -342,7 +341,6 @@ class SRGAN:
     target_episode = target_episode - self.episode_counter
     assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
-    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 50)
     training_state = "Standby"
 
     # Save starting kernels and biases
@@ -352,8 +350,7 @@ class SRGAN:
       self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
-    for _ in range(target_episode):
-      ep_start = time.time()
+    for _ in tqdm(range(target_episode), unit="ep"):
       if generator_train_episodes:
         if self.episode_counter < generator_train_episodes:
           if training_state != "Generator Training":
@@ -453,7 +450,7 @@ class SRGAN:
         self.tensorboard.log_kernels_and_biases(self.generator)
         self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=mean_stats[0], disc_real_loss=mean_stats[1], disc_fake_loss=mean_stats[2], gan_loss=mean_stats[5], gen_loss=mean_stats[3], pnsr_mean=mean_stats[4], pnsr_min=min_stats[4], pnsr_max=max_stats[4], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}, State: <{training_state}>\t\t[D Loss: {round(mean_stats[0], 5)}, D-R loss: {round(mean_stats[1], 5)}, D-F loss: {round(mean_stats[2], 5)}] [G loss: {round(mean_stats[3], 5)}, PNSR: [Min: {round(min_stats[4], 3)}db, Mean: {round(mean_stats[4], 3)}db, Max: {round(max_stats[4], 3)}db]] [GAN loss: {round(mean_stats[5], 5)}, Separated losses: {mean_stats[6:]}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, State: <{training_state}>\t\t[D Loss: {round(mean_stats[0], 5)}, D-R loss: {round(mean_stats[1], 5)}, D-F loss: {round(mean_stats[2], 5)}] [G loss: {round(mean_stats[3], 5)}, PNSR: [Min: {round(min_stats[4], 3)}db, Mean: {round(mean_stats[4], 3)}db, Max: {round(max_stats[4], 3)}db]] [GAN loss: {round(mean_stats[5], 5)}, Separated losses: {mean_stats[6:]}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
         if self.pnsr_record:
           print(Fore.GREEN + f"Actual PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 
@@ -490,8 +487,6 @@ class SRGAN:
         self.pnsr_record = None
         self.save_checkpoint()
         print(Fore.MAGENTA + "Best models weights restored and PNSR record restarted" + Fore.RESET)
-
-      epochs_time_history.append(time.time() - ep_start)
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
