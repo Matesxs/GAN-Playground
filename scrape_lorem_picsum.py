@@ -105,3 +105,5 @@ if __name__ == '__main__':
   all_images_paths = [os.path.join(SAVE_PATH, x) for x in os.listdir(SAVE_PATH)]
   print(f"In {SAVE_PATH} folder is {len(all_images_paths)} images")
   print(f"Added {len(image_urls) - len(duplicate_file_paths)} images")
+
+  if os.path.exists("debug.log"): os.remove("debug.log")
