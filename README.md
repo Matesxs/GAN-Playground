@@ -9,6 +9,7 @@
 * [Results](#results)
 * [TODO](#todo)
 * [Notes](#notes)
+* [Testing setup](#testing-setup)
 * [Resources](#resources)
 
 ## General info
@@ -77,6 +78,24 @@ Model using bias and spectral normalization \
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
 MAE loss is causing lot of artifacts and image distortions (like color shifting, "image bleedoff", etc) in results from SRGAN.
+
+## Testing setup
+```
+Hardware:
+    Processor: I7-9700KF 4.8GHz
+    RAM: HyperX Fury RGB 32GB (2x16GB) DDR4 3200MHz
+    GPU: GIGABYTE GeForce RTX 2080 SUPER 8G
+    SSD: Intel 660p M.2 2TB SSD NVMe
+
+Editor: PyCharm (always latest version)
+
+Important libraries:
+    tensorflow==2.2.0
+    keras==2.3.1
+    numpy==1.19.1
+
+These versions of libraries were tested for these scripts.
+```
 
 ## Resources
 ##### Basic DCGAN
