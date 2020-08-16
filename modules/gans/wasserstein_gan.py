@@ -61,7 +61,6 @@ class WGANGC:
                gen_mod_name:str, critic_mod_name:str,
                latent_dim:int,
                training_progress_save_path:str,
-               testing_dataset_path:str=None,
                generator_optimizer:Optimizer=RMSprop(0.00005), critic_optimizer:Optimizer=RMSprop(0.00005),
                batch_size:int=32, buffered_batches:int=20,
                generator_weights:Union[str, None]=None, critic_weights:Union[str, None]=None,
@@ -90,11 +89,6 @@ class WGANGC:
     # Create array of input image paths
     self.train_data = get_paths_of_files_from_path(dataset_path)
     assert self.train_data, Fore.RED + "Training dataset is not loaded" + Fore.RESET
-
-    self.testing_data = None
-    if testing_dataset_path:
-      self.testing_data = get_paths_of_files_from_path(testing_dataset_path)
-      assert self.testing_data, Fore.RED + "Testing dataset is not loaded" + Fore.RESET
 
     # Load one image to get shape of it
     tmp_image = cv.imread(self.train_data[0])
@@ -201,11 +195,6 @@ class WGANGC:
     self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches)
     self.batch_maker.start()
 
-    self.testing_batchmaker = None
-    if self.testing_data:
-      self.testing_batchmaker = BatchMaker(self.testing_data, self.batch_size, buffered_batches=buffered_batches)
-      self.testing_batchmaker.start()
-
     # Create some proprietary objects
     self.fake_labels = np.ones((self.batch_size, 1), dtype=np.float32)
     self.valid_labels = -self.fake_labels
@@ -223,10 +212,6 @@ class WGANGC:
     with ThreadPool(processes=8) as p:
       res = p.map(check_image, self.train_data)
       if not all(res): raise Exception("Inconsistent training dataset")
-
-      if self.testing_data:
-        res = p.map(check_image, self.testing_data)
-        if not all(res): raise Exception("Inconsistent testing dataset")
 
     print(Fore.BLUE + "Dataset valid" + Fore.RESET)
 
@@ -288,41 +273,28 @@ class WGANGC:
       ep_start = time.time()
 
       ### Train Critic ###
+      critic_loss = 0
       for _ in range(critic_train_multip):
         # Load image batch and generate new latent noise
         image_batch = self.batch_maker.get_batch()
         critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
 
-        self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
+        critic_loss += float(self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])[0])
+      critic_loss /= critic_train_multip
 
       ### Train Generator ###
       # Generate new latent noise
-      self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
+      gen_loss = self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
+      self.tensorboard.update_stats(self.episode_counter, critic_loss=critic_loss, gen_loss=gen_loss)
 
       # Show stats
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
-        if self.testing_batchmaker:
-          image_batch = self.testing_batchmaker.get_batch()
-        else:
-          image_batch = self.batch_maker.get_batch()
-        critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
-
-        self.critic.trainable = True
-        self.generator.trainable = False
-        critic_loss = self.combined_critic_model.test_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])
-
-        self.critic.trainable = False
-        self.generator.trainable = True
-        gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), self.valid_labels)
-
         # Save stats
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, critic_loss=critic_loss[0], gen_loss=gen_loss)
-
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[Critic loss: {round(float(critic_loss[0]), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
       # Save progress
       if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
@@ -345,12 +317,10 @@ class WGANGC:
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
-    if self.testing_batchmaker: self.testing_batchmaker.terminate = True
     self.batch_maker.terminate = True
     self.save_checkpoint()
     self.__save_weights()
     self.batch_maker.join()
-    if self.testing_batchmaker: self.testing_batchmaker.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
   # Function for saving progress images

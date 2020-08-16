@@ -2,8 +2,7 @@
 ### Settings of classic GANs ###
 ################################
 # Data source settings
-DATASET_PATH = "datasets/faces_normalized__128x128__train"
-TESTING_DATASET_PATH = "datasets/faces_normalized__128x128__test"
+DATASET_PATH = "datasets/faces_normalized__128x128"
 
 # Training settings
 START_EPISODE = 0

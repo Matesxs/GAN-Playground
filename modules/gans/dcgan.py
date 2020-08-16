@@ -118,7 +118,7 @@ class DCGAN:
     ###   Create discriminator    ###
     #################################
     self.discriminator = self.build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer, metrics=['accuracy'])
+    self.discriminator.compile(loss="binary_crossentropy", optimizer=discriminator_optimizer)
 
     #################################
     ###     Create generator      ###
@@ -310,8 +310,8 @@ class DCGAN:
         disc_fake_labels = noising_labels(disc_fake_labels, self.discriminator_label_noise / 2)
 
       self.discriminator.trainable = True
-      self.discriminator.train_on_batch(imgs, disc_real_labels)
-      self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
+      disc_real_loss = self.discriminator.train_on_batch(imgs, disc_real_labels)
+      disc_fake_loss = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
 
       ### Train Generator ###
       # Train generator (wants discriminator to recognize fake images as valid)
@@ -320,10 +320,11 @@ class DCGAN:
       else:
         gen_labels = np.ones(shape=(self.batch_size, 1))
       self.discriminator.trainable = False
-      self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), gen_labels)
+      gan_loss = self.combined_generator_model.train_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), gen_labels)
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
+      self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gan_loss=gan_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
@@ -334,33 +335,10 @@ class DCGAN:
 
       # Seve stats and print them to console
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
-        # Generate images for statistics
-        if self.testing_batchmaker:
-          imgs = self.testing_batchmaker.get_batch()
-        else:
-          imgs = self.batch_maker.get_batch()
-        gen_imgs = self.generator.predict(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)))
-
-        # Evaluate models state
-        disc_real_loss, disc_real_acc = self.discriminator.test_on_batch(imgs, np.ones(shape=(imgs.shape[0], 1)))
-        disc_fake_loss, disc_fake_acc = self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1)))
-        gen_loss = self.combined_generator_model.test_on_batch(np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim)), np.ones(shape=(self.batch_size, 1)))
-
-        # Convert accuracy to percents
-        disc_real_acc *= 100.0
-        disc_fake_acc *= 100.0
-
         self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_real_acc=disc_real_acc, disc_fake_loss=disc_fake_loss, disc_fake_acc=disc_fake_acc, gen_loss=gen_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
         # Change color of log according to state of training
-        if (disc_real_acc == 0 or disc_fake_acc == 0 or gen_loss > 10) and self.episode_counter > self.CONTROL_THRESHOLD:
-          print(Fore.RED + f"__FAIL__\n{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
-          if input("Do you want exit training?\n") == "y": return
-        elif (disc_real_acc < 20 or disc_fake_acc >= 100) and self.episode_counter > self.CONTROL_THRESHOLD:
-          print(Fore.YELLOW + f"!!Warning!!\n{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
-        else:
-          print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[D-R loss: {round(float(disc_real_loss), 5)}, D-R acc: {round(disc_real_acc, 2)}%, D-F loss: {round(float(disc_fake_loss), 5)}, D-F acc: {round(disc_fake_acc, 2)}%] [G loss: {round(float(gen_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[D-R loss: {round(float(disc_real_loss), 5)}, D-F loss: {round(float(disc_fake_loss), 5)}] [G loss: {round(float(gan_loss), 5)}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
 
       # Save progress
       if self.training_progress_save_path is not None and progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:

@@ -38,7 +38,7 @@ if __name__ == '__main__':
   try:
     gan_selection = int(input("Trainer selection\n0 - DCGAN\n1 - WGAN\n2 - SRGAN\nSelected trainer: "))
     if gan_selection == 0:
-      training_object = DCGAN(DATASET_PATH, testing_dataset_path=TESTING_DATASET_PATH, training_progress_save_path="training_data/dcgan",
+      training_object = DCGAN(DATASET_PATH, training_progress_save_path="training_data/dcgan",
                               batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
                               latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
                               generator_optimizer=optimizers.Adam(0.0001, 0.5), discriminator_optimizer=optimizers.Adam(0.0001, 0.5),
@@ -59,7 +59,7 @@ if __name__ == '__main__':
         if input("Continue? ") == "n": break
 
     elif gan_selection == 1:
-      training_object = WGANGC(DATASET_PATH, testing_dataset_path=TESTING_DATASET_PATH, training_progress_save_path="training_data/wgan",
+      training_object = WGANGC(DATASET_PATH, training_progress_save_path="training_data/wgan",
                                batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
                                latent_dim=LATENT_DIM, gen_mod_name=GEN_MODEL, critic_mod_name=DISC_MODEL,
                                generator_optimizer=optimizers.RMSprop(0.00005), critic_optimizer=optimizers.RMSprop(0.00005),  # Adam(0.0001, beta_1=0.5, beta_2=0.9), RMSprop(0.00005)
