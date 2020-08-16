@@ -56,9 +56,11 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 ![SRGAN_image_2](images/srganResultImage2.png?raw=true)
 
 ## Used models
-        Generator / Discriminator (Critic)
-    1. mod_srgan_exp / mod_base_9_layers
-    2. mod_srgan_exp_sn / mod_base_9_layers_sn
+```
+    Generator / Discriminator (Critic)
+1. mod_srgan_exp / mod_base_9_layers
+2. mod_srgan_exp_sn / mod_base_9_layers_sn
+```
 
 ## TODO
 - [x] Implement DCGAN
