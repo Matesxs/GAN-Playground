@@ -7,6 +7,7 @@
 * [Usage](#usage)
 * [Utility](#utility)
 * [Results](#results)
+* [Used models](#used-models)
 * [TODO](#todo)
 * [Notes](#notes)
 * [Testing setup](#testing-setup)
