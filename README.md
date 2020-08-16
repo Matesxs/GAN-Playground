@@ -33,6 +33,8 @@ After training use
 1) python generate_images.py for DCGAN and WGAN
 2) python upscale_images.py for SRGAN
 (These scripts still needs tweaking because settings for them are hardcoded in them)
+
+Note: These scripts are still in progress of making, some of them may not work!
 ```
 
 ## Utility
@@ -68,13 +70,9 @@ Model using bias and spectral normalization \
 - [ ] Optimize training loop of SRGAN (Too much time is spending of testing performance)
 - [x] Implement custom batch maker
 - [ ] Optimize batch maker to use generator class from keras
-- [ ] Optimize preprocessing dataset (Too slow)
+- [x] Optimize preprocessing dataset (Too slow)
 - [ ] Test difference between models with conv2 layers with enabled and disabled bias
-- [x] Add sources to this readme
 - [ ] Optimize interface scripts with more acessible settings
-- [ ] Publish DCGAN results
-- [ ] Publish WGAN results
-- [ ] Publish SRGAN results
 
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
