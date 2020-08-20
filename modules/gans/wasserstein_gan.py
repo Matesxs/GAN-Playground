@@ -54,8 +54,8 @@ class RandomWeightedAverage(Layer):
 
 class WGANGC:
   AGREGATE_STAT_INTERVAL = 1_000 # Interval of saving data
-  RESET_SEEDS_INTERVAL = 10_000 # Interval of reseting seeds for random generators
-  CHECKPOINT_SAVE_INTERVAL = 1_000 # Interval of saving checkpoint
+  RESET_SEEDS_INTERVAL = 5_000 # Interval of reseting seeds for random generators
+  CHECKPOINT_SAVE_INTERVAL = 500 # Interval of saving checkpoint
 
   def __init__(self, dataset_path:str,
                gen_mod_name:str, critic_mod_name:str,
@@ -83,7 +83,7 @@ class WGANGC:
 
     # Initialize training data folder and logging
     self.training_progress_save_path = training_progress_save_path
-    self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.critic_mod_name}")
+    self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.critic_mod_name}__{self.latent_dim}")
     self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
     # Create array of input image paths
@@ -128,7 +128,8 @@ class WGANGC:
 
     # Create frozen version of critic
     self.critic.trainable = False
-    self.generator.trainable = True
+    for layer in self.critic.layers:
+      layer.trainable = False
 
     # Generate images and evaluate them
     generated_images = self.generator(gen_latent_input)
@@ -148,7 +149,12 @@ class WGANGC:
 
     # Create frozen version of generator
     self.critic.trainable = True
+    for layer in self.critic.layers:
+      layer.trainable = True
+
     self.generator.trainable = False
+    for layer in self.generator.layers:
+      layer.trainable = False
 
     # Create fake image input (internal)
     generated_images_for_critic = self.generator(critic_latent_input)
@@ -178,10 +184,10 @@ class WGANGC:
                                        loss_weights=[1, 1, critic_gradient_penalty_weight])
 
     # Summary of combined models
-    print("\nCombined Generator Summary:")
-    self.combined_generator_model.summary()
-    print("\nCombined Critic Summary:")
-    self.combined_critic_model.summary()
+    print("\nGenerator Summary:")
+    self.generator.summary()
+    print("\nCritic Summary:")
+    self.critic.summary()
 
     # Load checkpoint
     self.initiated = False
@@ -197,7 +203,7 @@ class WGANGC:
 
     # Create some proprietary objects
     self.fake_labels = np.ones((self.batch_size, 1), dtype=np.float32)
-    self.valid_labels = -self.fake_labels
+    self.valid_labels = -np.ones((self.batch_size, 1), dtype=np.float32)
     self.gradient_labels = np.zeros((self.batch_size, 1), dtype=np.float32)
 
   # Check if datasets have consistent shapes
@@ -277,7 +283,7 @@ class WGANGC:
       for _ in range(critic_train_multip):
         # Load image batch and generate new latent noise
         image_batch = self.batch_maker.get_batch()
-        critic_noise_batch = np.random.normal(0.0, 1.0, (self.batch_size, self.latent_dim))
+        critic_noise_batch = np.random.normal(0, 1, (self.batch_size, self.latent_dim))
 
         critic_loss += float(self.combined_critic_model.train_on_batch([image_batch, critic_noise_batch], [self.valid_labels, self.fake_labels, self.gradient_labels])[0])
       critic_loss /= critic_train_multip

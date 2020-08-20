@@ -14,9 +14,9 @@
 * [Resources](#resources)
 
 ## General info
-This project contains documented code for DCGAN, WGAN and SRGAN.
-GAN and WGAN are for creating new unique images from latent vector.
-Sometimes somebody could refed to it as noise but in general its more like settings values.
+This project contains documented code for DCGAN, WGAN and SRGAN. \
+GAN and WGAN are for creating new unique images from latent vector. \
+Sometimes somebody could refed to it as noise but in general its more like settings values. \
 SRGAN is more useful GAN, its purpose is to upscale image from low to higher resolution.
 
 ## Setup
@@ -120,6 +120,7 @@ https://arxiv.org/pdf/1704.00028.pdf
 https://github.com/LuEE-C/WGAN-GP-with-keras-for-text/blob/master/Exploration/GenerativeAdverserialWGAN-GP.py \
 https://github.com/kongyanye/cwgan-gp \
 https://github.com/keras-team/keras-contrib/blob/master/examples/improved_wgan.py \
+https://github.com/eriklindernoren/Keras-GAN/blob/master/wgan_gp/wgan_gp.py \
 https://github.com/keras-team/keras/issues/8585 \
 Note: Some of these concepts were used in my implementation of my WGAN
 <br/>

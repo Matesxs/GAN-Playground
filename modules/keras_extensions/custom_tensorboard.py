@@ -9,15 +9,15 @@ class TensorBoardCustom(Callback):
   def __init__(self, log_dir):
     super().__init__()
     self.step = 0
-    self.log_dir = log_dir
-    self.writer = None
+    self.__log_dir = log_dir
+    self.__writer = None
 
-    if not os.path.exists(self.log_dir): os.makedirs(self.log_dir)
+    if not os.path.exists(self.__log_dir): os.makedirs(self.__log_dir)
 
   def __del__(self):
     try:
-      if self.writer:
-        self.writer.close()
+      if self.__writer:
+        self.__writer.close()
     except:
       pass
 
@@ -25,19 +25,19 @@ class TensorBoardCustom(Callback):
     pass
 
   def init_writer_check(self):
-    if not self.writer:
-      self.writer = tf.summary.create_file_writer(self.log_dir)
+    if not self.__writer:
+      self.__writer = tf.summary.create_file_writer(self.__log_dir)
 
   def log_kernels_and_biases(self, model:keras.Model):
     self.init_writer_check()
 
-    with self.writer.as_default():
+    with self.__writer.as_default():
       for layer in model.layers:
         for weight in layer.weights:
           weight_name = weight.name.replace(':', '_')
           weight = K.get_value(weight)
           tf.summary.histogram(weight_name, weight, step=self.step)
-    self.writer.flush()
+    self.__writer.flush()
 
   def update_stats(self, step, **stats):
     self._write_logs(stats, step)
@@ -47,21 +47,17 @@ class TensorBoardCustom(Callback):
   def _write_logs(self, logs, index):
     self.init_writer_check()
 
-    with self.writer.as_default():
+    with self.__writer.as_default():
       for name, value in logs.items():
         if name in ['batch', 'size']:
           continue
 
-        if "actions" in name:
-          for action in value.keys():
-            tf.summary.scalar(f"A_{action}", value[action], step=index)
-        else:
-          tf.summary.scalar(name, value, step=index)
-    self.writer.flush()
+        tf.summary.scalar(name, value, step=index)
+    self.__writer.flush()
 
   def write_image(self, image:np.ndarray):
     self.init_writer_check()
 
-    with self.writer.as_default():
+    with self.__writer.as_default():
       tf.summary.image("progress", image, step=self.step)
-    self.writer.flush()
+    self.__writer.flush()

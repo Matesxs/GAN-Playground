@@ -23,7 +23,7 @@ def SubpixelConv2D(scale=2):
     return tf.nn.depth_to_space(x, scale)
 
   subpixel_index += 1
-  return Lambda(subpixel, output_shape=subpixel_shape, name=f"cubpixel_conv2d_{subpixel_index}")
+  return Lambda(subpixel, output_shape=subpixel_shape, name=f"subpixel_conv2d_{subpixel_index}")
 
 def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, use_subpixel_conv2d:bool=False, act:Union[str, None]="leaky", upsample_first:bool=True, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert filters > 0, "Invalid filter number"

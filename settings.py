@@ -2,16 +2,16 @@
 ### Settings of classic GANs ###
 ################################
 # Data source settings
-DATASET_PATH = "datasets/faces_normalized__128x128"
+DATASET_PATH = "datasets/faces_normalized__64x64"
 
 # Training settings
 START_EPISODE = 0
-NUM_OF_TRAINING_EPISODES = 500_000
+NUM_OF_TRAINING_EPISODES = 300_000
 
 # Num of episodes after whitch progress image/s will be created to "track" progress of training
-PROGRESS_IMAGE_SAVE_INTERVAL = 1_000
+PROGRESS_IMAGE_SAVE_INTERVAL = 500
 # Num of episodes after whitch weights will be saved (Its not the same as checkpoint!)
-WEIGHTS_SAVE_INTERVAL = 5_000
+WEIGHTS_SAVE_INTERVAL = 2_500
 
 BATCH_SIZE = 32
 # Num of batches preloaded in buffer
@@ -20,9 +20,9 @@ BUFFERED_BATCHES = 100
 # Model settings
 # Latent dim is size of "tweakable" parameters fed to generator
 LATENT_DIM = 128
-GEN_MODEL = "mod_base_3upscl"
+GEN_MODEL = "mod_testing3"
 GEN_WEIGHTS = None
-DISC_MODEL = "mod_base_5layers"
+DISC_MODEL = "mod_testing8"
 DICS_WEIGHTS = None
 
 
