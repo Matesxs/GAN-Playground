@@ -1,9 +1,11 @@
+from typing import Union
 from keras.initializers import Initializer, RandomNormal
 from keras.layers import Layer, BatchNormalization, Conv2D, PReLU, Add, Lambda
+from tensorflow import Tensor
 
 from modules.models.custom_layers import deconv_layer, res_block, RRDB, conv_layer
 
-def mod_srgan_base(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def mod_srgan_base(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_upscales:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   m = Conv2D(filters=64, kernel_size=9, strides=1, padding="same", kernel_initializer=kernel_initializer, input_shape=start_image_shape, activation=None)(inp)
   m = PReLU(alpha_initializer='zeros', alpha_regularizer=None, alpha_constraint=None, shared_axes=[1,2])(m)
 
@@ -22,12 +24,12 @@ def mod_srgan_base(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kern
   m = Conv2D(filters=start_image_shape[2], kernel_size=9, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer, use_bias=False)(m)
   return m
 
-def mod_srgan_exp(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def mod_srgan_exp(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_upscales:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   m = conv_layer(inp, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, kernel_initializer=kernel_initializer)
 
   skip = m
 
-  m = RRDB(m, 64, kernel_size=3, batch_norm=None, use_bias=True, kernel_initializer=kernel_initializer)
+  m = RRDB(m, filters=64, kernel_size=3, batch_norm=None, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, kernel_initializer=kernel_initializer)
   m = Lambda(lambda x: x * 0.2)(m)
@@ -41,12 +43,12 @@ def mod_srgan_exp(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kerne
   m = Conv2D(filters=start_image_shape[2], kernel_size=3, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
   return m
 
-def mod_srgan_exp_sn(inp:Layer, start_image_shape:tuple, num_of_upscales:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def mod_srgan_exp_sn(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_upscales:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   m = conv_layer(inp, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
 
   skip = m
 
-  m = RRDB(m, 64, kernel_size=3, batch_norm=None, use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
+  m = RRDB(m, filters=64, kernel_size=3, batch_norm=None, use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
   m = Lambda(lambda x: x * 0.2)(m)

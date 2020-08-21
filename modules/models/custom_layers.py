@@ -25,7 +25,7 @@ def SubpixelConv2D(scale=2):
   subpixel_index += 1
   return Lambda(subpixel, output_shape=subpixel_shape, name=f"subpixel_conv2d_{subpixel_index}")
 
-def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, use_subpixel_conv2d:bool=False, act:Union[str, None]="leaky", upsample_first:bool=True, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def deconv_layer(inp:Union[Layer, tf.Tensor], filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, use_subpixel_conv2d:bool=False, act:Union[str, None]="leaky", upsample_first:bool=True, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert filters > 0, "Invalid filter number"
   assert kernel_size > 0, "Invalid kernel size"
   assert strides > 0, "Invalid stride size"
@@ -63,7 +63,7 @@ def deconv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropo
 
   return x
 
-def conv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, act:Union[str, None]="leaky", use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def conv_layer(inp:Union[Layer, tf.Tensor], filters:int, kernel_size:int=3, strides:int=2, dropout:float=None, batch_norm:Union[float, None]=None, act:Union[str, None]="leaky", use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert filters > 0, "Invalid filter number"
   assert kernel_size > 0, "Invalid kernel size"
   assert strides > 0, "Invalid stride size"
@@ -81,7 +81,7 @@ def conv_layer(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, dropout
 
   return x
 
-def res_block(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, batch_norm:Union[float, None]=0.5, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def res_block(inp:Union[Layer, tf.Tensor], filters:int, kernel_size:int=3, strides:int=2, batch_norm:Union[float, None]=0.5, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert filters > 0, "Invalid filter number"
   assert kernel_size > 0, "Invalid kernel size"
   assert strides > 0, "Invalid stride size"
@@ -92,20 +92,24 @@ def res_block(inp:Layer, filters:int, kernel_size:int=3, strides:int=2, batch_no
     model = ConvSN2D(filters, kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer, use_bias=use_bias, activation=None)(inp)
   else:
     model = Conv2D(filters, kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer, use_bias=use_bias, activation=None)(inp)
-  model = BatchNormalization(momentum=batch_norm, axis=-1)(model)
+
+  if batch_norm:
+    model = BatchNormalization(momentum=batch_norm, axis=-1)(model)
 
   model = PReLU(alpha_initializer='zeros', alpha_regularizer=None, alpha_constraint=None, shared_axes=[1, 2])(model)
   if use_sn:
     model = ConvSN2D(filters, kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer, use_bias=use_bias, activation=None)(model)
   else:
     model = Conv2D(filters, kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer, use_bias=use_bias, activation=None)(model)
-  model = BatchNormalization(momentum=batch_norm, axis=-1)(model)
+
+  if batch_norm:
+    model = BatchNormalization(momentum=batch_norm, axis=-1)(model)
 
   model = Add()(inputs=[gen, model])
 
   return model
 
-def RRDB(inp, filters:int=64, kernel_size:int=3, batch_norm:Union[float, None]=None, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def RRDB(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, batch_norm:Union[float, None]=None, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   def dense_block(inp):
     if use_sn:
       x1 = ConvSN2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(inp)

@@ -20,7 +20,7 @@ BUFFERED_BATCHES = 100
 # Model settings
 # Latent dim is size of "tweakable" parameters fed to generator
 LATENT_DIM = 128
-GEN_MODEL = "mod_testing3"
+GEN_MODEL = "mod_testing6"
 GEN_WEIGHTS = None
 DISC_MODEL = "mod_testing8"
 DICS_WEIGHTS = None

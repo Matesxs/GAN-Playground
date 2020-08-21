@@ -168,8 +168,7 @@ class WGANGC:
     validity_interpolated = self.critic(averaged_samples)
 
     # Create partial gradient penalty loss function
-    partial_gp_loss = partial(gradient_penalty_loss,
-                              averaged_samples=averaged_samples)
+    partial_gp_loss = partial(gradient_penalty_loss, averaged_samples=averaged_samples)
     partial_gp_loss.__name__ = 'gradient_penalty'
 
     self.combined_critic_model = Model(inputs=[real_image_input, critic_latent_input],
