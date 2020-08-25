@@ -5,6 +5,9 @@ import keras.backend as K
 import numpy as np
 import os
 
+# Based on ModifiedTensorBoard from Sendex (https://pythonprogramming.net)
+# https://pythonprogramming.net/reinforcement-learning-self-driving-autonomous-cars-carla-python/ (original code)
+
 class TensorBoardCustom(Callback):
   def __init__(self, log_dir):
     super().__init__()
