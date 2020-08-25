@@ -1,4 +1,4 @@
-# GAN Testing Playground
+# GAN Testing Playground (WIP)
 #### Project about testing techniques about training GANs and their stability
 
 ## Table of contents
@@ -9,6 +9,7 @@
 * [Results](#results)
 * [Used models](#used-models)
 * [TODO](#todo)
+* [Current tasks](#current-tasks)
 * [Notes](#notes)
 * [Testing setup](#testing-setup)
 * [Resources](#resources)
@@ -67,9 +68,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [x] Implement DCGAN
 - [x] Implement WGAN
 - [x] Implement SRGAN
-- [ ] Test stability of DCGAN
-- [ ] Test stability of WGAN
-- [x] Test stability of SRGAN
+- [ ] Implement StyleGAN
 - [x] Implement custom Tensorboard for logging stats
 - [x] Implement learning rate scheduler
 - [x] Implement spectral normalization layer
@@ -80,8 +79,15 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [x] Implement custom batch maker
 - [ ] Optimize batch maker to use generator class from keras
 - [x] Optimize preprocessing dataset (Too slow)
-- [ ] Test difference between models with conv2 layers with enabled and disabled bias
 - [ ] Optimize interface scripts with more acessible settings
+
+## Current tasks
+```
+- Testing best working model pairs for WGAN
+- Optimizations of SRGAN
+- Better interface scripts
+- Refactoring
+```
 
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
