@@ -40,7 +40,7 @@ class DCGAN:
                batch_size: int = 32, buffered_batches:int=20,
                generator_weights:Union[str, None]=None, discriminator_weights:Union[str, None]=None,
                start_episode:int=0, load_from_checkpoint:bool=False,
-               check_dataset:bool=True):
+               check_dataset:bool=True, num_of_loading_workers:int=8):
 
     self.disc_mod_name = disc_mod_name
     self.gen_mod_name = gen_mod_name
@@ -106,12 +106,12 @@ class DCGAN:
       loaded_gen_weights_path, loaded_disc_weights_path = self.load_checkpoint()
 
     # Create batchmaker and start it
-    self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches)
+    self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, num_of_loading_workers=num_of_loading_workers)
     self.batch_maker.start()
 
     self.testing_batchmaker = None
     if self.testing_data:
-      self.testing_batchmaker = BatchMaker(self.testing_data, self.batch_size, buffered_batches=buffered_batches)
+      self.testing_batchmaker = BatchMaker(self.testing_data, self.batch_size, buffered_batches=buffered_batches, num_of_loading_workers=num_of_loading_workers)
       self.testing_batchmaker.start()
 
     #################################

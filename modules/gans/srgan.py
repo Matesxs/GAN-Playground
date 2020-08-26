@@ -27,7 +27,7 @@ from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
 from modules.keras_extensions.custom_lrscheduler import LearningRateScheduler
 from modules.batch_maker import BatchMaker
 from modules.helpers import time_to_format, get_paths_of_files_from_path
-from settings import RESTORE_BEST_PNSR_MODELS_EPISODES
+from settings.srgan import RESTORE_BEST_PNSR_MODELS_EPISODES
 
 # Calculate start image size based on final image size and number of upscales
 def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
@@ -86,7 +86,7 @@ class SRGAN:
                batch_size:int=4, testing_batch_size:int=32, buffered_batches:int=20,
                generator_weights:Union[str, None]=None, discriminator_weights:Union[str, None]=None,
                start_episode:int=0, load_from_checkpoint:bool=False,
-               custom_hr_test_image_path:str=None, check_dataset:bool=True):
+               custom_hr_test_image_path:str=None, check_dataset:bool=True, num_of_loading_workers:int=8):
 
     self.disc_mod_name = disc_mod_name
     self.gen_mod_name = gen_mod_name
@@ -141,12 +141,12 @@ class SRGAN:
       self.progress_test_image_path = random.choice(self.train_data)
 
     # Create batchmaker and start it
-    self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
+    self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape, num_of_loading_workers=num_of_loading_workers)
     self.batch_maker.start()
 
     self.testing_batchmaker = None
     if self.testing_data:
-      self.testing_batchmaker = BatchMaker(self.testing_data, self.testing_batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape)
+      self.testing_batchmaker = BatchMaker(self.testing_data, self.testing_batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape, num_of_loading_workers=num_of_loading_workers)
       self.testing_batchmaker.start()
 
     # Create LR Schedulers for both "Optimizer"

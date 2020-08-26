@@ -66,7 +66,7 @@ class WGANGC:
                generator_weights:Union[str, None]=None, critic_weights:Union[str, None]=None,
                critic_gradient_penalty_weight:float=10,
                start_episode:int=0, load_from_checkpoint:bool=False,
-               check_dataset:bool=True):
+               check_dataset:bool=True, num_of_loading_workers:int=8):
 
     self.critic_mod_name = critic_mod_name
     self.gen_mod_name = gen_mod_name
@@ -197,7 +197,7 @@ class WGANGC:
     if generator_weights: self.generator.load_weights(generator_weights)
 
     # Create batchmaker and start it
-    self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches)
+    self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, num_of_loading_workers=num_of_loading_workers)
     self.batch_maker.start()
 
     # Create some proprietary objects

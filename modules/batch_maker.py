@@ -7,10 +7,8 @@ import cv2 as cv
 import time
 from colorama import Fore
 
-from settings import NUM_OF_LOADING_WORKERS
-
 class BatchMaker(Thread):
-  def __init__(self, train_data:list, batch_size:int, buffered_batches:int=5, secondary_size:tuple=None, missing_threshold_perc:float=0.2):
+  def __init__(self, train_data:list, batch_size:int, buffered_batches:int=5, secondary_size:tuple=None, missing_threshold_perc:float=0.2, num_of_loading_workers:int=8):
     super().__init__()
     self.daemon = True
 
@@ -31,7 +29,7 @@ class BatchMaker(Thread):
 
     self.__index = 0
     self.__max_index = (self.__data_length // self.__batch_size) - 2
-    self.__worker_pool = ThreadPool(processes=NUM_OF_LOADING_WORKERS)
+    self.__worker_pool = ThreadPool(processes=num_of_loading_workers)
 
     self.__lock = False
     self.__lock_confirm = False
