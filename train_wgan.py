@@ -26,7 +26,7 @@ if gpus:
 
 from keras import optimizers
 from modules.gans.wasserstein_gan import WGANGC
-from settings.wgan import *
+from settings.wgan_settings import *
 
 if __name__ == '__main__':
   training_object = None

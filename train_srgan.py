@@ -26,7 +26,7 @@ if gpus:
 
 from keras import optimizers
 from modules.gans.srgan import SRGAN
-from settings.srgan import *
+from settings.srgan_settings import *
 
 if __name__ == '__main__':
   training_object = None

@@ -26,7 +26,7 @@ if gpus:
 
 from keras import optimizers
 from modules.gans.dcgan import DCGAN
-from settings.dcgan import *
+from settings.dcgan_settings import *
 
 if __name__ == '__main__':
   training_object = None
