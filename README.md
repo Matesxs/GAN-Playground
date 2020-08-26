@@ -78,6 +78,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [ ] Optimize batch maker to use generator class from keras
 - [x] Optimize preprocessing dataset (Too slow)
 - [ ] Optimize interface scripts with more acessible settings
+- [ ] Retrain all SRGAN models with single test image with same train settings to properly test them
 
 ## Current tasks
 ```

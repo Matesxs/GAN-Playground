@@ -43,9 +43,9 @@ BUFFERED_BATCHES = 100
 # Model settings
 # Number of doubling resolution
 NUM_OF_UPSCALES = 2
-GEN_MODEL = "mod_srgan_exp_sn"
+GEN_MODEL = "mod_srgan_base"
 GEN_WEIGHTS = None
-DISC_MODEL = "mod_base_9layers_sn"
+DISC_MODEL = "mod_base_9layers"
 DICS_WEIGHTS = None
 
 # Saving settings
