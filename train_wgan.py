@@ -31,7 +31,7 @@ from settings.wgan_settings import *
 if __name__ == '__main__':
   training_object = None
   if not os.path.exists("training_data"): os.makedirs("training_data")
-  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data --samples_per_plugin=images=200", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data --samples_per_plugin=images=500", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   try:
     training_object = WGANGC(DATASET_PATH, training_progress_save_path="training_data/wgan",
