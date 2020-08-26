@@ -27,7 +27,7 @@ from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
 from modules.keras_extensions.custom_lrscheduler import LearningRateScheduler
 from modules.batch_maker import BatchMaker
 from modules.helpers import time_to_format, get_paths_of_files_from_path
-from settings.srgan import RESTORE_BEST_PNSR_MODELS_EPISODES
+from settings.srgan_settings import RESTORE_BEST_PNSR_MODELS_EPISODES
 
 # Calculate start image size based on final image size and number of upscales
 def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
@@ -64,7 +64,7 @@ def PSNR(y_true, y_pred):
   """
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
-GAN_LOSS = losses.Huber(delta=0.3)
+GAN_LOSS = "mse" # losses.Huber(delta=0.3)
 DISC_LOSS = "binary_crossentropy"
 
 # GAN, percept (vgg)
