@@ -27,7 +27,7 @@ pip install -r requirements.txt
 
 ## Usage
 ```
-Adjust settings in settings.py
+Adjust settings in settings/****_settings.py
 Download some datasets and place them in dataset directory (Or in directory you set in settings.py)
 python preprocess_dataset.py
 python train_****.py
