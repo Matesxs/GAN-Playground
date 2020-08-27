@@ -27,7 +27,7 @@ from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
 from modules.keras_extensions.custom_lrscheduler import LearningRateScheduler
 from modules.batch_maker import BatchMaker
 from modules.helpers import time_to_format, get_paths_of_files_from_path
-from settings.srgan import RESTORE_BEST_PNSR_MODELS_EPISODES
+from settings.srgan_settings import RESTORE_BEST_PNSR_MODELS_EPISODES
 
 # Calculate start image size based on final image size and number of upscales
 def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
@@ -64,7 +64,7 @@ def PSNR(y_true, y_pred):
   """
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
-GAN_LOSS = losses.Huber(delta=0.3)
+GAN_LOSS = "mse" # losses.Huber(delta=0.3)
 DISC_LOSS = "binary_crossentropy"
 
 # GAN, percept (vgg)
@@ -86,7 +86,7 @@ class SRGAN:
                batch_size:int=4, testing_batch_size:int=32, buffered_batches:int=20,
                generator_weights:Union[str, None]=None, discriminator_weights:Union[str, None]=None,
                start_episode:int=0, load_from_checkpoint:bool=False,
-               custom_hr_test_image_path:str=None, check_dataset:bool=True, num_of_loading_workers:int=8):
+               custom_hr_test_images_paths:list=None, check_dataset:bool=True, num_of_loading_workers:int=8):
 
     self.disc_mod_name = disc_mod_name
     self.gen_mod_name = gen_mod_name
@@ -134,11 +134,11 @@ class SRGAN:
 
     # Define static vars
     self.kernel_initializer = RandomNormal(stddev=0.02)
-    self.custom_hr_test_image_path = custom_hr_test_image_path
-    if custom_hr_test_image_path and os.path.exists(custom_hr_test_image_path):
-      self.progress_test_image_path = custom_hr_test_image_path
+    self.custom_hr_test_images_paths = custom_hr_test_images_paths
+    if custom_hr_test_images_paths and all([os.path.exists(p) for p in custom_hr_test_images_paths]):
+      self.progress_test_images_paths = custom_hr_test_images_paths
     else:
-      self.progress_test_image_path = random.choice(self.train_data)
+      self.progress_test_images_paths = [random.choice(self.train_data)]
 
     # Create batchmaker and start it
     self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape, num_of_loading_workers=num_of_loading_workers)
@@ -354,25 +354,23 @@ class SRGAN:
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
     for _ in range(target_episode):
       ep_start = time.time()
-      if generator_train_episodes:
-        if self.episode_counter < generator_train_episodes:
-          if training_state != "Generator Training":
-            print(Fore.BLUE + "Starting generator training" + Fore.RESET)
-            training_state = "Generator Training"
+      if generator_train_episodes and (self.episode_counter < generator_train_episodes):
+        if training_state != "Generator Training":
+          print(Fore.BLUE + "Starting generator training" + Fore.RESET)
+          training_state = "Generator Training"
 
-          # Pretrain generator
-          self.__train_generator()
+        # Pretrain generator
+        self.__train_generator()
 
-      if discriminator_train_episodes:
-        if (discriminator_train_episodes + (generator_train_episodes if generator_train_episodes else 0)) > self.episode_counter >= (generator_train_episodes if generator_train_episodes else 0):
-          if training_state != "Discriminator Training":
-            print(Fore.BLUE + "Starting discriminator training" + Fore.RESET)
-            training_state = "Discriminator Training"
+      elif discriminator_train_episodes and (discriminator_train_episodes + (generator_train_episodes if generator_train_episodes else 0)) > self.episode_counter >= (generator_train_episodes if generator_train_episodes else 0):
+        if training_state != "Discriminator Training":
+          print(Fore.BLUE + "Starting discriminator training" + Fore.RESET)
+          training_state = "Discriminator Training"
 
-          # Pretrain discriminator
-          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+        # Pretrain discriminator
+        self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
 
-      if self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
+      elif self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         if training_state != "GAN Training":
           if (training_state != "Standby") and self.pnsr_record:
             print(Fore.MAGENTA + "Reseting PNSR record" + Fore.RESET)
@@ -507,27 +505,35 @@ class SRGAN:
 
   def __save_img(self, save_raw_progress_images:bool=True):
     if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
-    if not os.path.exists(self.progress_test_image_path):
-      print(Fore.YELLOW + "Test image doesnt exist anymore, choosing new one" + Fore.RESET)
-      self.progress_test_image_path = random.choice(self.train_data)
-      self.save_checkpoint()
 
-    # Load image for upscale and resize it to starting (small) image size
-    original_image = cv.imread(self.progress_test_image_path)
-    small_image = cv.resize(original_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
+    final_image = np.zeros(shape=(self.target_image_shape[0] * len(self.progress_test_images_paths), self.target_image_shape[1] * 3, self.target_image_shape[2])).astype(np.float32)
 
-    # Conver image to RGB colors and upscale it
-    gen_img = self.generator.predict(np.array([cv.cvtColor(small_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0]))[0]
+    for idx, test_image_path in enumerate(self.progress_test_images_paths):
+      if not os.path.exists(test_image_path):
+        print(Fore.YELLOW + f"Failed to locate test image: {test_image_path}, replacing it with new one!" + Fore.RESET)
+        self.progress_test_images_paths[idx] = random.choice(self.train_data)
+        self.save_checkpoint()
 
-    # Rescale images 0 to 255
-    gen_img = (0.5 * gen_img + 0.5) * 255
-    gen_img = cv.cvtColor(gen_img, cv.COLOR_RGB2BGR)
+      # Load image for upscale and resize it to starting (small) image size
+      original_unscaled_image = cv.imread(test_image_path)
+      # print(f"[DEBUG] {original_unscaled_image.shape}, {self.target_image_shape}")
+      if original_unscaled_image.shape != self.target_image_shape:
+        original_image = cv.resize(original_unscaled_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_unscaled_image.shape[0] > self.start_image_shape[0] and original_unscaled_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
+      else:
+        original_image = original_unscaled_image
+      small_image = cv.resize(original_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
 
-    # Place side by side image resized by opencv, original (large) image and upscaled by gan
-    final_image = np.zeros(shape=(gen_img.shape[0], gen_img.shape[1] * 3, gen_img.shape[2])).astype(np.float32)
-    final_image[:, 0:gen_img.shape[0], :] = cv.resize(small_image, dsize=(self.target_image_shape[0], self.target_image_shape[1]), interpolation=(cv.INTER_AREA if (small_image.shape[0] > self.target_image_shape[0] and small_image.shape[1] > self.target_image_shape[1]) else cv.INTER_CUBIC))
-    final_image[:, gen_img.shape[0]:gen_img.shape[0] * 2, :] = original_image
-    final_image[:, gen_img.shape[0] * 2:gen_img.shape[0] * 3, :] = gen_img
+      # Conver image to RGB colors and upscale it
+      gen_img = self.generator.predict(np.array([cv.cvtColor(small_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0]))[0]
+
+      # Rescale images 0 to 255
+      gen_img = (0.5 * gen_img + 0.5) * 255
+      gen_img = cv.cvtColor(gen_img, cv.COLOR_RGB2BGR)
+
+      # Place side by side image resized by opencv, original (large) image and upscaled by gan
+      final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], 0:gen_img.shape[0], :] = cv.resize(small_image, dsize=(self.target_image_shape[0], self.target_image_shape[1]), interpolation=(cv.INTER_AREA if (small_image.shape[0] > self.target_image_shape[0] and small_image.shape[1] > self.target_image_shape[1]) else cv.INTER_CUBIC))
+      final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], gen_img.shape[0]:gen_img.shape[0] * 2, :] = original_image
+      final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], gen_img.shape[0] * 2:gen_img.shape[0] * 3, :] = gen_img
 
     # Save image to folder and to tensorboard
     if save_raw_progress_images:
@@ -598,8 +604,8 @@ class SRGAN:
           if data["disc_lr"]:
             self.disc_lr_scheduler.lr = data["disc_lr"]
 
-        if not self.custom_hr_test_image_path:
-          self.progress_test_image_path = data["test_image"]
+        if not self.custom_hr_test_images_paths:
+          self.progress_test_images_paths = data["test_image"]
         self.initiated = True
 
   def save_checkpoint(self):
@@ -623,7 +629,7 @@ class SRGAN:
       "gen_path": gen_path,
       "disc_path": disc_path,
       "disc_label_noise": self.discriminator_label_noise,
-      "test_image": self.progress_test_image_path,
+      "test_image": self.progress_test_images_paths,
       "pnsr_record": self.pnsr_record,
       "gen_lr": float(self.gen_lr_scheduler.lr),
       "disc_lr": float(self.disc_lr_scheduler.lr)

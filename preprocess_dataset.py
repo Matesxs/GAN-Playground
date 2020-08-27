@@ -9,7 +9,6 @@ from multiprocessing.pool import ThreadPool
 from modules.helpers import get_paths_of_files_from_path
 
 datasets_folder = "datasets"
-IMAGES_TO_REMOVE_FROM_DATASETS = ["./datasets/testing_image.png"]
 
 assert os.path.exists(datasets_folder) and os.path.isdir(datasets_folder), "Invalid datasets folder"
 
@@ -23,6 +22,9 @@ output_folder = None
 input_folder = None
 scaled_dim = None
 testing_split = None
+
+crop_images = False
+ignore_smaller_images_than_target = False
 
 while True:
   print("Avaible input datasets:")
@@ -44,6 +46,9 @@ while True:
         break
       except:
         continue
+
+    ignore_smaller_images_than_target = (input("Ignore smaller images than target (y/n): ").lower() == "y")
+    crop_images = (input("Crop input images to target aspect ratio (y/n): ").lower() == "y")
 
     try:
       testing_split = float(input("Testing split (0 - 1), leave blank for not plitting: "))
@@ -89,15 +94,6 @@ duplicate_files = []
 used_hashes = []
 filepaths_to_use = []
 
-for path in IMAGES_TO_REMOVE_FROM_DATASETS:
-  if os.path.exists(path):
-    with open(path, 'rb') as f:
-      filehash = hashlib.md5(f.read()).hexdigest()
-      if filehash not in used_hashes:
-        used_hashes.append(filehash)
-
-print(f"{len(used_hashes)} blacklisted files were added to already used list")
-
 def check_for_duplicates(file_path):
   if os.path.isfile(file_path):
     with open(file_path, 'rb') as f:
@@ -123,12 +119,40 @@ if isinstance(input_folder, str):
 
 print(f"{len(filepaths_to_use)} files to normalize")
 
+target_aspect_ratio = scaled_dim[1]/scaled_dim[0]
+def crop_image(image, current_aspect_ratio, current_shape):
+  if target_aspect_ratio > current_aspect_ratio:
+    new_height = (current_shape[1] * scaled_dim[0]) / scaled_dim[1]
+    height_dif = current_shape[0] - new_height
+    image = image[(height_dif // 2):(current_shape[0] - (height_dif // 2)), :, :]
+  else:
+    new_width = (current_shape[0] * scaled_dim[1]) / scaled_dim[0]
+    width_diff = current_shape[1] - new_width
+    image = image[:, (width_diff // 2):(current_shape[1] - (width_diff // 2)), :]
+
+  return image
+
+ignored_images = 0
 def resize_and_save_file(args):
+  global ignored_images
+
   if os.path.exists(args[1]) and os.path.isfile(args[1]):
     try:
       image = cv.imread(args[1])
+
       if image is not None:
+        if crop_images:
+          orig_shape = image.shape[:-1]
+          original_aspect_ratio = orig_shape[1]/orig_shape[0]
+          if target_aspect_ratio != original_aspect_ratio:
+            image = crop_image(image, original_aspect_ratio, orig_shape)
+
         orig_shape = image.shape[:-1]
+
+        if ignore_smaller_images_than_target:
+          if orig_shape[0] < scaled_dim[0] or orig_shape[1] < scaled_dim[1]:
+            ignored_images += 1
+            return
 
         if orig_shape[0] != scaled_dim[0] or orig_shape[1] != scaled_dim[1]:
           interpolation = cv.INTER_AREA
@@ -145,6 +169,8 @@ def resize_and_save_file(args):
         pass
 
 worker_pool.map(resize_and_save_file, enumerate(filepaths_to_use))
+if ignore_smaller_images_than_target:
+  print(f"Ignored {ignored_images} due to low resolution")
 
 if testing_split:
   testing_folder_path = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}__test")
