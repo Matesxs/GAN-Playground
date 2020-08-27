@@ -135,8 +135,13 @@ class SRGAN:
     # Define static vars
     self.kernel_initializer = RandomNormal(stddev=0.02)
     self.custom_hr_test_images_paths = custom_hr_test_images_paths
-    if custom_hr_test_images_paths and all([os.path.exists(p) for p in custom_hr_test_images_paths]):
+    self.custom_loading_failed = False
+    if custom_hr_test_images_paths:
       self.progress_test_images_paths = custom_hr_test_images_paths
+      for idx, image_path in enumerate(self.progress_test_images_paths):
+        if not os.path.exists(image_path):
+          self.custom_loading_failed = True
+          self.progress_test_images_paths[idx] = random.choice(self.train_data)
     else:
       self.progress_test_images_paths = [random.choice(self.train_data)]
 
@@ -604,7 +609,7 @@ class SRGAN:
           if data["disc_lr"]:
             self.disc_lr_scheduler.lr = data["disc_lr"]
 
-        if not self.custom_hr_test_images_paths:
+        if not self.custom_hr_test_images_paths or self.custom_loading_failed:
           self.progress_test_images_paths = data["test_image"]
         self.initiated = True
 
