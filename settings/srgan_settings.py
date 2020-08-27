@@ -5,7 +5,7 @@ TESTING_DATASET_PATH = "datasets/all_normalized__256x256__test"
 CUSTOM_HR_TEST_IMAGE = "datasets/testing_image.png"
 
 # Training settings
-START_EPISODE_SR = 0
+START_EPISODE = 0
 GENERATOR_TRAIN_EPISODES = 2_000_000
 # Discriminator need to catch up with generator before it will adding details to image
 DISCRIMINATOR_TRAIN_EPISODES = 200_000

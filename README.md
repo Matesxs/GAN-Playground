@@ -86,6 +86,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - Optimizations of SRGAN
 - Better interface scripts
 - Refactoring
+- Retraining all SRGAN models
 ```
 
 ## Notes
