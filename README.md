@@ -50,10 +50,10 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 ##### SRGAN Results - (Upscaled by opencv, Original, Upscaled by SRGAN)
 1) Model without using bias (batch normalization "bias" is used instead) and without using spectral normalization \
 1 400 000 episodes
-![SRGAN_image_1](./images/srganResultImage1.png?raw=true)
+![SRGAN_image_1](media/srgan_results/srganResultImage1.png?raw=true)
 2) Model using bias and spectral normalization \
 2 500 000 episodes
-![SRGAN_image_2](./images/srganResultImage2.png?raw=true)
+![SRGAN_image_2](media/srgan_results/srganResultImage2.png?raw=true)
 
 ## Used models
 ```
