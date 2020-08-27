@@ -2,6 +2,7 @@
 __pycache__/
 datasets/*/
 datasets/*.png
+datasets/*.jpg
 venv/
 training_data/
 models_notes
