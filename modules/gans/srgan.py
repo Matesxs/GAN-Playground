@@ -333,7 +333,7 @@ class SRGAN:
       self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode\nPreview training stats in tensorboard: http://localhost:6006" + Fore.RESET)
-    print(Fore.MAGENTA + "Stats are logged only when training whole GAN but images are logged all the time!" + Fore.RESET)
+    print(Fore.MAGENTA + "Stats and progress images are logged only when training generator or whole GAN!" + Fore.RESET)
     for _ in range(target_episode):
       ep_start = time.time()
       if generator_train_episodes and (self.episode_counter < generator_train_episodes):
@@ -342,7 +342,8 @@ class SRGAN:
           training_state = "Generator Training"
 
         # Pretrain generator
-        self.__train_generator()
+        gen_loss, psnr = self.__train_generator()
+        self.tensorboard.update_stats(self.episode_counter, gen_loss=gen_loss, psnr=psnr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
       elif discriminator_train_episodes and (discriminator_train_episodes + (generator_train_episodes if generator_train_episodes else 0)) > self.episode_counter >= (generator_train_episodes if generator_train_episodes else 0):
         if training_state != "Discriminator Training":
