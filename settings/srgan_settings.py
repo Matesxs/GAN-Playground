@@ -1,8 +1,7 @@
 # Data source settings
-DATASET_PATH = "datasets/all_normalized__256x256__train"
-TESTING_DATASET_PATH = "datasets/all_normalized__256x256__test"
+DATASET_PATH = "datasets/faces_normalized__256x256"
 # If none will be provided then script will select some random one
-CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2.png", "datasets/testing_image3.png", "datasets/testing_image4.png"]
+CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2.png", "datasets/testing_image3.jpg"]
 
 # Training settings
 START_EPISODE = 0
@@ -28,7 +27,7 @@ RESTORE_BEST_PNSR_MODELS_EPISODES = [1_800_000]
 # Discriminator label noise settings
 # Leave as None for not use noise
 DISCRIMINATOR_START_NOISE = 0.20
-DISCRIMINATOR_NOISE_DECAY = 0.999993
+DISCRIMINATOR_NOISE_DECAY = 0.99995
 # Noise target where stop decaying
 DISCRIMINATOR_TARGET_NOISE = 0
 

@@ -133,6 +133,7 @@ def crop_image(image, current_aspect_ratio, current_shape):
   return image
 
 ignored_images = 0
+output_to_original_filepath = {}
 def resize_and_save_file(args):
   global ignored_images
 
@@ -162,6 +163,7 @@ def resize_and_save_file(args):
           image = cv.resize(image, (scaled_dim[0], scaled_dim[1]), interpolation=interpolation)
 
         cv.imwrite(f"{output_folder}/{args[0]}.png", image)
+        output_to_original_filepath[f"{output_folder}/{args[0]}.png"] = args[1]
     except:
       try:
         os.remove(f"{output_folder}/{args[0]}.png")
@@ -171,6 +173,31 @@ def resize_and_save_file(args):
 worker_pool.map(resize_and_save_file, enumerate(filepaths_to_use))
 if ignore_smaller_images_than_target:
   print(f"Ignored {ignored_images} due to low resolution")
+
+# Detect duplicates
+used_hashes = []
+resized_duplicates = 0
+def delete_resized_duplicates(file_path):
+  global resized_duplicates
+
+  if os.path.isfile(file_path):
+    with open(file_path, 'rb') as f:
+      filehash = hashlib.md5(f.read()).hexdigest()
+
+      if filehash not in used_hashes:
+        used_hashes.append(filehash)
+      else:
+        try:
+          os.remove(file_path)
+          if isinstance(input_folder, str):
+            os.remove(output_to_original_filepath[file_path])
+          resized_duplicates += 1
+        except:
+          pass
+
+output_files = get_paths_of_files_from_path(output_folder)
+worker_pool.map(delete_resized_duplicates, output_files)
+print(f"Deleted {resized_duplicates} already resized duplicates")
 
 if testing_split:
   testing_folder_path = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}__test")

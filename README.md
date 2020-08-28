@@ -73,7 +73,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [x] Test Charbonnier loss instead of MSE loss in SRGAN
 - [ ] Test Huber loss instead of MSE loss in SRGAN
 - [x] Test MAE loss instead of MSE loss in SRGAN
-- [ ] Optimize training loop of SRGAN (Too much time is spending of testing performance)
+- [x] Optimize training loop of SRGAN (Too much time is spending of testing performance)
 - [x] Implement custom batch maker
 - [ ] Optimize batch maker to use generator class from keras
 - [x] Optimize preprocessing dataset (Too slow)
@@ -92,6 +92,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
 MAE loss is causing lot of artifacts and image distortions (like color shifting, "image bleedoff", etc) in results from SRGAN.
+SRGAN will be trained only on face images, bacause I am not able to balance enough dataset (You can compensate it in some minor way by introducing labels to generator)
 
 ## Testing setup
 ```
@@ -154,3 +155,7 @@ https://machinelearningmastery.com/practical-guide-to-gan-failure-modes/ \
 https://github.com/soumith/ganhacks \
 https://medium.com/intel-student-ambassadors/tips-on-training-your-gans-faster-and-achieve-better-results-9200354acaa5 \
 https://distill.pub/2016/deconv-checkerboard/
+<br/>
+<br/>
+##### Gradient accumulation
+https://stackoverflow.com/questions/55268762/how-to-accumulate-gradients-for-large-batch-sizes-in-keras

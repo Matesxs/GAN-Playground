@@ -24,20 +24,21 @@ if gpus:
   except:
     pass
 
-from keras import optimizers
+from keras.optimizers import Adam
+
 from modules.gans.srgan import SRGAN
 from settings.srgan_settings import *
 
 if __name__ == '__main__':
   training_object = None
-  if not os.path.exists("training_data"): os.makedirs("training_data")
-  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data --samples_per_plugin=images=200", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  if not os.path.exists("training_data/srgan"): os.makedirs("training_data/srgan")
+  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data/srgan --samples_per_plugin=images=200 --port 6006", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   try:
-    training_object = SRGAN(DATASET_PATH, testing_dataset_path=TESTING_DATASET_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan/mse",
+    training_object = SRGAN(DATASET_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
                             batch_size=BATCH_SIZE, testing_batch_size=TESTING_BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
                             gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
-                            generator_optimizer=optimizers.Adam(GEN_LR, 0.9), discriminator_optimizer=optimizers.Adam(DISC_LR, 0.9),
+                            generator_optimizer=Adam(GEN_LR, 0.9), discriminator_optimizer=Adam(DISC_LR, 0.9),
                             generator_lr_schedule=GEN_LR_SCHEDULE, discriminator_lr_schedule=DISC_LR_SCHEDULE,
                             discriminator_label_noise=DISCRIMINATOR_START_NOISE, discriminator_label_noise_decay=DISCRIMINATOR_NOISE_DECAY, discriminator_label_noise_min=DISCRIMINATOR_TARGET_NOISE,
                             generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
