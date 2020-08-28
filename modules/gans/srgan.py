@@ -78,7 +78,6 @@ class SRGAN:
   def __init__(self, dataset_path:str, num_of_upscales:int,
                gen_mod_name:str, disc_mod_name:str,
                training_progress_save_path:str,
-               testing_dataset_path:str=None,
                generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
                generator_lr_schedule:Union[dict, None]=None, discriminator_lr_schedule:Union[dict, None]=None,
                discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
@@ -107,11 +106,6 @@ class SRGAN:
     # Create array of input image paths
     self.train_data = get_paths_of_files_from_path(dataset_path)
     assert self.train_data, Fore.RED + "Training dataset is not loaded" + Fore.RESET
-
-    self.testing_data = None
-    if testing_dataset_path:
-      self.testing_data = get_paths_of_files_from_path(testing_dataset_path)
-      assert self.testing_data, Fore.RED + "Testing dataset is not loaded" + Fore.RESET
 
     # Load one image to get shape of it
     self.target_image_shape = cv.imread(self.train_data[0]).shape
@@ -147,11 +141,6 @@ class SRGAN:
     # Create batchmaker and start it
     self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape, num_of_loading_workers=num_of_loading_workers)
     self.batch_maker.start()
-
-    self.testing_batchmaker = None
-    if self.testing_data:
-      self.testing_batchmaker = BatchMaker(self.testing_data, self.testing_batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape, num_of_loading_workers=num_of_loading_workers)
-      self.testing_batchmaker.start()
 
     # Create LR Schedulers for both "Optimizer"
     self.gen_lr_scheduler = LearningRateScheduler(lr_plan=generator_lr_schedule, start_lr=float(K.get_value(generator_optimizer.lr)))
@@ -236,10 +225,6 @@ class SRGAN:
     with ThreadPool(processes=8) as p:
       res = p.map(check_image, self.train_data)
       if not all(res): raise Exception("Inconsistent training dataset")
-
-      if self.testing_data:
-        res = p.map(check_image, self.testing_data)
-        if not all(res): raise Exception("Inconsistent testing dataset")
 
     print(Fore.BLUE + "Dataset valid" + Fore.RESET)
 
@@ -461,13 +446,11 @@ class SRGAN:
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
-    if self.testing_batchmaker: self.testing_batchmaker.terminate = True
     self.batch_maker.terminate = True
     self.save_checkpoint()
     if not save_only_best_pnsr_weights:
       self.__save_weights()
     self.batch_maker.join()
-    if self.testing_batchmaker: self.testing_batchmaker.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
     print(Fore.MAGENTA + f"PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 
