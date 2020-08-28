@@ -155,3 +155,7 @@ https://machinelearningmastery.com/practical-guide-to-gan-failure-modes/ \
 https://github.com/soumith/ganhacks \
 https://medium.com/intel-student-ambassadors/tips-on-training-your-gans-faster-and-achieve-better-results-9200354acaa5 \
 https://distill.pub/2016/deconv-checkerboard/
+<br/>
+<br/>
+##### Gradient accumulation
+https://stackoverflow.com/questions/55268762/how-to-accumulate-gradients-for-large-batch-sizes-in-keras
