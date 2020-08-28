@@ -31,8 +31,8 @@ from settings.srgan_settings import *
 
 if __name__ == '__main__':
   training_object = None
-  if not os.path.exists("training_data"): os.makedirs("training_data")
-  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data --samples_per_plugin=images=200", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  if not os.path.exists("training_data/srgan"): os.makedirs("training_data/srgan")
+  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data/srgan --samples_per_plugin=images=200 --port 6006", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   try:
     training_object = SRGAN(DATASET_PATH, testing_dataset_path=TESTING_DATASET_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",

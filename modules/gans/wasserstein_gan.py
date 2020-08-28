@@ -270,7 +270,6 @@ class WGANGC:
     # Save starting kernels and biases
     if not self.initiated:
       self.__save_imgs(save_raw_progress_images)
-      self.tensorboard.log_kernels_and_biases(self.generator)
       self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episodes" + Fore.RESET)
@@ -298,7 +297,6 @@ class WGANGC:
       # Show stats
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:
         # Save stats
-        self.tensorboard.log_kernels_and_biases(self.generator)
         print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))}\t\t[Critic loss: {round(float(critic_loss), 5)}] [Gen loss: {round(float(gen_loss), 5)}]" + Fore.RESET)
 
       # Save progress

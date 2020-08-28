@@ -64,15 +64,14 @@ def PSNR(y_true, y_pred):
   """
   return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
 
-GAN_LOSS = "mse" # losses.Huber(delta=0.3)
-DISC_LOSS = "binary_crossentropy"
+GAN_LOSS = losses.MeanSquaredError() # losses.Huber(delta=0.3)
+DISC_LOSS = losses.BinaryCrossentropy()
 
 # GAN, percept (vgg)
 LOSS_WEIGHTS = [0.003, 0.006]
 
 class SRGAN:
-  AGREGATE_STAT_INTERVAL = 20_000  # Interval of saving data for pretrains
-  AGREGATE_STAT_DIVIDER = 4 # Divider for agregate stat interval for gan training
+  SHOW_STATS_INTERVAL = 5_000  # Interval of saving data for pretrains
   RESET_SEEDS_INTERVAL = 20_000  # Interval of checking norm gradient value of combined model
   CHECKPOINT_SAVE_INTERVAL = 5_000  # Interval of saving checkpoint
 
@@ -271,37 +270,29 @@ class SRGAN:
 
   def __train_generator(self):
     large_images, small_images = self.batch_maker.get_batch()
-    self.generator.train_on_batch(small_images, large_images)
+    gen_loss, psnr = self.generator.train_on_batch(small_images, large_images)
+    return float(gen_loss), float(psnr)
+
+  def __eval_generator(self):
+    large_images, small_images = self.batch_maker.get_batch()
+    gen_loss, psnr = self.generator.test_on_batch(small_images, large_images)
+    return float(gen_loss), float(psnr)
 
   def __train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
-    # Function for adding random noise to labels (flipping them)
-    def noising_labels(labels: np.ndarray, noise_ammount: float = 0.01):
-      array = np.zeros(labels.shape)
-      for idx in range(labels.shape[0]):
-        if random.random() < noise_ammount:
-          array[idx] = 1 - labels[idx]
-          if array[idx] < 0: array[idx] = -array[idx]
-        else:
-          array[idx] = labels[idx]
-      return labels
-
     if discriminator_smooth_real_labels:
-      drl = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
+      disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
     else:
-      drl = np.ones(shape=(self.batch_size, 1))
+      disc_real_labels = np.ones(shape=(self.batch_size, 1))
 
     if discriminator_smooth_fake_labels:
-      dfl = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
+      disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
     else:
-      dfl = np.zeros(shape=(self.batch_size, 1))
+      disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
 
     # Adding random noise to discriminator labels
     if self.discriminator_label_noise and self.discriminator_label_noise > 0:
-      disc_real_labels = noising_labels(drl, self.discriminator_label_noise / 2)
-      disc_fake_labels = noising_labels(dfl, self.discriminator_label_noise / 2)
-    else:
-      disc_real_labels = drl.copy()
-      disc_fake_labels = dfl.copy()
+      disc_real_labels += (self.discriminator_label_noise / 2) * np.random.uniform(disc_real_labels.shape)
+      disc_fake_labels += (self.discriminator_label_noise / 2) * np.random.uniform(disc_fake_labels.shape)
 
     large_images, small_images = self.batch_maker.get_batch()
     gen_imgs = self.generator.predict(small_images)
@@ -318,7 +309,8 @@ class SRGAN:
       gen_labels = np.ones(shape=(self.batch_size, 1))
     predicted_features = self.vgg.predict(preprocess_vgg(large_images))
 
-    self.combined_generator_model.train_on_batch(small_images, [gen_labels, predicted_features])
+    gan_losses = self.combined_generator_model.train_on_batch(small_images, [gen_labels, predicted_features])
+    return float(gan_losses[0]), [float(x) for x in gan_losses[1:]]
 
   def train(self, target_episode:int, generator_train_episodes:int=None, discriminator_train_episodes:int=None, discriminator_training_multiplier:int=1,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
@@ -347,16 +339,15 @@ class SRGAN:
     target_episode = target_episode - self.episode_counter
     assert target_episode > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
-    epochs_time_history = deque(maxlen=self.AGREGATE_STAT_INTERVAL * 50)
+    epochs_time_history = deque(maxlen=self.SHOW_STATS_INTERVAL * 50)
     training_state = "Standby"
 
     # Save starting kernels and biases
     if not self.initiated:
       self.__save_img(save_raw_progress_images)
-      self.tensorboard.log_kernels_and_biases(self.generator)
       self.save_checkpoint()
 
-    print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
+    print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode\nPreview training stats in tensorboard: http://localhost:6006" + Fore.RESET)
     for _ in range(target_episode):
       ep_start = time.time()
       if generator_train_episodes and (self.episode_counter < generator_train_episodes):
@@ -378,7 +369,6 @@ class SRGAN:
       elif self.episode_counter >= ((generator_train_episodes if generator_train_episodes else 0) + (discriminator_train_episodes if discriminator_train_episodes else 0)):
         if training_state != "GAN Training":
           if (training_state != "Standby") and self.pnsr_record:
-            print(Fore.MAGENTA + "Reseting PNSR record" + Fore.RESET)
             self.pnsr_record = None
             self.save_checkpoint()
 
@@ -387,12 +377,31 @@ class SRGAN:
 
         ### Train Discriminator ###
         # Train discriminator (real as ones and fake as zeros)
+        disc_stats = deque(maxlen=discriminator_training_multiplier)
+
         for _ in range(discriminator_training_multiplier):
-          self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+          real_loss, fake_loss = self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+          disc_stats.append([real_loss, fake_loss])
+
+        disc_stats = np.mean(disc_stats)
+        disc_loss = sum(disc_stats[0] + disc_stats[1]) * 0.5
 
         ### Train GAN ###
         # Train GAN (wants discriminator to recognize fake images as valid)
-        self.__train_gan(generator_smooth_labels)
+        gen_loss, _ = self.__train_gan(generator_smooth_labels)
+
+        ### Evaluate generator ###
+        _, psnr = self.__eval_generator()
+
+        self.tensorboard.update_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+
+        if training_state in ["GAN Training", "Generator Training"]:
+          if not self.pnsr_record:
+            self.pnsr_record = {"episode": self.episode_counter, "value": psnr}
+          elif self.pnsr_record["value"] < psnr:
+            print(Fore.MAGENTA + f"New PNSR record <{round(psnr, 5)}> on episode {self.episode_counter}!" + Fore.RESET)
+            self.pnsr_record = {"episode": self.episode_counter, "value": psnr}
+            self.__save_weights()
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
@@ -409,54 +418,8 @@ class SRGAN:
       if new_gen_lr or new_disc_lr: self.save_checkpoint()
 
       # Save stats and print them to console
-      if self.episode_counter % (self.AGREGATE_STAT_INTERVAL if (training_state in ["Generator Training", "Discriminator Training"]) else (self.AGREGATE_STAT_INTERVAL // self.AGREGATE_STAT_DIVIDER)) == 0:
-        print(Fore.LIGHTBLUE_EX + "Stat evaluation started" + Fore.RESET)
-
-        testing_batchmaker = self.testing_batchmaker if self.testing_batchmaker else self.batch_maker
-        stats_raw = deque()
-
-        try:
-          for _ in range(testing_batchmaker.get_number_of_batches_in_dataset()):
-            large_images, small_images = testing_batchmaker.get_batch()
-
-            gen_imgs = self.generator.predict(small_images)
-
-            # Evaluate models state
-            disc_real_loss = float(self.discriminator.test_on_batch(large_images, np.ones(shape=(large_images.shape[0], 1))))
-            disc_fake_loss = float(self.discriminator.test_on_batch(gen_imgs, np.zeros(shape=(gen_imgs.shape[0], 1))))
-            disc_loss = (disc_real_loss + disc_fake_loss) * 0.5
-
-            predicted_features = self.vgg.predict(preprocess_vgg(large_images))
-
-            gan_losses = self.combined_generator_model.test_on_batch(small_images, [np.ones(shape=(large_images.shape[0], 1)), predicted_features])
-            g_loss , pnsr = self.generator.test_on_batch(small_images, large_images)
-
-            stats_raw.append([disc_loss, disc_real_loss, disc_fake_loss, float(g_loss), float(pnsr)] + [float(l) for l in gan_losses])
-        except KeyboardInterrupt:
-          # On keyboard interrupt return one step back, save a checkpoint and create new keybord interrupt exception
-          # This is done to prevent skipping the evaluating step
-          print(Fore.YELLOW + "Stat evaluation interrupted" + Fore.RESET)
-          self.episode_counter -= 1
-          self.save_checkpoint()
-          raise KeyboardInterrupt("Stat evaluation interrupted")
-
-        mean_stats = np.mean(stats_raw, 0)
-        min_stats = np.min(stats_raw, 0)
-        max_stats = np.max(stats_raw, 0)
-        del stats_raw
-
-        if training_state in ["GAN Training", "Generator Training"]:
-          if not self.pnsr_record:
-            self.pnsr_record = {"episode": self.episode_counter, "value": mean_stats[4]}
-          elif self.pnsr_record["value"] < mean_stats[4]:
-            print(Fore.MAGENTA + f"New PNSR record <{round(mean_stats[4], 5)}> on episode {self.episode_counter}!" + Fore.RESET)
-            self.pnsr_record = {"episode": self.episode_counter, "value": mean_stats[4]}
-            self.__save_weights()
-
-        self.tensorboard.log_kernels_and_biases(self.generator)
-        self.tensorboard.update_stats(self.episode_counter, gen_lr=self.gen_lr_scheduler.lr, disc_lr=self.disc_lr_scheduler.lr, disc_loss=mean_stats[0], disc_real_loss=mean_stats[1], disc_fake_loss=mean_stats[2], gan_loss=mean_stats[5], gen_loss=mean_stats[3], pnsr_mean=mean_stats[4], pnsr_min=min_stats[4], pnsr_max=max_stats[4], disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
-
-        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}, State: <{training_state}>\t\t[D Loss: {round(mean_stats[0], 5)}, D-R loss: {round(mean_stats[1], 5)}, D-F loss: {round(mean_stats[2], 5)}] [G loss: {round(mean_stats[3], 5)}, PNSR: [Min: {round(min_stats[4], 3)}db, Mean: {round(mean_stats[4], 3)}db, Max: {round(max_stats[4], 3)}db]] [GAN loss: {round(mean_stats[5], 5)}, Separated losses: {mean_stats[6:]}] - Epsilon: {round(self.discriminator_label_noise, 4) if self.discriminator_label_noise else 0}" + Fore.RESET)
+      if self.episode_counter % self.SHOW_STATS_INTERVAL == 0:
+        print(Fore.GREEN + f"{self.episode_counter}/{end_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (end_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}, State: <{training_state}>" + Fore.RESET)
         if self.pnsr_record:
           print(Fore.GREEN + f"Actual PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 

@@ -73,7 +73,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [x] Test Charbonnier loss instead of MSE loss in SRGAN
 - [ ] Test Huber loss instead of MSE loss in SRGAN
 - [x] Test MAE loss instead of MSE loss in SRGAN
-- [ ] Optimize training loop of SRGAN (Too much time is spending of testing performance)
+- [x] Optimize training loop of SRGAN (Too much time is spending of testing performance)
 - [x] Implement custom batch maker
 - [ ] Optimize batch maker to use generator class from keras
 - [x] Optimize preprocessing dataset (Too slow)
