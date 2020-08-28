@@ -333,6 +333,7 @@ class SRGAN:
       self.save_checkpoint()
 
     print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode\nPreview training stats in tensorboard: http://localhost:6006" + Fore.RESET)
+    print(Fore.MAGENTA + "Stats are logged only when training whole GAN but images are logged all the time!" + Fore.RESET)
     for _ in range(target_episode):
       ep_start = time.time()
       if generator_train_episodes and (self.episode_counter < generator_train_episodes):
