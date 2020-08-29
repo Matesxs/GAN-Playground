@@ -3,13 +3,8 @@ from keras.initializers import Initializer, RandomNormal
 from keras.layers import Layer, Dense, Reshape, Conv2D, LeakyReLU, Add, Lambda
 from tensorflow import Tensor
 
-from modules.models.custom_layers import deconv_layer, conv_layer, RRDB
-
-# Calculate start image size based on final image size and number of upscales
-def count_upscaling_start_size(target_image_shape:tuple, num_of_upscales:int):
-  upsc = (target_image_shape[0] // (2 ** num_of_upscales), target_image_shape[1] // (2 ** num_of_upscales))
-  if upsc[0] < 1 or upsc[1] < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
-  return upsc
+from modules.models.custom_layers import deconv_layer, conv_layer, RRDB1
+from modules.helpers import count_upscaling_start_size
 
 def mod_testing(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   st_s = count_upscaling_start_size(image_shape, 3)
@@ -22,7 +17,7 @@ def mod_testing(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int,
 
   skip = m
 
-  m = RRDB(m, filters=64, kernel_size=3, batch_norm=None, use_bias=True, kernel_initializer=kernel_initializer)
+  m = RRDB1(m, filters=64, kernel_size=3, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, kernel_initializer=kernel_initializer)
   m = Lambda(lambda x: x * 0.2)(m)
@@ -119,7 +114,7 @@ def mod_testing5(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
 
   skip1 = m
 
-  m = RRDB(m, filters=64, kernel_size=3, batch_norm=None, use_bias=True, kernel_initializer=kernel_initializer)
+  m = RRDB1(m, filters=64, kernel_size=3, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, kernel_initializer=kernel_initializer)
   m = Lambda(lambda x: x * 0.2)(m)
@@ -130,7 +125,7 @@ def mod_testing5(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
 
   skip2 = m
 
-  m = RRDB(m, filters=64, kernel_size=3, batch_norm=None, use_bias=True, kernel_initializer=kernel_initializer)
+  m = RRDB1(m, filters=64, kernel_size=3, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, kernel_initializer=kernel_initializer)
   m = Lambda(lambda x: x * 0.2)(m)
@@ -157,7 +152,7 @@ def mod_testing6(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
 
   skip1 = m
 
-  m = RRDB(m, filters=64, kernel_size=3, batch_norm=None, use_bias=True, kernel_initializer=kernel_initializer)
+  m = RRDB1(m, filters=64, kernel_size=3, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, kernel_initializer=kernel_initializer)
   m = Lambda(lambda x: x * 0.2)(m)
@@ -165,7 +160,7 @@ def mod_testing6(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
 
   skip2 = m
 
-  m = RRDB(m, filters=64, kernel_size=3, batch_norm=None, use_bias=True, kernel_initializer=kernel_initializer)
+  m = RRDB1(m, filters=64, kernel_size=3, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, kernel_initializer=kernel_initializer)
   m = Lambda(lambda x: x * 0.2)(m)

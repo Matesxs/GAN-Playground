@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
   try:
     training_object = SRGAN(DATASET_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
-                            batch_size=BATCH_SIZE, testing_batch_size=TESTING_BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
+                            batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
                             gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
                             generator_optimizer=Adam(GEN_LR, 0.9), discriminator_optimizer=Adam(DISC_LR, 0.9),
                             generator_lr_schedule=GEN_LR_SCHEDULE, discriminator_lr_schedule=DISC_LR_SCHEDULE,
@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     training_object.save_models_structure_images()
 
-    training_object.train(COMBINED_TRAINING_EPISODES, generator_train_episodes=GENERATOR_TRAIN_EPISODES, discriminator_train_episodes=DISCRIMINATOR_TRAIN_EPISODES,
+    training_object.train(TRAINING_EPISODES,
                           discriminator_training_multiplier=DISCRIMINATOR_TRAINING_MULTIPLIER,
                           progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                           weights_save_interval=WEIGHTS_SAVE_INTERVAL,

@@ -109,13 +109,12 @@ def res_block(inp:Union[Layer, tf.Tensor], filters:int, kernel_size:int=3, strid
 
   return model
 
-def RRDB(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, batch_norm:Union[float, None]=None, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def RRDB1(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   def dense_block(inp):
     if use_sn:
       x1 = ConvSN2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(inp)
     else:
       x1 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(inp)
-    if batch_norm: x1 = BatchNormalization(momentum=batch_norm, axis=-1)(x1)
     x1 = LeakyReLU(0.2)(x1)
     x1 = Concatenate()([inp, x1])
 
@@ -123,7 +122,6 @@ def RRDB(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, batch_n
       x2 = ConvSN2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x1)
     else:
       x2 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x1)
-    if batch_norm: x2 = BatchNormalization(momentum=batch_norm, axis=-1)(x2)
     x2 = LeakyReLU(0.2)(x2)
     x2 = Concatenate()([inp, x1, x2])
 
@@ -131,7 +129,6 @@ def RRDB(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, batch_n
       x3 = ConvSN2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x2)
     else:
       x3 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x2)
-    if batch_norm: x3 = BatchNormalization(momentum=batch_norm, axis=-1)(x3)
     x3 = LeakyReLU(0.2)(x3)
     x3 = Concatenate()([inp, x1, x2, x3])
 
@@ -139,7 +136,6 @@ def RRDB(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, batch_n
       x4 = ConvSN2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x3)
     else:
       x4 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x3)
-    if batch_norm: x4 = BatchNormalization(momentum=batch_norm, axis=-1)(x4)
     x4 = LeakyReLU(0.2)(x4)
     x4 = Concatenate()([inp, x1, x2, x3, x4])
 
@@ -147,7 +143,6 @@ def RRDB(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, batch_n
       x5 = ConvSN2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x4)
     else:
       x5 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x4)
-    if batch_norm: x5 = BatchNormalization(momentum=batch_norm, axis=-1)(x5)
     x5 = Lambda(lambda x: x * 0.2)(x5)
     x = Add()([x5, inp])
     return x
@@ -158,3 +153,43 @@ def RRDB(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, batch_n
   x = Lambda(lambda x: x * 0.2)(x)
   out = Add()([x, inp])
   return out
+
+def RRDB2(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02),
+          conv_layers_in_dense_block:int=4, num_of_RDBs:int=3):
+  def _dense_block(input_layer):
+    """
+    Implementation of the (Residual) Dense Block as in the paper
+    Residual Dense Network for Image Super-Resolution (Zhang et al. 2018).
+    Residuals are incorporated in the RRDB.
+    """
+
+    x = input_layer
+    for _ in range(conv_layers_in_dense_block):
+      F_dc = Conv2D(
+        filters,
+        kernel_size=kernel_size,
+        padding='same',
+        use_bias=use_bias,
+        kernel_initializer=kernel_initializer
+      )(x)
+      F_dc = Activation('relu')(F_dc)
+      x = Concatenate(axis=3)([x, F_dc])
+
+    x = Conv2D(
+      filters,
+      kernel_size=3,
+      padding='same',
+      use_bias=use_bias,
+      kernel_initializer=kernel_initializer
+    )(x)
+    return x
+
+  x = inp
+
+  for d in range(num_of_RDBs):
+    LFF = _dense_block(x)
+    LFF_beta = Lambda(lambda x: x * 0.2)(LFF)
+    x = Add()([x, LFF_beta])
+  x = Lambda(lambda x: x * 0.2)(x)
+  x = Add()([inp, x])
+  return x
