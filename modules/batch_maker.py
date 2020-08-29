@@ -12,7 +12,7 @@ class BatchMaker(Thread):
     super().__init__()
     self.daemon = True
 
-    self.terminate = False
+    self.__terminate = False
     self.__secondary_size = secondary_size
 
     self.__batches_in_buffer_number = buffered_batches
@@ -33,6 +33,11 @@ class BatchMaker(Thread):
 
     self.__lock = False
     self.__lock_confirm = False
+
+    self.start()
+
+  def terminate(self):
+    self.__terminate = True
 
   def get_number_of_batches_in_dataset(self):
     return self.__max_index
@@ -79,7 +84,7 @@ class BatchMaker(Thread):
   def run(self):
     np.random.shuffle(self.__train_data)
 
-    while not self.terminate:
+    while not self.__terminate:
       while self.__lock:
         if not self.__lock_confirm:
           self.__lock_confirm = True

@@ -27,6 +27,7 @@ if gpus:
 from keras.optimizers import Adam
 
 from modules.gans.srgan import SRGAN
+from modules.keras_extensions.custom_adam_optimizer import AccumulateAdam
 from settings.srgan_settings import *
 
 if __name__ == '__main__':

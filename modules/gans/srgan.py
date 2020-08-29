@@ -26,6 +26,7 @@ from modules.models import upscaling_generator_models_spreadsheet, discriminator
 from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
 from modules.keras_extensions.custom_lrscheduler import LearningRateScheduler
 from modules.batch_maker import BatchMaker
+from modules.stat_logger import StatLogger
 from modules.helpers import time_to_format, get_paths_of_files_from_path
 from settings.srgan_settings import RESTORE_BEST_PNSR_MODELS_EPISODES
 
@@ -124,6 +125,7 @@ class SRGAN:
     self.training_progress_save_path = training_progress_save_path
     self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{self.start_image_shape}_to_{self.target_image_shape}")
     self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
+    self.stat_logger = StatLogger(self.tensorboard)
 
     # Define static vars
     self.kernel_initializer = RandomNormal(stddev=0.02)
@@ -140,7 +142,6 @@ class SRGAN:
 
     # Create batchmaker and start it
     self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape, num_of_loading_workers=num_of_loading_workers)
-    self.batch_maker.start()
 
     # Create LR Schedulers for both "Optimizer"
     self.gen_lr_scheduler = LearningRateScheduler(lr_plan=generator_lr_schedule, start_lr=float(K.get_value(generator_optimizer.lr)))
@@ -343,7 +344,7 @@ class SRGAN:
 
         # Pretrain generator
         gen_loss, psnr = self.__train_generator()
-        self.tensorboard.update_stats(self.episode_counter, gen_loss=gen_loss, psnr=psnr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.stat_logger.append_stats(self.episode_counter, gen_loss=gen_loss, psnr=psnr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
       elif discriminator_train_episodes and (discriminator_train_episodes + (generator_train_episodes if generator_train_episodes else 0)) > self.episode_counter >= (generator_train_episodes if generator_train_episodes else 0):
         if training_state != "Discriminator Training":
@@ -380,7 +381,7 @@ class SRGAN:
         ### Evaluate generator ###
         _, psnr = self.__eval_generator()
 
-        self.tensorboard.update_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+        self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
         if training_state in ["GAN Training", "Generator Training"]:
           if not self.pnsr_record:
@@ -448,11 +449,13 @@ class SRGAN:
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
-    self.batch_maker.terminate = True
+    self.stat_logger.terminate()
+    self.batch_maker.terminate()
     self.save_checkpoint()
     if not save_only_best_pnsr_weights:
       self.__save_weights()
     self.batch_maker.join()
+    self.stat_logger.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
     print(Fore.MAGENTA + f"PNSR Record: {round(self.pnsr_record['value'], 5)} on episode {self.pnsr_record['episode']}" + Fore.RESET)
 

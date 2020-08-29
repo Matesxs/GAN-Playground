@@ -198,7 +198,6 @@ class WGANGC:
 
     # Create batchmaker and start it
     self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, num_of_loading_workers=num_of_loading_workers)
-    self.batch_maker.start()
 
     # Create some proprietary objects
     self.fake_labels = np.ones((self.batch_size, 1), dtype=np.float32)
@@ -321,7 +320,7 @@ class WGANGC:
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
-    self.batch_maker.terminate = True
+    self.batch_maker.terminate()
     self.save_checkpoint()
     self.__save_weights()
     self.batch_maker.join()

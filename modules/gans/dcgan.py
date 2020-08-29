@@ -107,7 +107,6 @@ class DCGAN:
 
     # Create batchmaker and start it
     self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, num_of_loading_workers=num_of_loading_workers)
-    self.batch_maker.start()
 
     self.testing_batchmaker = None
     if self.testing_data:
@@ -381,8 +380,8 @@ class DCGAN:
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
-    if self.testing_batchmaker: self.testing_batchmaker.terminate = True
-    self.batch_maker.terminate = True
+    if self.testing_batchmaker: self.testing_batchmaker.__terminate = True
+    self.batch_maker.terminate()
     self.save_checkpoint()
     self.__save_weights()
     self.batch_maker.join()

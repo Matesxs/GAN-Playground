@@ -159,3 +159,4 @@ https://distill.pub/2016/deconv-checkerboard/
 <br/>
 ##### Gradient accumulation
 https://stackoverflow.com/questions/55268762/how-to-accumulate-gradients-for-large-batch-sizes-in-keras
+https://github.com/keras-team/keras/issues/3556#issuecomment-440638517
