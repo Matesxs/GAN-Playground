@@ -31,3 +31,9 @@ def time_to_format(timestamp):
   string += str(seconds) + " " + (seconds == 1 and "second" or "seconds")
 
   return string
+
+# Calculate start image size based on final image size and number of upscales
+def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
+  upsc = (target_image_shape[0] // (2 ** num_of_upscales), target_image_shape[1] // (2 ** num_of_upscales), target_image_shape[2])
+  if upsc[0] < 1 or upsc[1] < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
+  return upsc

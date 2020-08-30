@@ -136,7 +136,8 @@ Note: Some of these concepts were used in my implementation of my WGAN
 https://arxiv.org/pdf/1609.04802.pdf \
 https://github.com/deepak112/Keras-SRGAN/blob/master/Network.py \
 https://medium.com/@birla.deepak26/single-image-super-resolution-using-gans-keras-aca310f33112 \
-https://github.com/MathiasGruber/SRGAN-Keras
+https://github.com/MathiasGruber/SRGAN-Keras \
+https://github.com/idealo/image-super-resolution
 <br/>
 <br/>
 ##### SR Resnet

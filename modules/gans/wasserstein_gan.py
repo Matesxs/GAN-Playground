@@ -291,7 +291,7 @@ class WGANGC:
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
-      self.tensorboard.update_stats(self.episode_counter, critic_loss=critic_loss, gen_loss=gen_loss)
+      self.tensorboard.update_stats(critic_loss=critic_loss, gen_loss=gen_loss)
 
       # Show stats
       if self.episode_counter % self.AGREGATE_STAT_INTERVAL == 0:

@@ -42,8 +42,8 @@ class TensorBoardCustom(Callback):
           tf.summary.histogram(weight_name, weight, step=self.step)
     self.__writer.flush()
 
-  def update_stats(self, step, **stats):
-    self._write_logs(stats, step)
+  def update_stats(self, **stats):
+    self._write_logs(stats, self.step)
 
   # More or less the same writer as in Keras' Tensorboard callback
   # Physically writes to the log files
@@ -58,9 +58,9 @@ class TensorBoardCustom(Callback):
         tf.summary.scalar(name, value, step=index)
     self.__writer.flush()
 
-  def write_image(self, image:np.ndarray):
+  def write_image(self, image:np.ndarray, description:str="progress"):
     self.init_writer_check()
 
     with self.__writer.as_default():
-      tf.summary.image("progress", image, step=self.step)
+      tf.summary.image(description, image, step=self.step)
     self.__writer.flush()
