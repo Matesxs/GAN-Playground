@@ -55,16 +55,14 @@ GEN_LOSS = "mae"
 DISC_LOSS = "binary_crossentropy"
 FEATURE_LOSS = "mse"
 
-# GEN, DISC
-# [0.8, 0.01]
-LOSS_WEIGHTS = [1.0, 0]
-
-# [0.0415, 0.0415]
-FEATURE_LOSS_WEIGHTS = [0, 0]
 FEATURE_EXTRACTOR_LAYERS = [5, 9]
 
+GEN_LOSS_WEIGHT = 1.0 # 0.8
+DISC_LOSS_WEIGHT = 0 # 0.01
+FEATURE_LOSS_WEIGHTS = [0, 0] # [0.0415, 0.0415]
+
 class SRGAN:
-  SHOW_STATS_INTERVAL = 250  # Interval of saving data for pretrains
+  SHOW_STATS_INTERVAL = 200  # Interval of saving data for pretrains
   RESET_SEEDS_INTERVAL = 5_000  # Interval of checking norm gradient value of combined model
   CHECKPOINT_SAVE_INTERVAL = 500  # Interval of saving checkpoint
 
@@ -159,21 +157,24 @@ class SRGAN:
     ### Create combined generator ###
     #################################
     small_image_input = Input(shape=self.start_image_shape, name="small_image_input")
+
+    # Images upscaled by generator
     gen_images = self.generator(small_image_input)
 
-    # Extracts features from generated image
+    # Extracts features from generated images
     generated_features = self.vgg(preprocess_vgg(gen_images))
 
     # Discriminator takes images and determinates validity
     frozen_discriminator = Network(self.discriminator.inputs, self.discriminator.outputs, name="frozen_discriminator")
     frozen_discriminator.trainable = False
+
     validity = frozen_discriminator(gen_images)
 
     # Combine models
     # Train generator to fool discriminator
     self.combined_generator_model = Model(small_image_input, outputs=[gen_images, validity] + [*generated_features], name="srgan")
     self.combined_generator_model.compile(loss=[GEN_LOSS, DISC_LOSS] + ([FEATURE_LOSS] * len(generated_features)),
-                                          loss_weights=LOSS_WEIGHTS + FEATURE_LOSS_WEIGHTS,
+                                          loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + FEATURE_LOSS_WEIGHTS,
                                           optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR]})
 
     # Print all summaries
@@ -334,7 +335,7 @@ class SRGAN:
           print(Fore.MAGENTA + f"New PSNR (PSNR_Y) record <{round(psnr_y, 5)}> on episode {self.episode_counter}!" + Fore.RESET)
           self.psnr_record = {"episode": self.episode_counter, "value": psnr_y}
           self.__save_weights()
-          self.__save_img(False)
+          self.__save_img(False, tensorflow_description="best_psnr_images")
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
@@ -403,7 +404,7 @@ class SRGAN:
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
     print(Fore.MAGENTA + f"PSNR (PSNR_Y) Record: {round(self.psnr_record['value'], 5)} on episode {self.psnr_record['episode']}" + Fore.RESET)
 
-  def __save_img(self, save_raw_progress_images:bool=True):
+  def __save_img(self, save_raw_progress_images:bool=True, tensorflow_description:str="progress"):
     if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
 
     final_image = np.zeros(shape=(self.target_image_shape[0] * len(self.progress_test_images_paths), self.target_image_shape[1] * 3, self.target_image_shape[2])).astype(np.float32)
@@ -438,7 +439,7 @@ class SRGAN:
     # Save image to folder and to tensorboard
     if save_raw_progress_images:
       cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.episode_counter}.png", final_image)
-    self.tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32))
+    self.tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32), description=tensorflow_description)
 
   def __save_weights(self):
     save_dir = self.training_progress_save_path + "/weights/" + str(self.episode_counter)

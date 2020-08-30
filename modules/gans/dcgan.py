@@ -323,7 +323,7 @@ class DCGAN:
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
-      self.tensorboard.update_stats(self.episode_counter, disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gan_loss=gan_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+      self.tensorboard.update_stats(disc_real_loss=disc_real_loss, disc_fake_loss=disc_fake_loss, gan_loss=gan_loss, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
