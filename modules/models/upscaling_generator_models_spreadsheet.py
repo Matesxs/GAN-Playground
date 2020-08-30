@@ -19,7 +19,7 @@ def mod_srgan_base(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_ups
   m = Add()(inputs=[skip, m])
 
   for _ in range(num_of_upscales):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, act="leaky", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=False, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="leaky", batch_norm=None, use_subpixel_conv2d=True, use_bias=False, kernel_initializer=kernel_initializer)
 
   m = Conv2D(filters=start_image_shape[2], kernel_size=9, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer, use_bias=False)(m)
   return m
@@ -36,7 +36,7 @@ def mod_srgan_exp(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_upsc
   m = Add()([skip, m])
 
   for _ in range(num_of_upscales):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, kernel_initializer=kernel_initializer)
 
@@ -56,7 +56,7 @@ def mod_srgan_exp_v2(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_u
   m = Add()([skip, m])
 
   for _ in range(num_of_upscales):
-    m = deconv_layer(m, 128, kernel_size=3, strides=2, act="leaky", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 128, kernel_size=3, upscale_multiplier=2, act="leaky", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=32, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, kernel_initializer=kernel_initializer)
 
@@ -68,14 +68,14 @@ def mod_srgan_exp_sn(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_u
 
   skip = m
 
-  m = RRDB1(m, filters=64, kernel_size=3, use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
+  m = RRDB1(m, filters=64, kernel_size=3, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
   m = Lambda(lambda x: x * 0.2)(m)
   m = Add()([skip, m])
 
   for _ in range(num_of_upscales):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
 

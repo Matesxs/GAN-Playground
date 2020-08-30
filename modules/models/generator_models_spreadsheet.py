@@ -24,7 +24,7 @@ def mod_testing(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int,
   m = Add()([skip, m])
 
   for _ in range(3):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, kernel_initializer=kernel_initializer)
 
@@ -38,17 +38,17 @@ def mod_testing2(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
   m = LeakyReLU(0.2)(m)
   m = Reshape((st_s[0], st_s[1], 128))(m)
 
-  m = deconv_layer(m, 512, kernel_size=4, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 512, kernel_size=4, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 512, kernel_size=4, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 512, kernel_size=4, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 256, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 256, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 128, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 128, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 128, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 128, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 64, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 64, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 64, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 64, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = Conv2D(image_channels, kernel_size=3, padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
   return m
@@ -60,23 +60,23 @@ def mod_testing3(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
   m = LeakyReLU(0.2)(m)
   m = Reshape((st_s[0], st_s[1], 2048))(m)
 
-  m = deconv_layer(m, 512, kernel_size=4, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 512, kernel_size=4, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 512, kernel_size=4, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 512, kernel_size=4, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 256, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 256, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 128, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 128, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 128, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 128, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 64, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 64, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 64, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 64, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 32, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 32, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 32, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 32, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 16, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 16, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 16, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 16, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = Conv2D(image_channels, kernel_size=3, padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
   return m
@@ -84,23 +84,23 @@ def mod_testing3(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
 def mod_testing4(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   m = Reshape((1, 1, inp.shape[1]))(inp)
 
-  m = deconv_layer(m, 512, kernel_size=4, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 512, kernel_size=4, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 512, kernel_size=4, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 512, kernel_size=4, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 256, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 256, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 128, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 128, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 128, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 128, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 64, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 64, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 64, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 64, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 32, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 32, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 32, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 32, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
-  m = deconv_layer(m, 16, kernel_size=3, strides=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
-  m = deconv_layer(m, 16, kernel_size=3, strides=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 16, kernel_size=3, upscale_multiplier=2, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+  m = deconv_layer(m, 16, kernel_size=3, upscale_multiplier=1, act="relu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = Conv2D(image_channels, kernel_size=3, padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
 
@@ -121,7 +121,7 @@ def mod_testing5(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
   m = Add()([skip1, m])
 
   for _ in range(3):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
   skip2 = m
 
@@ -132,7 +132,7 @@ def mod_testing5(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
   m = Add()([skip2, m])
 
   for _ in range(3):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, kernel_initializer=kernel_initializer)
 
@@ -148,7 +148,7 @@ def mod_testing6(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
   m = conv_layer(m, filters=128, kernel_size=4, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, kernel_initializer=kernel_initializer)
 
   for _ in range(3):
-    m = deconv_layer(m, 64, kernel_size=3, strides=2, act="prelu", batch_norm=None, use_subpixel_conv2d=False, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 64, kernel_size=3, upscale_multiplier=2, act="prelu", batch_norm=None, use_subpixel_conv2d=False, use_bias=True, kernel_initializer=kernel_initializer)
 
   skip1 = m
 
@@ -167,7 +167,7 @@ def mod_testing6(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int
   m = Add()([skip2, m])
 
   for _ in range(3):
-    m = deconv_layer(m, 256, kernel_size=3, strides=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, upsample_first=False, use_bias=True, kernel_initializer=kernel_initializer)
+    m = deconv_layer(m, 256, kernel_size=3, upscale_multiplier=2, act="prelu", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=32, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, kernel_initializer=kernel_initializer)
 

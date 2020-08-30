@@ -3,14 +3,28 @@ from keras.models import Model
 from keras.layers import Lambda
 import tensorflow as tf
 import numpy as np
+from colorama import Fore
 
 def create_feature_extractor(input_shape:tuple, layers_to_extract:list):
-  assert len(layers_to_extract) > 0, "Specify layers to extract features"
+  if not layers_to_extract: return None
 
   vgg = VGG19(weights='imagenet', include_top=False, input_shape=input_shape)
   vgg.trainable = False
 
-  outputs = [vgg.layers[i].output for i in layers_to_extract]
+  outputs = []
+  for ltx in layers_to_extract:
+    try:
+      if isinstance(ltx, int):
+        layer = vgg.layers[ltx]
+      elif isinstance(ltx, str):
+        layer = vgg.get_layer(ltx)
+      else: raise ValueError(Fore.RED + "Invalid value in feature extraction list" + Fore.RESET)
+    except:
+      raise Exception(Fore.RED + f"Cant find layer {ltx} in VGG19 network" + Fore.RESET)
+
+    print(Fore.MAGENTA + f"Layer {layer.name} added to feature extractor list" + Fore.RESET)
+    outputs.append(layer.output)
+
   model = Model([vgg.input], outputs, name='feature_extractor')
   model.trainable = False
   return model

@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     training_object.save_models_structure_images()
 
-    training_object.train(TRAINING_EPISODES,
+    training_object.train(TRAINING_EPISODES, pretrain_episodes=GENERATOR_PRETRAIN_EPISODES,
                           discriminator_training_multiplier=DISCRIMINATOR_TRAINING_MULTIPLIER,
                           progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                           weights_save_interval=WEIGHTS_SAVE_INTERVAL,

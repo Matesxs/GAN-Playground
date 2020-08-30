@@ -53,13 +53,13 @@ def PSNR_Y(y_true, y_pred):
 
 GEN_LOSS = "mae"
 DISC_LOSS = "binary_crossentropy"
-FEATURE_LOSS = "mse"
+FEATURE_LOSS = "mae"
 
 FEATURE_EXTRACTOR_LAYERS = [5, 9]
 
 GEN_LOSS_WEIGHT = 1.0 # 0.8
-DISC_LOSS_WEIGHT = 0 # 0.01
-FEATURE_LOSS_WEIGHTS = [0, 0] # [0.0415, 0.0415]
+DISC_LOSS_WEIGHT = 0.003 # 0.01, 0.003
+FEATURE_LOSS_WEIGHT = 0.006 # 0.0833, 0.006
 
 class SRGAN:
   SHOW_STATS_INTERVAL = 200  # Interval of saving data for pretrains
@@ -146,7 +146,7 @@ class SRGAN:
     #################################
     self.generator = self.__build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception(f"Invalid image input size for this generator model\nGenerator shape: {self.generator.output_shape[1:]}, Target shape: {self.target_image_shape}")
-    self.generator.compile(loss=GEN_LOSS, optimizer=generator_optimizer, metrics=[PSNR])
+    self.generator.compile(loss=GEN_LOSS, optimizer=generator_optimizer, metrics=[PSNR_Y, PSNR])
 
     #################################
     ###    Create vgg network     ###
@@ -161,20 +161,20 @@ class SRGAN:
     # Images upscaled by generator
     gen_images = self.generator(small_image_input)
 
-    # Extracts features from generated images
-    generated_features = self.vgg(preprocess_vgg(gen_images))
-
     # Discriminator takes images and determinates validity
     frozen_discriminator = Network(self.discriminator.inputs, self.discriminator.outputs, name="frozen_discriminator")
     frozen_discriminator.trainable = False
 
     validity = frozen_discriminator(gen_images)
 
+    # Extracts features from generated images
+    generated_features = self.vgg(preprocess_vgg(gen_images))
+
     # Combine models
     # Train generator to fool discriminator
     self.combined_generator_model = Model(small_image_input, outputs=[gen_images, validity] + [*generated_features], name="srgan")
     self.combined_generator_model.compile(loss=[GEN_LOSS, DISC_LOSS] + ([FEATURE_LOSS] * len(generated_features)),
-                                          loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + FEATURE_LOSS_WEIGHTS,
+                                          loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + ([FEATURE_LOSS_WEIGHT / len(generated_features)] * len(generated_features)),
                                           optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR]})
 
     # Print all summaries
@@ -244,6 +244,11 @@ class SRGAN:
 
     return Model(img, m, name="discriminator")
 
+  def __train_generator(self):
+    large_images, small_images = self.batch_maker.get_batch()
+    gen_loss, psnr_y, psnr = self.generator.train_on_batch(small_images, large_images)
+    return float(gen_loss), float(psnr), float(psnr_y)
+
   def __train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
     if discriminator_smooth_real_labels:
       disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
@@ -279,7 +284,7 @@ class SRGAN:
 
     return float(gan_metrics[0]), [float(x) for x in gan_metrics[1:-2]], float(gan_metrics[-1]), float(gan_metrics[-2])
 
-  def train(self, target_episode:int, discriminator_training_multiplier:int=1,
+  def train(self, target_episode:int, pretrain_episodes:int=None, discriminator_training_multiplier:int=1,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False,
@@ -288,6 +293,8 @@ class SRGAN:
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
     assert discriminator_training_multiplier > 0, Fore.RED + "Invalid discriminator training multiplier" + Fore.RESET
+    if pretrain_episodes:
+      assert pretrain_episodes <= target_episode, Fore.RED + "Pretrain episodes must be <= target episode" + Fore.RESET
     if progress_images_save_interval:
       assert progress_images_save_interval <= target_episode, Fore.RED + "Invalid progress save interval" + Fore.RESET
     if weights_save_interval:
@@ -322,9 +329,14 @@ class SRGAN:
       disc_stats = np.mean(disc_stats, 0)
       disc_loss = sum(disc_stats) * 0.5
 
-      ### Train GAN ###
-      # Train GAN (wants discriminator to recognize fake images as valid)
-      gen_loss, partial_gan_losses, psnr, psnr_y = self.__train_gan(generator_smooth_labels)
+      if pretrain_episodes and self.episode_counter < pretrain_episodes:
+        ### Pretrain Generator ###
+        gen_loss, psnr, psnr_y = self.__train_generator()
+        partial_gan_losses = None
+      else:
+        ### Train GAN ###
+        # Train GAN (wants discriminator to recognize fake images as valid)
+        gen_loss, partial_gan_losses, psnr, psnr_y = self.__train_gan(generator_smooth_labels)
 
       self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
@@ -360,9 +372,6 @@ class SRGAN:
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
         self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
-
-        if self.discriminator_label_noise != self.discriminator_label_noise_min and (self.discriminator_label_noise - self.discriminator_label_noise_min) < 0.001:
-          self.discriminator_label_noise = self.discriminator_label_noise_min
 
       # Save progress
       if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
