@@ -53,7 +53,7 @@ class SRGAN:
                discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
                batch_size:int=4, buffered_batches:int=20,
                generator_weights:Union[str, None]=None, discriminator_weights:Union[str, None]=None,
-               start_episode:int=0, load_from_checkpoint:bool=False,
+               load_from_checkpoint:bool=False,
                custom_hr_test_images_paths:list=None, check_dataset:bool=True, num_of_loading_workers:int=8):
 
     self.disc_mod_name = disc_mod_name
@@ -68,8 +68,7 @@ class SRGAN:
     self.batch_size = batch_size
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
 
-    if start_episode < 0: start_episode = 0
-    self.episode_counter = start_episode
+    self.episode_counter = 0
 
     # Create array of input image paths
     self.train_data = get_paths_of_files_from_path(dataset_path)
