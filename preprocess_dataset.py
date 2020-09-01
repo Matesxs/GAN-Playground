@@ -63,13 +63,16 @@ while True:
       pass
 
     selected_dataset_name = dataset_list[selected_dataset_index]
+
     if selected_dataset_name == "All (All datasets merged)":
       input_folder = [os.path.join(datasets_folder, x) for x in dataset_list if x != "All (All datasets merged)"]
       selected_dataset_name = "all"
     else:
       input_folder = os.path.join(datasets_folder, selected_dataset_name)
+
     output_folder = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}" + ("__train" if testing_split else ""))
     scaled_dim = (selected_x_dimension, selected_y_dimension)
+
     print(f"Dataset {selected_dataset_name} was selected with target dimensions: {scaled_dim}" + (f" with test split {testing_split}" if testing_split else ""))
     break
   except:
@@ -186,16 +189,16 @@ def resize_and_save_file(args):
         orig_shape = image.shape[:-1]
 
         if ignore_smaller_images_than_target:
-          if orig_shape[0] < scaled_dim[0] or orig_shape[1] < scaled_dim[1]:
+          if orig_shape[0] < scaled_dim[1] or orig_shape[1] < scaled_dim[0]:
             ignored_images += 1
             return
 
-        if orig_shape[0] != scaled_dim[0] or orig_shape[1] != scaled_dim[1]:
+        if orig_shape[0] != scaled_dim[1] or orig_shape[1] != scaled_dim[0]:
           interpolation = cv.INTER_AREA
-          if orig_shape[0] <= scaled_dim[0] or orig_shape[1] <= scaled_dim[1]:
+          if orig_shape[0] <= scaled_dim[1] or orig_shape[1] <= scaled_dim[0]:
             interpolation = cv.INTER_CUBIC
 
-          image = cv.resize(image, (scaled_dim[0], scaled_dim[1]), interpolation=interpolation)
+          image = cv.resize(image, scaled_dim, interpolation=interpolation)
 
         cv.imwrite(f"{output_folder}/{args[0]}.png", image)
         output_to_original_filepath[f"{output_folder}/{args[0]}.png"] = args[1]
