@@ -258,7 +258,7 @@ class SRGAN:
 
     gan_metrics = self.combined_generator_model.train_on_batch(small_images, [large_images, valid_labels] + predicted_features)
 
-    return float(gan_metrics[0]), [float(x) for x in gan_metrics[1:-2]], float(gan_metrics[-1]), float(gan_metrics[-2])
+    return float(gan_metrics[0]), [round(float(x), 5) for x in gan_metrics[1:-2]], float(gan_metrics[-1]), float(gan_metrics[-2])
 
   def train(self, target_episode:int, pretrain_episodes:int=None, discriminator_training_multiplier:int=1,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
