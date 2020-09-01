@@ -176,7 +176,7 @@ def resize_and_save_file(args):
   global ignored_images
 
   if os.path.exists(args[1]) and os.path.isfile(args[1]):
-    # try:
+    try:
       image = cv.imread(args[1])
 
       if image is not None:
@@ -202,11 +202,11 @@ def resize_and_save_file(args):
 
         cv.imwrite(f"{output_folder}/{args[0]}.png", image)
         output_to_original_filepath[f"{output_folder}/{args[0]}.png"] = args[1]
-    # except Exception as e:
-    #   try:
-    #     os.remove(f"{output_folder}/{args[0]}.png")
-    #   except:
-    #     pass
+    except Exception as e:
+      try:
+        os.remove(f"{output_folder}/{args[0]}.png")
+      except:
+        pass
 
 worker_pool.map(resize_and_save_file, enumerate(filepaths_to_use))
 if ignore_smaller_images_than_target:
