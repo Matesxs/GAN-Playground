@@ -22,9 +22,6 @@ DISC_LR = 1e-4
 GEN_LR_SCHEDULE =  {30_000: 5e-5, 60_000: 25e-6, 90_000: 12e-6, 120_000: 6e-6, 150_000: 3e-6, 180_000: 15e-7, 210_000: 7e-7, 240_000: 35e-8, 270_000: 17e-8}
 DISC_LR_SCHEDULE = {30_000: 5e-5, 60_000: 25e-6, 90_000: 12e-6, 120_000: 6e-6, 150_000: 3e-6, 180_000: 15e-7, 210_000: 7e-7, 240_000: 35e-8, 270_000: 17e-8}
 
-# Schedule weights restoration
-RESTORE_BEST_PNSR_MODELS_EPISODES = [100_000]
-
 # Discriminator label noise settings
 # Leave as None for not use noise
 DISCRIMINATOR_START_NOISE = 0.1
