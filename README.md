@@ -10,6 +10,7 @@
 <img align="left" src=https://badges.pufler.dev/visits/Matesxs/GAN-Playground>
 <img align="left" src=https://img.shields.io/github/issues/Matesxs/GAN-Playground>
 <img align="left" src=https://badges.pufler.dev/updated/Matesxs/GAN-Playground>
+<br/>
 
 ## Table of contents
 * [General info](#general-info)
