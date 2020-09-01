@@ -157,16 +157,16 @@ if isinstance(input_folder, str):
 
 print(f"{len(filepaths_to_use)} files to normalize")
 
-target_aspect_ratio = scaled_dim[1]/scaled_dim[0]
+target_aspect_ratio = scaled_dim[0]/scaled_dim[1]
 def crop_image(image, current_aspect_ratio, current_shape):
-  if target_aspect_ratio > current_aspect_ratio:
-    new_height = (current_shape[1] * scaled_dim[0]) / scaled_dim[1]
-    height_dif = current_shape[0] - new_height
-    image = image[(height_dif // 2):(current_shape[0] - (height_dif // 2)), :, :]
-  else:
-    new_width = (current_shape[0] * scaled_dim[1]) / scaled_dim[0]
+  if target_aspect_ratio < current_aspect_ratio:
+    new_width = current_shape[0] / target_aspect_ratio
     width_diff = current_shape[1] - new_width
-    image = image[:, (width_diff // 2):(current_shape[1] - (width_diff // 2)), :]
+    image = image[:, int(width_diff // 2):int(current_shape[1] - (width_diff // 2)), :]
+  else:
+    new_height = current_shape[1] / target_aspect_ratio
+    height_diff = current_shape[0] - new_height
+    image = image[int(height_diff // 2):int(current_shape[0] - (height_diff // 2)), :, :]
 
   return image
 
@@ -176,7 +176,7 @@ def resize_and_save_file(args):
   global ignored_images
 
   if os.path.exists(args[1]) and os.path.isfile(args[1]):
-    try:
+    # try:
       image = cv.imread(args[1])
 
       if image is not None:
@@ -198,15 +198,15 @@ def resize_and_save_file(args):
           if orig_shape[0] <= scaled_dim[1] or orig_shape[1] <= scaled_dim[0]:
             interpolation = cv.INTER_CUBIC
 
-          image = cv.resize(image, scaled_dim, interpolation=interpolation)
+          image = cv.resize(image, (scaled_dim[0], scaled_dim[1]), interpolation=interpolation)
 
         cv.imwrite(f"{output_folder}/{args[0]}.png", image)
         output_to_original_filepath[f"{output_folder}/{args[0]}.png"] = args[1]
-    except:
-      try:
-        os.remove(f"{output_folder}/{args[0]}.png")
-      except:
-        pass
+    # except Exception as e:
+    #   try:
+    #     os.remove(f"{output_folder}/{args[0]}.png")
+    #   except:
+    #     pass
 
 worker_pool.map(resize_and_save_file, enumerate(filepaths_to_use))
 if ignore_smaller_images_than_target:
