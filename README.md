@@ -79,6 +79,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [x] Optimize preprocessing dataset (Too slow)
 - [ ] Optimize interface scripts with more acessible settings
 - [ ] Retrain all SRGAN models with single test image with same train settings to properly compare them
+- [ ] Implement gradient accumulation to "simulate" larger batch
 
 ## Current tasks
 ```
@@ -142,7 +143,11 @@ https://github.com/idealo/image-super-resolution
 <br/>
 ##### SR Resnet
 https://github.com/JGuillaumin/SuperResGAN-keras \
-Note: Implemented as pretrain for SRGAN
+<br/>
+<br/>
+##### ESDR (Enhanced Deep Residual Networks for Single Image Super-Resolution)
+https://github.com/Golbstein/EDSR-Keras
+Note: Ideas used for improving SRGAN
 <br/>
 <br/>
 ##### Perceptual Loss

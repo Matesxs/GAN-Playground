@@ -26,7 +26,7 @@ from modules.batch_maker import BatchMaker
 from modules.stat_logger import StatLogger
 from modules.helpers import time_to_format, get_paths_of_files_from_path, count_upscaling_start_size
 from modules.keras_extensions.feature_extractor import create_feature_extractor, preprocess_vgg
-from modules.metrics import PSNR, PSNR_Y
+from modules.metrics import PSNR, PSNR_Y, SSIM
 
 GEN_LOSS = "mae"
 DISC_LOSS = "binary_crossentropy"
@@ -125,7 +125,7 @@ class SRGAN:
     #################################
     self.generator = self.__build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception(f"Invalid image input size for this generator model\nGenerator shape: {self.generator.output_shape[1:]}, Target shape: {self.target_image_shape}")
-    self.generator.compile(loss=GEN_LOSS, optimizer=generator_optimizer, metrics=[PSNR_Y, PSNR])
+    self.generator.compile(loss=GEN_LOSS, optimizer=generator_optimizer, metrics=[PSNR_Y, PSNR, SSIM])
 
     #################################
     ###    Create vgg network     ###
@@ -154,7 +154,7 @@ class SRGAN:
     self.combined_generator_model = Model(small_image_input, outputs=[gen_images, validity] + [*generated_features], name="srgan")
     self.combined_generator_model.compile(loss=[GEN_LOSS, DISC_LOSS] + ([FEATURE_LOSS] * len(generated_features)),
                                           loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + FEATURE_LOSS_WEIGHTS,
-                                          optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR]})
+                                          optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR, SSIM]})
 
     # Print all summaries
     print("\nDiscriminator Summary:")
@@ -222,8 +222,8 @@ class SRGAN:
 
   def __train_generator(self):
     large_images, small_images = self.batch_maker.get_batch()
-    gen_loss, psnr_y, psnr = self.generator.train_on_batch(small_images, large_images)
-    return float(gen_loss), float(psnr), float(psnr_y)
+    gen_loss, psnr_y, psnr, ssim = self.generator.train_on_batch(small_images, large_images)
+    return float(gen_loss), float(psnr), float(psnr_y), float(ssim)
 
   def __train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
     if discriminator_smooth_real_labels:
@@ -258,7 +258,7 @@ class SRGAN:
 
     gan_metrics = self.combined_generator_model.train_on_batch(small_images, [large_images, valid_labels] + predicted_features)
 
-    return float(gan_metrics[0]), [round(float(x), 5) for x in gan_metrics[1:-2]], float(gan_metrics[-1]), float(gan_metrics[-2])
+    return float(gan_metrics[0]), [round(float(x), 5) for x in gan_metrics[1:-3]], float(gan_metrics[-2]), float(gan_metrics[-3]), float(gan_metrics[-1])
 
   def train(self, target_episode:int, pretrain_episodes:int=None, discriminator_training_multiplier:int=1,
             progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
@@ -307,14 +307,14 @@ class SRGAN:
 
       if pretrain_episodes and self.episode_counter < pretrain_episodes:
         ### Pretrain Generator ###
-        gen_loss, psnr, psnr_y = self.__train_generator()
+        gen_loss, psnr, psnr_y, ssim = self.__train_generator()
         partial_gan_losses = None
       else:
         ### Train GAN ###
         # Train GAN (wants discriminator to recognize fake images as valid)
-        gen_loss, partial_gan_losses, psnr, psnr_y = self.__train_gan(generator_smooth_labels)
+        gen_loss, partial_gan_losses, psnr, psnr_y, ssim = self.__train_gan(generator_smooth_labels)
 
-      self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
+      self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, ssim=ssim, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
@@ -332,7 +332,7 @@ class SRGAN:
 
       # Save stats and print them to console
       if self.episode_counter % self.SHOW_STATS_INTERVAL == 0:
-        print(Fore.GREEN + f"{self.episode_counter}/{target_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (target_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}\t\tDiscriminator: [loss: {round(disc_loss, 5)}, real_loss: {round(float(disc_stats[0]), 5)}, fake_loss: {round(float(disc_stats[1]), 5)}, label_noise: {round(self.discriminator_label_noise * 100, 2) if self.discriminator_label_noise else 0}%] Generator: [loss: {round(gen_loss, 5)}, partial_losses: {partial_gan_losses}, psnr: {round(psnr, 3)}dB, psnr_y: {round(psnr_y, 3)}dB]" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{target_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (target_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}\t\tDiscriminator: [loss: {round(disc_loss, 5)}, real_loss: {round(float(disc_stats[0]), 5)}, fake_loss: {round(float(disc_stats[1]), 5)}, label_noise: {round(self.discriminator_label_noise * 100, 2) if self.discriminator_label_noise else 0}%] Generator: [loss: {round(gen_loss, 5)}, partial_losses: {partial_gan_losses}, psnr: {round(psnr, 3)}dB, psnr_y: {round(psnr_y, 3)}dB, ssim: {round(ssim, 5)}]" + Fore.RESET)
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
