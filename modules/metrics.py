@@ -1,4 +1,8 @@
 import keras.backend as K
+import tensorflow as tf
+
+def SSIM(y_true, y_pred):
+  return K.expand_dims(tf.image.ssim(y_true, y_pred, 1.), 0)
 
 def PSNR(y_true, y_pred):
   """
