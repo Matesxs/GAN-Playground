@@ -26,40 +26,19 @@ from modules.batch_maker import BatchMaker
 from modules.stat_logger import StatLogger
 from modules.helpers import time_to_format, get_paths_of_files_from_path, count_upscaling_start_size
 from modules.keras_extensions.feature_extractor import create_feature_extractor, preprocess_vgg
-from settings.srgan_settings import RESTORE_BEST_PNSR_MODELS_EPISODES
-
-def PSNR(y_true, y_pred):
-  """
-  PSNR is Peek Signal to Noise Ratio, see https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio
-  The equation is:
-  PSNR = 20 * log10(MAX_I) - 10 * log10(MSE)
-
-  Since input is scaled from -1 to 1, MAX_I = 1, and thus 20 * log10(1) = 0. Only the last part of the equation is therefore neccesary.
-  """
-  return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
-
-def RGB_to_Y(image):
-  R = image[:, :, :, 0]
-  G = image[:, :, :, 1]
-  B = image[:, :, :, 2]
-
-  Y = 16 + (65.738 * R) + 129.057 * G + 25.064 * B
-  return Y / 255.0
-
-def PSNR_Y(y_true, y_pred):
-  y_true = RGB_to_Y(y_true)
-  y_pred = RGB_to_Y(y_pred)
-  return -10.0 * K.log(K.mean(K.square(y_pred - y_true))) / K.log(10.0)
+from modules.metrics import PSNR, PSNR_Y
 
 GEN_LOSS = "mae"
 DISC_LOSS = "binary_crossentropy"
 FEATURE_LOSS = "mae"
 
-FEATURE_EXTRACTOR_LAYERS = [5, 9]
+FEATURE_EXTRACTOR_LAYERS = [5, 9] # [2, 5, 8]
 
 GEN_LOSS_WEIGHT = 1.0 # 0.8
 DISC_LOSS_WEIGHT = 0.003 # 0.01, 0.003
-FEATURE_LOSS_WEIGHT = 0.006 # 0.0833, 0.006
+FEATURE_LOSS_WEIGHTS = [0.003, 0.003] # 0.0415, 0.003
+
+assert len(FEATURE_EXTRACTOR_LAYERS) == len(FEATURE_LOSS_WEIGHTS)
 
 class SRGAN:
   SHOW_STATS_INTERVAL = 200  # Interval of saving data for pretrains
@@ -174,7 +153,7 @@ class SRGAN:
     # Train generator to fool discriminator
     self.combined_generator_model = Model(small_image_input, outputs=[gen_images, validity] + [*generated_features], name="srgan")
     self.combined_generator_model.compile(loss=[GEN_LOSS, DISC_LOSS] + ([FEATURE_LOSS] * len(generated_features)),
-                                          loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + ([FEATURE_LOSS_WEIGHT / len(generated_features)] * len(generated_features)),
+                                          loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + FEATURE_LOSS_WEIGHTS,
                                           optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR]})
 
     # Print all summaries
@@ -184,9 +163,6 @@ class SRGAN:
     self.generator.summary()
     print("\nGAN Summary")
     self.combined_generator_model.summary()
-
-    # Stats
-    self.psnr_record = None
 
     # Load checkpoint
     self.initiated = False
@@ -340,15 +316,6 @@ class SRGAN:
 
       self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
 
-      if psnr_y > 15:
-        if not self.psnr_record:
-          self.psnr_record = {"episode": self.episode_counter, "value": psnr_y}
-        elif self.psnr_record["value"] < psnr_y:
-          print(Fore.MAGENTA + f"New PSNR (PSNR_Y) record <{round(psnr_y, 5)}> on episode {self.episode_counter}!" + Fore.RESET)
-          self.psnr_record = {"episode": self.episode_counter, "value": psnr_y}
-          self.__save_weights()
-          self.__save_img(False, tensorflow_description="best_psnr_images")
-
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
       self.gen_lr_scheduler.episode = self.episode_counter
@@ -366,8 +333,6 @@ class SRGAN:
       # Save stats and print them to console
       if self.episode_counter % self.SHOW_STATS_INTERVAL == 0:
         print(Fore.GREEN + f"{self.episode_counter}/{target_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (target_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}\t\tDiscriminator: [loss: {round(disc_loss, 5)}, real_loss: {round(float(disc_stats[0]), 5)}, fake_loss: {round(float(disc_stats[1]), 5)}, label_noise: {round(self.discriminator_label_noise * 100, 2) if self.discriminator_label_noise else 0}%] Generator: [loss: {round(gen_loss, 5)}, partial_losses: {partial_gan_losses}, psnr: {round(psnr, 3)}dB, psnr_y: {round(psnr_y, 3)}dB]" + Fore.RESET)
-        if self.psnr_record:
-          print(Fore.GREEN + f"Actual PSNR (PSNR_Y) Record: {round(self.psnr_record['value'], 5)} on episode {self.psnr_record['episode']}" + Fore.RESET)
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
@@ -391,14 +356,6 @@ class SRGAN:
         np.random.seed(None)
         random.seed()
 
-      # Restore models with best pnsr and restart record
-      if (self.episode_counter in RESTORE_BEST_PNSR_MODELS_EPISODES) and self.psnr_record:
-        self.load_gen_weights_from_episode(self.psnr_record["episode"])
-        self.load_disc_weights_from_episode(self.psnr_record["episode"])
-        self.psnr_record = None
-        self.save_checkpoint()
-        print(Fore.MAGENTA + "Best models weights restored and PNSR record restarted" + Fore.RESET)
-
       epochs_time_history.append(time.time() - ep_start)
 
     # Shutdown helper threads
@@ -411,7 +368,6 @@ class SRGAN:
     self.batch_maker.join()
     self.stat_logger.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
-    print(Fore.MAGENTA + f"PSNR (PSNR_Y) Record: {round(self.psnr_record['value'], 5)} on episode {self.psnr_record['episode']}" + Fore.RESET)
 
   def __save_img(self, save_raw_progress_images:bool=True, tensorflow_description:str="progress"):
     if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
@@ -502,10 +458,6 @@ class SRGAN:
         if "disc_label_noise" in data.keys():
           self.discriminator_label_noise = float(data["disc_label_noise"])
 
-        if "psnr_record" in data.keys():
-          if data["psnr_record"]:
-            self.psnr_record = data["psnr_record"]
-
         if "gen_lr" in data.keys():
           if data["gen_lr"]:
             self.gen_lr_scheduler.lr = data["gen_lr"]
@@ -540,7 +492,6 @@ class SRGAN:
       "disc_path": disc_path,
       "disc_label_noise": self.discriminator_label_noise,
       "test_image": self.progress_test_images_paths,
-      "psnr_record": self.psnr_record,
       "gen_lr": float(self.gen_lr_scheduler.lr),
       "disc_lr": float(self.disc_lr_scheduler.lr)
     }
