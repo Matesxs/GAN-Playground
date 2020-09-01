@@ -4,9 +4,13 @@ import hashlib
 import shutil
 import ntpath
 import random
+import numpy as np
+import logging
 from multiprocessing.pool import ThreadPool
 
 from modules.helpers import get_paths_of_files_from_path
+
+logging.getLogger("opencv-python").setLevel(logging.CRITICAL)
 
 datasets_folder = "datasets"
 
@@ -25,6 +29,7 @@ testing_split = None
 
 crop_images = False
 ignore_smaller_images_than_target = False
+deep_check_duplicates = False
 
 while True:
   print("Avaible input datasets:")
@@ -49,6 +54,7 @@ while True:
 
     ignore_smaller_images_than_target = (input("Ignore smaller images than target (y/n): ").lower() == "y")
     crop_images = (input("Crop input images to target aspect ratio (y/n): ").lower() == "y")
+    deep_check_duplicates = (input("Check deeply for duplicates (y/n): ").lower() == "y")
 
     try:
       testing_split = float(input("Testing split (0 - 1), leave blank for not plitting: "))
@@ -106,6 +112,35 @@ def check_for_duplicates(file_path):
         duplicate_files.append(file_path)
 
 worker_pool.map(check_for_duplicates, raw_file_paths)
+
+def deeply_check_for_duplicates():
+  global filepaths_to_use
+
+  def test_duplicity(test_path):
+    if test_path not in duplicate_files:
+      test_image = cv.imread(test_path)
+
+      if np.array_equal(main_image, test_image):
+        duplicate_files.append(test_path)
+        if test_path not in paths_to_remove:
+          paths_to_remove.append(test_path)
+
+  copy_of_filepaths_to_use = filepaths_to_use.copy()
+  paths_to_remove = []
+
+  for idx, filepath in enumerate(copy_of_filepaths_to_use):
+    if (idx + 1) >= len(copy_of_filepaths_to_use): break
+    if filepath not in duplicate_files:
+
+      main_image = cv.imread(filepath)
+      worker_pool.map(test_duplicity, copy_of_filepaths_to_use[idx + 1:])
+
+
+  filepaths_to_use = [path for path in files_to_move_paths if path not in paths_to_remove]
+
+# Make array to array comparison of images
+if deep_check_duplicates:
+  worker_pool.apply(deeply_check_for_duplicates)
 
 print(f"Found {len(duplicate_files)} duplicates")
 def remove_duplicate(file_path):
