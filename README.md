@@ -3,7 +3,6 @@
 
 <img align="left" src=https://badges.pufler.dev/created/Matesxs/GAN-Playground>
 <br/>
-<br/>
 
 <img align="left" src=https://img.shields.io/github/license/Matesxs/GAN-Playground>
 <img align="left" src=https://img.shields.io/github/stars/Matesxs/GAN-Playground>
