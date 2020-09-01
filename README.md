@@ -1,6 +1,16 @@
 # GAN Testing Playground (WIP)
 #### Project about testing techniques about training GANs and their stability
 
+<img src=https://badges.pufler.dev/created/Matesxs/GAN-Playground>
+<br/>
+<br/>
+
+<img src=https://img.shields.io/github/license/Matesxs/GAN-Playground>
+<img src=https://img.shields.io/github/stars/Matesxs/GAN-Playground>
+<img src=https://badges.pufler.dev/visits/Matesxs/GAN-Playground>
+<img src=https://img.shields.io/github/issues/Matesxs/GAN-Playground>
+<img src=https://badges.pufler.dev/updated/Matesxs/GAN-Playground>
+
 ## Table of contents
 * [General info](#general-info)
 * [Setup](#setup)
