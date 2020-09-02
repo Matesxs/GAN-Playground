@@ -48,8 +48,8 @@ def generate_images():
 
 gen_images = generate_images()
 
-if os.path.exists(OUTPUT_PATH): shutil.rmtree(OUTPUT_PATH, True)
-os.makedirs(OUTPUT_PATH)
+if os.path.exists(OUTPUT_FOLDER_PATH): shutil.rmtree(OUTPUT_FOLDER_PATH, True)
+os.makedirs(OUTPUT_FOLDER_PATH)
 
 for image in gen_images:
-  cv.imwrite(f"{OUTPUT_PATH}/{str(time.time()).replace('.', '_')}.png", cv.cvtColor(image, cv.COLOR_BGR2RGB))
+  cv.imwrite(f"{OUTPUT_FOLDER_PATH}/{str(time.time()).replace('.', '_')}.png", cv.cvtColor(image, cv.COLOR_BGR2RGB))
