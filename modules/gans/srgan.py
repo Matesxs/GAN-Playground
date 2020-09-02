@@ -11,7 +11,7 @@ from keras.utils import plot_model
 from statistics import mean
 from PIL import Image
 import numpy as np
-import cv2 as cv
+from cv2 import cv2 as cv
 from collections import deque
 import json
 import random
@@ -49,7 +49,9 @@ class SRGAN:
                gen_mod_name:str, disc_mod_name:str,
                training_progress_save_path:str,
                generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
-               generator_lr_schedule:Union[dict, None]=None, discriminator_lr_schedule:Union[dict, None]=None,
+               generator_lr_decay_interval:Union[int, None]=None, discriminator_lr_decay_interval:Union[int, None]=None,
+               generator_lr_decay_factor:Union[float, None]=None, discriminator_lr_decay_factor:Union[float, None]=None,
+               generator_min_lr:Union[float, None]=None, discriminator_min_lr:Union[float, None]=None,
                discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
                batch_size:int=4, buffered_batches:int=20,
                generator_weights:Union[str, None]=None, discriminator_weights:Union[str, None]=None,
@@ -110,8 +112,8 @@ class SRGAN:
     self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape, num_of_loading_workers=num_of_loading_workers)
 
     # Create LR Schedulers for both "Optimizer"
-    self.gen_lr_scheduler = LearningRateScheduler(lr_plan=generator_lr_schedule, start_lr=float(K.get_value(generator_optimizer.lr)))
-    self.disc_lr_scheduler = LearningRateScheduler(lr_plan=discriminator_lr_schedule, start_lr=float(K.get_value(discriminator_optimizer.lr)))
+    self.gen_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(generator_optimizer.lr)), lr_decay_factor=generator_lr_decay_factor, lr_decay_interval=generator_lr_decay_interval, min_lr=generator_min_lr)
+    self.disc_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(discriminator_optimizer.lr)), lr_decay_factor=discriminator_lr_decay_factor, lr_decay_interval=discriminator_lr_decay_interval, min_lr=discriminator_min_lr)
 
     #################################
     ###   Create discriminator    ###
@@ -172,12 +174,8 @@ class SRGAN:
     if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
 
     # Set LR
-    # new_gen_lr = self.gen_lr_scheduler.set_lr(self.generator)
-    new_gen_lr = self.gen_lr_scheduler.set_lr(self.combined_generator_model)
-    new_disc_lr = self.disc_lr_scheduler.set_lr(self.discriminator)
-    if new_gen_lr or new_disc_lr: self.save_checkpoint()
-    if new_gen_lr: print(Fore.MAGENTA + f"New LR for generator is {new_gen_lr}" + Fore.RESET)
-    if new_disc_lr: print(Fore.MAGENTA + f"New LR for discriminator is {new_disc_lr}" + Fore.RESET)
+    self.gen_lr_scheduler.set_lr(self.combined_generator_model, self.episode_counter)
+    self.disc_lr_scheduler.set_lr(self.discriminator, self.episode_counter)
 
   # Check if datasets have consistent shapes
   def __validate_dataset(self):
@@ -313,25 +311,23 @@ class SRGAN:
         # Train GAN (wants discriminator to recognize fake images as valid)
         gen_loss, partial_gan_losses, psnr, psnr_y, ssim = self.__train_gan(generator_smooth_labels)
 
-      self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, ssim=ssim, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0)
-
-      self.episode_counter += 1
-      self.tensorboard.step = self.episode_counter
-      self.gen_lr_scheduler.episode = self.episode_counter
-      self.disc_lr_scheduler.episode = self.episode_counter
-
       # Set LR based on episode count and schedule
       # new_gen_lr = self.gen_lr_scheduler.set_lr(self.generator)
-      new_gen_lr = self.gen_lr_scheduler.set_lr(self.combined_generator_model)
-      new_disc_lr = self.disc_lr_scheduler.set_lr(self.discriminator)
+      new_gen_lr = self.gen_lr_scheduler.set_lr(self.combined_generator_model, self.episode_counter)
+      new_disc_lr = self.disc_lr_scheduler.set_lr(self.discriminator, self.episode_counter)
 
       if new_gen_lr: print(Fore.MAGENTA + f"New LR for generator is {new_gen_lr}" + Fore.RESET)
       if new_disc_lr: print(Fore.MAGENTA + f"New LR for discriminator is {new_disc_lr}" + Fore.RESET)
-      if new_gen_lr or new_disc_lr: self.save_checkpoint()
+
+      self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, ssim=ssim, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0, gen_lr=self.gen_lr_scheduler.current_lr, disc_lr=self.disc_lr_scheduler.current_lr)
+
+      self.episode_counter += 1
+      self.tensorboard.step = self.episode_counter
 
       # Save stats and print them to console
       if self.episode_counter % self.SHOW_STATS_INTERVAL == 0:
-        print(Fore.GREEN + f"{self.episode_counter}/{target_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (target_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}\t\tDiscriminator: [loss: {round(disc_loss, 5)}, real_loss: {round(float(disc_stats[0]), 5)}, fake_loss: {round(float(disc_stats[1]), 5)}, label_noise: {round(self.discriminator_label_noise * 100, 2) if self.discriminator_label_noise else 0}%] Generator: [loss: {round(gen_loss, 5)}, partial_losses: {partial_gan_losses}, psnr: {round(psnr, 3)}dB, psnr_y: {round(psnr_y, 3)}dB, ssim: {round(ssim, 5)}]" + Fore.RESET)
+        print(Fore.GREEN + f"{self.episode_counter}/{target_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (target_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}\t\tDiscriminator: [loss: {round(disc_loss, 5)}, real_loss: {round(float(disc_stats[0]), 5)}, fake_loss: {round(float(disc_stats[1]), 5)}, label_noise: {round(self.discriminator_label_noise * 100, 2) if self.discriminator_label_noise else 0}%] Generator: [loss: {round(gen_loss, 5)}, partial_losses: {partial_gan_losses}, psnr: {round(psnr, 3)}dB, psnr_y: {round(psnr_y, 3)}dB, ssim: {round(ssim, 5)}]\n"
+                           f"Generator LR: {self.gen_lr_scheduler.current_lr}, Discriminator LR: {self.disc_lr_scheduler.current_lr}" + Fore.RESET)
 
       # Decay label noise
       if self.discriminator_label_noise and self.discriminator_label_noise_decay:
@@ -457,14 +453,6 @@ class SRGAN:
         if "disc_label_noise" in data.keys():
           self.discriminator_label_noise = float(data["disc_label_noise"])
 
-        if "gen_lr" in data.keys():
-          if data["gen_lr"]:
-            self.gen_lr_scheduler.lr = data["gen_lr"]
-
-        if "disc_lr" in data.keys():
-          if data["disc_lr"]:
-            self.disc_lr_scheduler.lr = data["disc_lr"]
-
         if not self.custom_hr_test_images_paths or self.custom_loading_failed:
           self.progress_test_images_paths = data["test_image"]
         self.initiated = True
@@ -491,8 +479,6 @@ class SRGAN:
       "disc_path": disc_path,
       "disc_label_noise": self.discriminator_label_noise,
       "test_image": self.progress_test_images_paths,
-      "gen_lr": float(self.gen_lr_scheduler.lr),
-      "disc_lr": float(self.disc_lr_scheduler.lr)
     }
 
     with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "w", encoding='utf-8') as f:

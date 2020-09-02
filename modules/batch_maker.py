@@ -3,7 +3,7 @@ from threading import Thread
 from multiprocessing.pool import ThreadPool
 from collections import deque
 from typing import Union
-import cv2 as cv
+from cv2 import cv2 as cv
 import time
 from colorama import Fore
 
@@ -64,7 +64,7 @@ class BatchMaker(Thread):
         original_image = cv.imread(im_p)
         batch.append(cv.cvtColor(original_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0)
         if self.__secondary_size:
-          resized_batch.append(cv.cvtColor(cv.resize(original_image, dsize=(self.__secondary_size[0], self.__secondary_size[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.__secondary_size[0] and original_image.shape[1] > self.__secondary_size[1]) else cv.INTER_CUBIC)), cv.COLOR_BGR2RGB) / 127.5 - 1.0)
+          resized_batch.append(cv.cvtColor(cv.resize(original_image, dsize=(self.__secondary_size[0], self.__secondary_size[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.__secondary_size[1] and original_image.shape[1] > self.__secondary_size[0]) else cv.INTER_CUBIC)), cv.COLOR_BGR2RGB) / 127.5 - 1.0)
 
       if batch: self.__batches.append(np.array(batch).astype(np.float32))
       if resized_batch: self.__resized_batches.append(np.array(resized_batch).astype(np.float32))

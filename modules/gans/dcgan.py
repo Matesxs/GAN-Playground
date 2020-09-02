@@ -8,7 +8,7 @@ from keras.utils import plot_model
 from keras.engine.network import Network
 import keras.backend as K
 from PIL import Image
-import cv2 as cv
+from cv2 import cv2 as cv
 import random
 import time
 from colorama import Fore
