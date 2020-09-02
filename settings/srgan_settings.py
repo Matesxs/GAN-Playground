@@ -6,7 +6,7 @@ CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2
 # Training settings
 # Episodes from training episodes
 GENERATOR_PRETRAIN_EPISODES = 100_000
-TRAINING_EPISODES = 300_000
+TRAINING_EPISODES = 400_000
 
 # Num of episodes after whitch progress image/s will be created to "track" progress of training
 PROGRESS_IMAGE_SAVE_INTERVAL = 100
@@ -18,8 +18,13 @@ GEN_LR = 1e-4
 DISC_LR = 1e-4
 
 # Schedule of LR
-GEN_LR_SCHEDULE =  {30_000: 5e-5, 60_000: 25e-6, 90_000: 12e-6, 120_000: 6e-6, 150_000: 3e-6, 180_000: 15e-7, 210_000: 7e-7, 240_000: 35e-8, 270_000: 17e-8}
-DISC_LR_SCHEDULE = {30_000: 5e-5, 60_000: 25e-6, 90_000: 12e-6, 120_000: 6e-6, 150_000: 3e-6, 180_000: 15e-7, 210_000: 7e-7, 240_000: 35e-8, 270_000: 17e-8}
+GEN_LR_DECAY_INTERVAL = 40_000
+GEN_LR_DECAY_FACTOR = 0.5
+GEN_MIN_LR = 1e-7
+
+DISC_LR_DECAY_INTERVAL = 40_000
+DISC_LR_DECAY_FACTOR = 0.5
+DISC_MIN_LR = 1e-7
 
 # Discriminator label noise settings
 # Leave as None for not use noise
