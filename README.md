@@ -99,15 +99,13 @@ Note: Some utility scripts have its settings in settings folder
 - [x] Implement custom batch maker
 - [ ] Optimize batch maker to use generator class from keras
 - [x] Optimize preprocessing dataset (Too slow)
-- [ ] Optimize interface scripts with more acessible settings
+- [x] Optimize interface scripts with more acessible settings
 - [ ] Retrain all SRGAN models with single test image with same train settings to properly compare them
 - [ ] Implement gradient accumulation to "simulate" larger batch
 
 ## Current tasks
 ```
 - Testing best working model pairs for WGAN
-- Optimizations of SRGAN
-- Better interface scripts
 - Refactoring
 - Retraining all SRGAN models
 ```
