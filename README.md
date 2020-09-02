@@ -12,6 +12,7 @@
 
 ## Table of contents
 * [General info](#general-info)
+* [Dependencies](#dependencies)
 * [Setup](#setup)
 * [Usage](#usage)
 * [Utility](#utility)
