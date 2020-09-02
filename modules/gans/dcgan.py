@@ -67,7 +67,7 @@ class DCGAN:
     self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
 
     # Create array of input image paths
-    self.train_data = get_paths_of_files_from_path(dataset_path)
+    self.train_data = get_paths_of_files_from_path(dataset_path, only_files=True)
     assert self.train_data, Fore.RED + "Training dataset is not loaded" + Fore.RESET
 
     self.testing_data = None
