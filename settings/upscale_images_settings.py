@@ -1,4 +1,4 @@
-# X, Y, CH
+# Y, X, CH
 START_IMAGE_SHAPE = (64, 64, 3)
 NUM_OF_UPSCALES = 2
 

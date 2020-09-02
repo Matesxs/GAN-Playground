@@ -1,5 +1,5 @@
 LATENT_DIM = 128
-# X, Y, CH
+# Y, X, CH
 TARGET_SHAPE = (64, 64, 3)
 
 GENERATOR_MODEL_NAME = "mod_base_4upscl"

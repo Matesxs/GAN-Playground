@@ -24,7 +24,7 @@ model.load_weights(MODEL_WEIGHTS_PATH)
 
 original_image = cv.imread(INPUT_IMAGE_PATH)
 if original_image.shape != START_IMAGE_SHAPE:
-  original_image = cv.resize(original_image, dsize=(START_IMAGE_SHAPE[0], START_IMAGE_SHAPE[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > START_IMAGE_SHAPE[1] and original_image.shape[1] > START_IMAGE_SHAPE[0]) else cv.INTER_CUBIC))
+  original_image = cv.resize(original_image, dsize=(START_IMAGE_SHAPE[1], START_IMAGE_SHAPE[0]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > START_IMAGE_SHAPE[0] and original_image.shape[1] > START_IMAGE_SHAPE[1]) else cv.INTER_CUBIC))
 
 input_image = np.array([cv.cvtColor(original_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0])
 

@@ -28,7 +28,7 @@ from modules.models import generator_models_spreadsheet
 from settings.generate_images_settings import *
 
 lat_input = Input(shape=(LATENT_DIM,))
-preq_gen = getattr(generator_models_spreadsheet, GENERATOR_MODEL_NAME)(lat_input, TARGET_SHAPE, TARGET_SHAPE[2])
+preq_gen = getattr(generator_models_spreadsheet, GENERATOR_MODEL_NAME)(lat_input, (TARGET_SHAPE[1], TARGET_SHAPE[0]), TARGET_SHAPE[2])
 gen_mod = Model(lat_input, preq_gen, name="generator")
 
 if GENERATOR_WEIGHTS_PATH: gen_mod.load_weights(GENERATOR_WEIGHTS_PATH)
