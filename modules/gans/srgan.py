@@ -258,8 +258,8 @@ class SRGAN:
 
     return float(gan_metrics[0]), [round(float(x), 5) for x in gan_metrics[1:-3]], float(gan_metrics[-2]), float(gan_metrics[-3]), float(gan_metrics[-1])
 
-  def train(self, target_episode:int, pretrain_episodes:int=None, discriminator_training_multiplier:int=1,
-            progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
+  def train(self, target_episode:int, pretrain_episodes:Union[int, None]=None, discriminator_training_multiplier:int=1,
+            progress_images_save_interval:Union[int, None]=None, save_raw_progress_images:bool=True, weights_save_interval:Union[int, None]=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False,
             save_only_best_pnsr_weights:bool=False):
