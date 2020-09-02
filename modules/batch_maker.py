@@ -3,7 +3,7 @@ from threading import Thread
 from multiprocessing.pool import ThreadPool
 from collections import deque
 from typing import Union
-import cv2 as cv
+from cv2 import cv2 as cv
 import time
 from colorama import Fore
 

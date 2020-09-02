@@ -11,7 +11,7 @@ from keras.utils import plot_model
 from statistics import mean
 from PIL import Image
 import numpy as np
-import cv2 as cv
+from cv2 import cv2 as cv
 from collections import deque
 import json
 import random
