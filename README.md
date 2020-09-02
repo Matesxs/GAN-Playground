@@ -155,11 +155,11 @@ https://github.com/idealo/image-super-resolution
 <br/>
 <br/>
 ##### SR Resnet
-https://github.com/JGuillaumin/SuperResGAN-keras \
+https://github.com/JGuillaumin/SuperResGAN-keras
 <br/>
 <br/>
 ##### ESDR (Enhanced Deep Residual Networks for Single Image Super-Resolution)
-https://github.com/Golbstein/EDSR-Keras
+https://github.com/Golbstein/EDSR-Keras \
 Note: Ideas used for improving SRGAN
 <br/>
 <br/>
@@ -177,5 +177,5 @@ https://distill.pub/2016/deconv-checkerboard/
 <br/>
 <br/>
 ##### Gradient accumulation
-https://stackoverflow.com/questions/55268762/how-to-accumulate-gradients-for-large-batch-sizes-in-keras
+https://stackoverflow.com/questions/55268762/how-to-accumulate-gradients-for-large-batch-sizes-in-keras \
 https://github.com/keras-team/keras/issues/3556#issuecomment-440638517

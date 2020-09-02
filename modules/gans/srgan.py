@@ -52,11 +52,11 @@ class SRGAN:
                generator_lr_decay_interval:Union[int, None]=None, discriminator_lr_decay_interval:Union[int, None]=None,
                generator_lr_decay_factor:Union[float, None]=None, discriminator_lr_decay_factor:Union[float, None]=None,
                generator_min_lr:Union[float, None]=None, discriminator_min_lr:Union[float, None]=None,
-               discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
+               discriminator_label_noise:Union[float, None]=None, discriminator_label_noise_decay:Union[float, None]=None, discriminator_label_noise_min:Union[float, None]=0.001,
                batch_size:int=4, buffered_batches:int=20,
                generator_weights:Union[str, None]=None, discriminator_weights:Union[str, None]=None,
                load_from_checkpoint:bool=False,
-               custom_hr_test_images_paths:list=None, check_dataset:bool=True, num_of_loading_workers:int=8):
+               custom_hr_test_images_paths:Union[list, None]=None, check_dataset:bool=True, num_of_loading_workers:int=8):
 
     self.disc_mod_name = disc_mod_name
     self.gen_mod_name = gen_mod_name
@@ -66,6 +66,7 @@ class SRGAN:
     self.discriminator_label_noise = discriminator_label_noise
     self.discriminator_label_noise_decay = discriminator_label_noise_decay
     self.discriminator_label_noise_min = discriminator_label_noise_min
+    if self.discriminator_label_noise_min is None: self.discriminator_label_noise_min = 0
 
     self.batch_size = batch_size
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
@@ -257,8 +258,8 @@ class SRGAN:
 
     return float(gan_metrics[0]), [round(float(x), 5) for x in gan_metrics[1:-3]], float(gan_metrics[-2]), float(gan_metrics[-3]), float(gan_metrics[-1])
 
-  def train(self, target_episode:int, pretrain_episodes:int=None, discriminator_training_multiplier:int=1,
-            progress_images_save_interval:int=None, save_raw_progress_images:bool=True, weights_save_interval:int=None,
+  def train(self, target_episode:int, pretrain_episodes:Union[int, None]=None, discriminator_training_multiplier:int=1,
+            progress_images_save_interval:Union[int, None]=None, save_raw_progress_images:bool=True, weights_save_interval:Union[int, None]=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
             generator_smooth_labels:bool=False,
             save_only_best_pnsr_weights:bool=False):
@@ -379,10 +380,10 @@ class SRGAN:
       original_unscaled_image = cv.imread(test_image_path)
       # print(f"[DEBUG] {original_unscaled_image.shape}, {self.target_image_shape}")
       if original_unscaled_image.shape != self.target_image_shape:
-        original_image = cv.resize(original_unscaled_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_unscaled_image.shape[0] > self.start_image_shape[0] and original_unscaled_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
+        original_image = cv.resize(original_unscaled_image, dsize=(self.start_image_shape[1], self.start_image_shape[0]), interpolation=(cv.INTER_AREA if (original_unscaled_image.shape[0] > self.start_image_shape[0] and original_unscaled_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
       else:
         original_image = original_unscaled_image
-      small_image = cv.resize(original_image, dsize=(self.start_image_shape[0], self.start_image_shape[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
+      small_image = cv.resize(original_image, dsize=(self.start_image_shape[1], self.start_image_shape[0]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
 
       # Conver image to RGB colors and upscale it
       gen_img = self.generator.predict(np.array([cv.cvtColor(small_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0]))[0]
@@ -392,7 +393,7 @@ class SRGAN:
       gen_img = cv.cvtColor(gen_img, cv.COLOR_RGB2BGR)
 
       # Place side by side image resized by opencv, original (large) image and upscaled by gan
-      final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], 0:gen_img.shape[0], :] = cv.resize(small_image, dsize=(self.target_image_shape[0], self.target_image_shape[1]), interpolation=(cv.INTER_AREA if (small_image.shape[0] > self.target_image_shape[0] and small_image.shape[1] > self.target_image_shape[1]) else cv.INTER_CUBIC))
+      final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], 0:gen_img.shape[0], :] = cv.resize(small_image, dsize=(self.target_image_shape[1], self.target_image_shape[0]), interpolation=(cv.INTER_AREA if (small_image.shape[0] > self.target_image_shape[0] and small_image.shape[1] > self.target_image_shape[1]) else cv.INTER_CUBIC))
       final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], gen_img.shape[0]:gen_img.shape[0] * 2, :] = original_image
       final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], gen_img.shape[0] * 2:gen_img.shape[0] * 3, :] = gen_img
 
