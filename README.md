@@ -8,7 +8,6 @@
 <img align="left" src=https://badges.pufler.dev/visits/Matesxs/GAN-Playground>
 <img align="left" src=https://img.shields.io/github/issues/Matesxs/GAN-Playground>
 <br/>
-[![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
 
 ## Table of contents
 * [General info](#general-info)
