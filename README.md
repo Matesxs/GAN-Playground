@@ -64,6 +64,7 @@ Note: These scripts are still in progress of making, some of them may not work!
 ```
 scrape_lorem_picsum.py - Script for scraping lorem picsum like websites
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
+Note: Some utility scripts have its settings in settings folder
 ```
 
 ## Results
