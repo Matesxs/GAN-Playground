@@ -43,7 +43,6 @@ if __name__ == '__main__':
                             generator_lr_schedule=GEN_LR_SCHEDULE, discriminator_lr_schedule=DISC_LR_SCHEDULE,
                             discriminator_label_noise=DISCRIMINATOR_START_NOISE, discriminator_label_noise_decay=DISCRIMINATOR_NOISE_DECAY, discriminator_label_noise_min=DISCRIMINATOR_TARGET_NOISE,
                             generator_weights=GEN_WEIGHTS, discriminator_weights=DICS_WEIGHTS,
-                            start_episode=START_EPISODE,
                             load_from_checkpoint=LOAD_FROM_CHECKPOINTS,
                             custom_hr_test_images_paths=CUSTOM_HR_TEST_IMAGES, check_dataset=CHECK_DATASET, num_of_loading_workers=NUM_OF_LOADING_WORKERS)
 

@@ -4,7 +4,6 @@ DATASET_PATH = "datasets/faces_normalized__256x256"
 CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2.png", "datasets/testing_image3.jpg"]
 
 # Training settings
-START_EPISODE = 0
 # Episodes from training episodes
 GENERATOR_PRETRAIN_EPISODES = 100_000
 TRAINING_EPISODES = 300_000
