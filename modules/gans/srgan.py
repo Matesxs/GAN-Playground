@@ -52,11 +52,11 @@ class SRGAN:
                generator_lr_decay_interval:Union[int, None]=None, discriminator_lr_decay_interval:Union[int, None]=None,
                generator_lr_decay_factor:Union[float, None]=None, discriminator_lr_decay_factor:Union[float, None]=None,
                generator_min_lr:Union[float, None]=None, discriminator_min_lr:Union[float, None]=None,
-               discriminator_label_noise:float=None, discriminator_label_noise_decay:float=None, discriminator_label_noise_min:float=0.001,
+               discriminator_label_noise:Union[float, None]=None, discriminator_label_noise_decay:Union[float, None]=None, discriminator_label_noise_min:Union[float, None]=0.001,
                batch_size:int=4, buffered_batches:int=20,
                generator_weights:Union[str, None]=None, discriminator_weights:Union[str, None]=None,
                load_from_checkpoint:bool=False,
-               custom_hr_test_images_paths:list=None, check_dataset:bool=True, num_of_loading_workers:int=8):
+               custom_hr_test_images_paths:Union[list, None]=None, check_dataset:bool=True, num_of_loading_workers:int=8):
 
     self.disc_mod_name = disc_mod_name
     self.gen_mod_name = gen_mod_name
@@ -66,6 +66,7 @@ class SRGAN:
     self.discriminator_label_noise = discriminator_label_noise
     self.discriminator_label_noise_decay = discriminator_label_noise_decay
     self.discriminator_label_noise_min = discriminator_label_noise_min
+    if self.discriminator_label_noise_min is None: self.discriminator_label_noise_min = 0
 
     self.batch_size = batch_size
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
