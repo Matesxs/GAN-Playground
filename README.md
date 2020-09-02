@@ -5,6 +5,7 @@
 <img align="left" src=https://badges.pufler.dev/updated/Matesxs/GAN-Playground>
 <img align="left" src=https://img.shields.io/github/license/Matesxs/GAN-Playground>
 <img align="left" src=https://img.shields.io/github/stars/Matesxs/GAN-Playground>
+<img align="left" src=https://img.shields.io/github/forks/Matesxs/GAN-Playground>
 <img align="left" src=https://badges.pufler.dev/visits/Matesxs/GAN-Playground>
 <img align="left" src=https://img.shields.io/github/issues/Matesxs/GAN-Playground>
 <br/>
@@ -27,6 +28,16 @@ This project contains documented code for DCGAN, WGAN and SRGAN. \
 GAN and WGAN are for creating new unique images from latent vector. \
 Sometimes somebody could refed to it as noise but in general its more like settings values. \
 SRGAN is more useful GAN, its purpose is to upscale image from low to higher resolution.
+
+## Dependencies
+```
+- Python3.7
+- Tensorflow 2.2
+
+For GPU acceleration:
+    - Cuda Toolkit 10.1
+    - cuDNN for toolkit version
+```
 
 ## Setup
 ```
@@ -112,13 +123,6 @@ Hardware:
     SSD: Intel 660p M.2 2TB SSD NVMe
 
 Editor: PyCharm (always latest version)
-
-Important libraries:
-    tensorflow==2.2.0
-    keras==2.3.1
-    numpy==1.19.1
-
-These versions of libraries were tested for these scripts.
 ```
 
 ## Resources
