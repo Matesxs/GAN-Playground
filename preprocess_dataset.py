@@ -202,7 +202,7 @@ def resize_and_save_file(args):
 
         cv.imwrite(f"{output_folder}/{args[0]}.png", image)
         output_to_original_filepath[f"{output_folder}/{args[0]}.png"] = args[1]
-    except Exception as e:
+    except:
       try:
         os.remove(f"{output_folder}/{args[0]}.png")
       except:

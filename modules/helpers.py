@@ -1,8 +1,11 @@
 import os
 
-def get_paths_of_files_from_path(path):
+def get_paths_of_files_from_path(path, only_files:bool=False):
   if not os.path.exists(path): return None
-  return [os.path.join(path, file_name) for file_name in os.listdir(path)]
+  content = [os.path.join(path, file_name) for file_name in os.listdir(path)]
+  if only_files:
+    content = [x for x in content if os.path.isfile(x)]
+  return content
 
 def time_to_format(timestamp):
   # Helper vars:
