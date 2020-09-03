@@ -28,6 +28,8 @@ GAN and WGAN are for creating new unique images from latent vector. \
 Sometimes somebody could refed to it as noise but in general its more like settings values. \
 SRGAN is more useful GAN, its purpose is to upscale image from low to higher resolution.
 
+Disclaimer: This repository is more like proof of concept than download and run!
+
 ## Dependencies
 ```
 - Python3.7
