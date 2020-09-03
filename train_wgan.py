@@ -25,6 +25,7 @@ if gpus:
     pass
 
 from keras import optimizers
+
 from modules.gans import WGANGC
 from settings.wgan_settings import *
 

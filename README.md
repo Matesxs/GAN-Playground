@@ -60,7 +60,6 @@ Note: These scripts are still in progress of making, some of them may not work!
 
 ## Utility
 ```
-scrape_lorem_picsum.py - Script for scraping lorem picsum like websites
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
 visualize_conv_activations.py - Script for displaying activation of each conv layer as image
 Note: Some utility scripts have its settings in settings folder

@@ -1,4 +1,4 @@
-# Data source settings
+# Data source settings (RELATIVE TO TRAIN SCRIPT POSITION OR ABSOLUTE)
 DATASET_PATH = "datasets/faces_normalized__256x256"
 # If none will be provided then script will select some random one
 CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2.png", "datasets/testing_image3.jpg"]

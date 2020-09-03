@@ -11,11 +11,11 @@ from modules.helpers import get_paths_of_files_from_path
 
 logging.getLogger("opencv-python").setLevel(logging.CRITICAL)
 
-datasets_folder = "datasets"
+DATASETS_FOLDER_PATH = r"../datasets"
 
-assert os.path.exists(datasets_folder) and os.path.isdir(datasets_folder), "Invalid datasets folder"
+assert os.path.exists(DATASETS_FOLDER_PATH) and os.path.isdir(DATASETS_FOLDER_PATH), "Invalid datasets folder"
 
-dataset_list = [x for x in os.listdir(datasets_folder) if os.path.isdir(os.path.join(datasets_folder, x)) and "normalized" not in x]
+dataset_list = [x for x in os.listdir(DATASETS_FOLDER_PATH) if os.path.isdir(os.path.join(DATASETS_FOLDER_PATH, x)) and "normalized" not in x]
 dataset_list.append("All (All datasets merged)")
 
 selected_dataset_name = None
@@ -62,12 +62,12 @@ while True:
     selected_dataset_name = dataset_list[selected_dataset_index]
 
     if selected_dataset_name == "All (All datasets merged)":
-      input_folder = [os.path.join(datasets_folder, x) for x in dataset_list if x != "All (All datasets merged)"]
+      input_folder = [os.path.join(DATASETS_FOLDER_PATH, x) for x in dataset_list if x != "All (All datasets merged)"]
       selected_dataset_name = "all"
     else:
-      input_folder = os.path.join(datasets_folder, selected_dataset_name)
+      input_folder = os.path.join(DATASETS_FOLDER_PATH, selected_dataset_name)
 
-    output_folder = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}" + ("__train" if testing_split else ""))
+    output_folder = os.path.join(DATASETS_FOLDER_PATH, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}" + ("__train" if testing_split else ""))
     scaled_dim = (selected_x_dimension, selected_y_dimension)
 
     print(f"Dataset {selected_dataset_name} was selected with target dimensions: {scaled_dim}" + (f" with test split {testing_split}" if testing_split else ""))
@@ -206,7 +206,7 @@ worker_pool.map(delete_resized_duplicates, output_files)
 print(f"Deleted {resized_duplicates} already resized duplicates")
 
 if testing_split:
-  testing_folder_path = os.path.join(datasets_folder, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}__test")
+  testing_folder_path = os.path.join(DATASETS_FOLDER_PATH, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}__test")
   if os.path.exists(testing_folder_path): shutil.rmtree(testing_folder_path)
   os.mkdir(testing_folder_path)
 
