@@ -4,7 +4,7 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.initializers import Initializer, RandomNormal
 from tensorflow import Tensor
 
-from modules.models.custom_layers import conv_layer
+from .custom_layers import conv_layer
 
 def mod_testing(inp:Union[Tensor, Layer], kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   m = conv_layer(inp, 64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act="leaky", use_bias=True, kernel_initializer=kernel_initializer)

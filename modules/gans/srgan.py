@@ -19,24 +19,24 @@ import time
 import imagesize
 from multiprocessing.pool import ThreadPool
 
-from modules.models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet
-from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
-from modules.keras_extensions.custom_lrscheduler import LearningRateScheduler
-from modules.batch_maker import BatchMaker
-from modules.stat_logger import StatLogger
-from modules.helpers import time_to_format, get_paths_of_files_from_path, count_upscaling_start_size
-from modules.keras_extensions.feature_extractor import create_feature_extractor, preprocess_vgg
-from modules.metrics import PSNR, PSNR_Y, SSIM
+from ..models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet
+from ..keras_extensions.custom_tensorboard import TensorBoardCustom
+from ..keras_extensions.custom_lrscheduler import LearningRateScheduler
+from ..batch_maker import BatchMaker
+from ..stat_logger import StatLogger
+from ..helpers import time_to_format, get_paths_of_files_from_path, count_upscaling_start_size
+from ..keras_extensions.feature_extractor import create_feature_extractor, preprocess_vgg
+from ..metrics import PSNR, PSNR_Y, SSIM
 
 GEN_LOSS = "mae"
 DISC_LOSS = "binary_crossentropy"
 FEATURE_LOSS = "mae"
 
-FEATURE_EXTRACTOR_LAYERS = [5, 9] # [2, 5, 8]
+FEATURE_EXTRACTOR_LAYERS = [2, 5, 8] # [2, 5, 8], [5, 9]
 
 GEN_LOSS_WEIGHT = 1.0 # 0.8
-DISC_LOSS_WEIGHT = 0.003 # 0.01, 0.003
-FEATURE_LOSS_WEIGHTS = [0.003, 0.003] # 0.0415, 0.003
+DISC_LOSS_WEIGHT = 0.004 # 0.01, 0.003
+FEATURE_LOSS_WEIGHTS = [0.002, 0.002, 0.002] # 0.0415, 0.003
 
 assert len(FEATURE_EXTRACTOR_LAYERS) == len(FEATURE_LOSS_WEIGHTS)
 

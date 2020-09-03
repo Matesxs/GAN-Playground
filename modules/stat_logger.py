@@ -1,5 +1,5 @@
 from threading import Thread
-from modules.keras_extensions.custom_tensorboard import TensorBoardCustom
+from .keras_extensions.custom_tensorboard import TensorBoardCustom
 from collections import deque
 import time
 

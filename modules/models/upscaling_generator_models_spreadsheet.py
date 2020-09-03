@@ -3,7 +3,7 @@ from keras.initializers import Initializer, RandomNormal
 from keras.layers import Layer, BatchNormalization, Conv2D, PReLU, Add, Lambda
 from tensorflow import Tensor
 
-from modules.models.custom_layers import deconv_layer, res_block, RRDB1, conv_layer, RRDB2
+from .custom_layers import deconv_layer, res_block, RRDB1, conv_layer, RRDB2
 
 def mod_srgan_base(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_upscales:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   m = Conv2D(filters=64, kernel_size=9, strides=1, padding="same", kernel_initializer=kernel_initializer, input_shape=start_image_shape, activation=None)(inp)

@@ -95,6 +95,7 @@ Note: Some utility scripts have its settings in settings folder
 - [x] Test Charbonnier loss instead of MSE loss in SRGAN
 - [ ] Test Huber loss instead of MSE loss in SRGAN
 - [x] Test MAE loss instead of MSE loss in SRGAN
+- [ ] Test impact of different weights of losses in SRGAN
 - [x] Optimize training loop of SRGAN (Too much time is spending of testing performance)
 - [x] Implement custom batch maker
 - [ ] Optimize batch maker to use generator class from keras

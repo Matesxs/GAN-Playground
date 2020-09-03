@@ -25,7 +25,7 @@ if gpus:
     pass
 
 from keras import optimizers
-from modules.gans.dcgan import DCGAN
+from modules.gans import DCGAN
 from settings.dcgan_settings import *
 
 if __name__ == '__main__':
