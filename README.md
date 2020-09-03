@@ -62,6 +62,8 @@ Note: These scripts are still in progress of making, some of them may not work!
 ```
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
 visualize_conv_activations.py - Script for displaying activation of each conv layer as image
+show_vgg_structure.py - Script that will print all layers of vgg19 usable for perceptual loss
+parse_hr_image.py - Script to parse large images to small ones (WIP)
 Note: Some utility scripts have its settings in settings folder
 ```
 
