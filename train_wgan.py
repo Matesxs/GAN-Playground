@@ -25,7 +25,7 @@ if gpus:
     pass
 
 from keras import optimizers
-from modules.gans.wasserstein_gan import WGANGC
+from modules.gans import WGANGC
 from settings.wgan_settings import *
 
 if __name__ == '__main__':
