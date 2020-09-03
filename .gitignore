@@ -9,3 +9,4 @@ models_notes
 generated_images/
 *.log
 utility_scripts/scrape_lorem_picsum.py
+lib/chromedriver.exe
