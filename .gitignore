@@ -8,3 +8,4 @@ training_data/
 models_notes
 generated_images/
 *.log
+scrape_lorem_picsum.py
