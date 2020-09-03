@@ -6,7 +6,7 @@ CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2
 # Training settings
 # Episodes from training episodes
 GENERATOR_PRETRAIN_EPISODES = 100_000
-TRAINING_EPISODES = 400_000
+TRAINING_EPISODES = 100_000
 
 # Num of episodes after whitch progress image/s will be created to "track" progress of training
 PROGRESS_IMAGE_SAVE_INTERVAL = 100
@@ -59,7 +59,7 @@ CHECK_DATASET = False
 # Save progress images to folder too (if false then they will be saved only to tensorboard)
 SAVE_RAW_IMAGES = True
 # Duration of one frame if gif is created from progress images after training
-GIF_FRAME_DURATION = 100
+GIF_FRAME_DURATION = 300
 
 # Num of worker used to preload data for training/testing
 NUM_OF_LOADING_WORKERS = 8
