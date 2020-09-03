@@ -1,4 +1,4 @@
-# Data source settings
+# Data source settings (RELATIVE TO TRAIN SCRIPT POSITION OR ABSOLUTE)
 DATASET_PATH = "datasets/faces_normalized__64x64"
 
 # Training settings
@@ -30,7 +30,7 @@ CHECK_DATASET = False
 # Save progress images to folder too (if false then they will be saved only to tensorboard)
 SAVE_RAW_IMAGES = True
 # Duration of one frame if gif is created from progress images after training
-GIF_FRAME_DURATION = 100
+GIF_FRAME_DURATION = 300
 
 # Num of worker used to preload data for training/testing
 NUM_OF_LOADING_WORKERS = 8

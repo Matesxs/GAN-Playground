@@ -58,6 +58,7 @@ class SRGAN:
                load_from_checkpoint:bool=False,
                custom_hr_test_images_paths:Union[list, None]=None, check_dataset:bool=True, num_of_loading_workers:int=8):
 
+    # Save params to inner variables
     self.disc_mod_name = disc_mod_name
     self.gen_mod_name = gen_mod_name
     self.num_of_upscales = num_of_upscales
@@ -300,6 +301,7 @@ class SRGAN:
         real_loss, fake_loss = self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
         disc_stats.append([real_loss, fake_loss])
 
+      # Calculate mean of losses of discriminator from all trainings and calculate disc loss
       disc_stats = np.mean(disc_stats, 0)
       disc_loss = sum(disc_stats) * 0.5
 
@@ -320,6 +322,7 @@ class SRGAN:
       if new_gen_lr: print(Fore.MAGENTA + f"New LR for generator is {new_gen_lr}" + Fore.RESET)
       if new_disc_lr: print(Fore.MAGENTA + f"New LR for discriminator is {new_disc_lr}" + Fore.RESET)
 
+      # Append stats to stat logger
       self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, ssim=ssim, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0, gen_lr=self.gen_lr_scheduler.current_lr, disc_lr=self.disc_lr_scheduler.current_lr)
 
       self.episode_counter += 1
@@ -402,12 +405,14 @@ class SRGAN:
       cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.episode_counter}.png", final_image)
     self.tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32), description=tensorflow_description)
 
+  # Save weights of generator and discriminator model
   def __save_weights(self):
     save_dir = self.training_progress_save_path + "/weights/" + str(self.episode_counter)
     if not os.path.exists(save_dir): os.makedirs(save_dir)
     self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
     self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
 
+  # Load weights to models from given episode
   def load_gen_weights_from_episode(self, episode:int):
     weights_dir = self.training_progress_save_path + "/weights/" + str(episode)
     if not os.path.exists(weights_dir): return
@@ -424,6 +429,7 @@ class SRGAN:
     if os.path.exists(disc_weights_path):
       self.discriminator.load_weights(disc_weights_path)
 
+  # Save images of model structures
   def save_models_structure_images(self):
     save_path = self.training_progress_save_path + "/model_structures"
     if not os.path.exists(save_path): os.makedirs(save_path)
@@ -431,6 +437,7 @@ class SRGAN:
     plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
     plot_model(self.discriminator, os.path.join(save_path, "discriminator.png"), expand_nested=True, show_shapes=True)
 
+  # Load progress of training from checkpoint
   def __load_checkpoint(self):
     checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
     if not os.path.exists(os.path.join(checkpoint_base_path, "checkpoint_data.json")): return
@@ -458,6 +465,7 @@ class SRGAN:
           self.progress_test_images_paths = data["test_image"]
         self.initiated = True
 
+  # Save progress of training
   def save_checkpoint(self):
     checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
     if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
