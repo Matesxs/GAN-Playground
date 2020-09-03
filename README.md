@@ -28,6 +28,8 @@ GAN and WGAN are for creating new unique images from latent vector. \
 Sometimes somebody could refed to it as noise but in general its more like settings values. \
 SRGAN is more useful GAN, its purpose is to upscale image from low to higher resolution.
 
+Disclaimer: This repository is more like proof of concept than download and run!
+
 ## Dependencies
 ```
 - Python3.7
@@ -62,6 +64,8 @@ Note: These scripts are still in progress of making, some of them may not work!
 ```
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
 visualize_conv_activations.py - Script for displaying activation of each conv layer as image
+show_vgg_structure.py - Script that will print all layers of vgg19 usable for perceptual loss
+parse_hr_image.py - Script to parse large images to small ones (WIP)
 Note: Some utility scripts have its settings in settings folder
 ```
 
@@ -177,3 +181,5 @@ https://distill.pub/2016/deconv-checkerboard/
 ##### Gradient accumulation
 https://stackoverflow.com/questions/55268762/how-to-accumulate-gradients-for-large-batch-sizes-in-keras \
 https://github.com/keras-team/keras/issues/3556#issuecomment-440638517
+
+### Some resources might be missing, I started researching this topic long before this repository was created!
