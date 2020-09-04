@@ -50,20 +50,22 @@ def conv_layer(inp:Union[Layer, tf.Tensor], filters:int, kernel_size:int=3, stri
 
   return x
 
-def res_block(inp:Union[Layer, tf.Tensor], filters:int, kernel_size:int=3, strides:int=2, batch_norm:Union[float, None]=0.5, use_bias:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def res_block(inp:Union[Layer, tf.Tensor], filters:int, kernel_size:int=3, strides:int=2, batch_norm:Union[float, None]=0.5, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert filters > 0, "Invalid filter number"
   assert kernel_size > 0, "Invalid kernel size"
   assert strides > 0, "Invalid stride size"
 
+  ConvLayer = ConvSN2D if use_sn else Conv2D
+
   gen = inp
 
-  model = Conv2D(filters, kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer, use_bias=use_bias, activation=None)(inp)
+  model = ConvLayer(filters, kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer, use_bias=use_bias, activation=None)(inp)
 
   if batch_norm:
     model = BatchNormalization(momentum=batch_norm, axis=-1)(model)
 
   model = PReLU(alpha_initializer='zeros', alpha_regularizer=None, alpha_constraint=None, shared_axes=[1, 2])(model)
-  model = Conv2D(filters, kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer, use_bias=use_bias, activation=None)(model)
+  model = ConvLayer(filters, kernel_size, strides=strides, padding="same", kernel_initializer=kernel_initializer, use_bias=use_bias, activation=None)(model)
 
   if batch_norm:
     model = BatchNormalization(momentum=batch_norm, axis=-1)(model)
@@ -72,25 +74,27 @@ def res_block(inp:Union[Layer, tf.Tensor], filters:int, kernel_size:int=3, strid
 
   return model
 
-def RRDB1(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, use_bias:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+def RRDB1(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
+  ConvLayer = ConvSN2D if use_sn else Conv2D
+
   def dense_block(inp):
-    x1 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(inp)
+    x1 = ConvLayer(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(inp)
     x1 = LeakyReLU(0.2)(x1)
     x1 = Concatenate()([inp, x1])
 
-    x2 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x1)
+    x2 = ConvLayer(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x1)
     x2 = LeakyReLU(0.2)(x2)
     x2 = Concatenate()([inp, x1, x2])
 
-    x3 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x2)
+    x3 = ConvLayer(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x2)
     x3 = LeakyReLU(0.2)(x3)
     x3 = Concatenate()([inp, x1, x2, x3])
 
-    x4 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x3)
+    x4 = ConvLayer(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x3)
     x4 = LeakyReLU(0.2)(x4)
     x4 = Concatenate()([inp, x1, x2, x3, x4])
 
-    x5 = Conv2D(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x4)
+    x5 = ConvLayer(filters, kernel_size=kernel_size, strides=1, padding='same', use_bias=use_bias, kernel_initializer=kernel_initializer)(x4)
     x5 = Lambda(lambda x: x * 0.2)(x5)
     x = Add()([x5, inp])
     return x
@@ -102,8 +106,10 @@ def RRDB1(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, use_bi
   out = Add()([x, inp])
   return out
 
-def RRDB2(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, use_bias:bool=True, kernel_initializer:Initializer=RandomNormal(stddev=0.02),
+def RRDB2(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02),
           conv_layers_in_dense_block:int=4, num_of_RDBs:int=3):
+  ConvLayer = ConvSN2D if use_sn else Conv2D
+
   def _dense_block(input_layer):
     """
     Implementation of the (Residual) Dense Block as in the paper
@@ -113,7 +119,7 @@ def RRDB2(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, use_bi
 
     x = input_layer
     for _ in range(conv_layers_in_dense_block):
-      F_dc = Conv2D(
+      F_dc = ConvLayer(
         filters,
         kernel_size=kernel_size,
         padding='same',
@@ -123,7 +129,7 @@ def RRDB2(inp:Union[Layer, tf.Tensor], filters:int=64, kernel_size:int=3, use_bi
       F_dc = Activation('relu')(F_dc)
       x = Concatenate(axis=3)([x, F_dc])
 
-    x = Conv2D(
+    x = ConvLayer(
       filters,
       kernel_size=3,
       padding='same',

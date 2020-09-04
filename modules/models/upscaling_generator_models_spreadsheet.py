@@ -68,7 +68,7 @@ def mod_srgan_exp_sn(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_u
 
   skip = m
 
-  m = RRDB1(m, filters=64, kernel_size=3, use_bias=True, kernel_initializer=kernel_initializer)
+  m = RRDB1(m, filters=64, kernel_size=3, use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
 
   m = conv_layer(m, filters=64, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, use_sn=True, kernel_initializer=kernel_initializer)
   m = Lambda(lambda x: x * 0.2)(m)
