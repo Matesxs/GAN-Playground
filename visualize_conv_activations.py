@@ -24,8 +24,8 @@ if gpus:
 from keras import Model
 from keras.layers import Input
 
-from ..modules.models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet, generator_models_spreadsheet
-from ..settings.visualize_conv_activations_settings import *
+from modules.models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet, generator_models_spreadsheet
+from settings.visualize_conv_activations_settings import *
 
 def calculate_grid(num_of_images):
   row_size = num_of_images
