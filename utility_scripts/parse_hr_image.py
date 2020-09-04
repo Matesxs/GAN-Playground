@@ -1,7 +1,7 @@
 import os
 import cv2 as cv
 
-from modules.helpers import get_paths_of_files_from_path
+from ..modules.utils.helpers import get_paths_of_files_from_path
 
 HR_IMAGES_FOLDER = r""
 OUTPUT_FOLDER = r""

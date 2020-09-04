@@ -4,7 +4,7 @@ from keras.layers import Layer, Dense, Reshape, Conv2D, LeakyReLU, Add, Lambda
 from tensorflow import Tensor
 
 from .custom_layers import deconv_layer, conv_layer, RRDB1
-from ..helpers import count_upscaling_start_size
+from ..utils.helpers import count_upscaling_start_size
 
 def mod_testing(inp:Union[Tensor, Layer], image_shape:tuple, image_channels:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   st_s = count_upscaling_start_size(image_shape, 3)
