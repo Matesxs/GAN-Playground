@@ -36,8 +36,7 @@ FEATURE_EXTRACTOR_LAYERS = [2, 5, 8] # [2, 5, 8], [5, 9]
 
 GEN_LOSS_WEIGHT = 1.0 # 0.8
 DISC_LOSS_WEIGHT = 0 # 0.01, 0.003
-
-FEATURE_LOSS_WEIGHTS = [0.01, 0.01, 0.01] # 0.0415, 0.003
+FEATURE_LOSS_WEIGHTS = [0.027, 0.027, 0.027] # 0.0415, 0.003
 
 assert len(FEATURE_EXTRACTOR_LAYERS) == len(FEATURE_LOSS_WEIGHTS)
 
@@ -155,7 +154,7 @@ class SRGAN:
 
     # Combine models
     # Train generator to fool discriminator
-    self.combined_generator_model = Model(small_image_input, outputs=[gen_images, validity] + [*generated_features], name="srgan")
+    self.combined_generator_model = Model(inputs=small_image_input, outputs=[gen_images, validity] + [*generated_features], name="srgan")
     self.combined_generator_model.compile(loss=[GEN_LOSS, DISC_LOSS] + ([FEATURE_LOSS] * len(generated_features)),
                                           loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + FEATURE_LOSS_WEIGHTS,
                                           optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR, SSIM]})
@@ -317,11 +316,10 @@ class SRGAN:
 
       # Set LR based on episode count and schedule
       # new_gen_lr = self.gen_lr_scheduler.set_lr(self.generator)
-      new_gen_lr = self.gen_lr_scheduler.set_lr(self.combined_generator_model, self.episode_counter)
-      new_disc_lr = self.disc_lr_scheduler.set_lr(self.discriminator, self.episode_counter)
-
-      if new_gen_lr: print(Fore.MAGENTA + f"New LR for generator is {new_gen_lr}" + Fore.RESET)
-      if new_disc_lr: print(Fore.MAGENTA + f"New LR for discriminator is {new_disc_lr}" + Fore.RESET)
+      if self.gen_lr_scheduler.set_lr(self.combined_generator_model, self.episode_counter):
+        print(Fore.MAGENTA + f"New LR for generator is {self.gen_lr_scheduler.current_lr}" + Fore.RESET)
+      if self.disc_lr_scheduler.set_lr(self.discriminator, self.episode_counter):
+        print(Fore.MAGENTA + f"New LR for discriminator is {self.disc_lr_scheduler.current_lr}" + Fore.RESET)
 
       # Append stats to stat logger
       self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, ssim=ssim, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0, gen_lr=self.gen_lr_scheduler.current_lr, disc_lr=self.disc_lr_scheduler.current_lr)
