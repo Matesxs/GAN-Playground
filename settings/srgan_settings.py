@@ -6,7 +6,7 @@ CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2
 # Training settings
 # Episodes from training episodes
 GENERATOR_PRETRAIN_EPISODES = 100_000
-TRAINING_EPISODES = 100_000
+TRAINING_EPISODES = 400_000
 
 # Num of episodes after whitch progress image/s will be created to "track" progress of training
 PROGRESS_IMAGE_SAVE_INTERVAL = 100
