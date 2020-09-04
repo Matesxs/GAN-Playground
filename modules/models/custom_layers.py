@@ -5,25 +5,8 @@ from keras.layers import Layer, Conv2D, UpSampling2D, BatchNormalization, Dropou
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers import Activation
 
-from modules.keras_extensions.spectral_normalization import ConvSN2D
-
-subpixel_index = 0
-def SubpixelConv2D(scale=2):
-  global subpixel_index
-
-  def subpixel_shape(input_shape):
-    dims = [input_shape[0],
-            None if input_shape[1] is None else input_shape[1] * scale,
-            None if input_shape[2] is None else input_shape[2] * scale,
-            int(input_shape[3] / (scale ** 2))]
-    output_shape = tuple(dims)
-    return output_shape
-
-  def subpixel(x):
-    return tf.nn.depth_to_space(x, scale)
-
-  subpixel_index += 1
-  return Lambda(subpixel, output_shape=subpixel_shape, name=f"subpixel_conv2d_{subpixel_index}")
+from ..keras_extensions.spectral_normalization import ConvSN2D
+from ..keras_extensions.subpixel_conv import SubpixelConv2D
 
 def deconv_layer(inp:Union[Layer, tf.Tensor], filters:int, kernel_size:int=3, upscale_multiplier:int=2, dropout:float=None, batch_norm:Union[float, None]=None, use_subpixel_conv2d:bool=False, act:Union[str, None]= "leaky", use_bias:bool=True, use_sn:bool=False, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   assert filters > 0, "Invalid filter number"

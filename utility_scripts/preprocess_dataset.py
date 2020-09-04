@@ -7,7 +7,7 @@ import random
 import logging
 from multiprocessing.pool import ThreadPool
 
-from modules.helpers import get_paths_of_files_from_path
+from ..modules.utils.helpers import get_paths_of_files_from_path
 
 logging.getLogger("opencv-python").setLevel(logging.CRITICAL)
 

@@ -19,10 +19,10 @@ from statistics import mean
 import imagesize
 from multiprocessing.pool import ThreadPool
 
-from ..batch_maker import BatchMaker
+from ..utils.batch_maker import BatchMaker
 from ..models import discriminator_models_spreadsheet, generator_models_spreadsheet
 from ..keras_extensions.custom_tensorboard import TensorBoardCustom
-from ..helpers import time_to_format, get_paths_of_files_from_path
+from ..utils.helpers import time_to_format, get_paths_of_files_from_path
 
 class DCGAN:
   CONTROL_THRESHOLD = 100_000 # Threshold when after whitch we will be testing training process

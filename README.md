@@ -10,12 +10,10 @@
 
 ## Table of contents
 * [General info](#general-info)
-* [Dependencies](#dependencies)
+* [Project Folder Structure](#project-folder-structure)
 * [Setup](#setup)
 * [Usage](#usage)
-* [Utility](#utility)
 * [Results](#results)
-* [Used models](#used-models)
 * [TODO](#todo)
 * [Current tasks](#current-tasks)
 * [Notes](#notes)
@@ -30,6 +28,24 @@ SRGAN is more useful GAN, its purpose is to upscale image from low to higher res
 
 Disclaimer: This repository is more like proof of concept than download and run!
 
+## Project Folder Structure
+```
+- datasets (place for all data that you will want feed to network)
+- media (folder with media files of repo)
+- modules
+    - gans (trainers for all GANs are pleced)
+    - keras_extensions (extesions based on keras functionality)
+    - models (models and building blocks for models)
+    - utils (other helper stuff)
+- settings (settings for scripts)
+- utility_scripts (scripts for data processing and other useful stuff)
+```
+
+## Setup
+```
+pip install -r requirements.txt
+```
+
 ## Dependencies
 ```
 - Python3.7
@@ -38,11 +54,6 @@ Disclaimer: This repository is more like proof of concept than download and run!
 For GPU acceleration:
     - Cuda Toolkit 10.1
     - cuDNN for toolkit version
-```
-
-## Setup
-```
-pip install -r requirements.txt
 ```
 
 ## Usage
