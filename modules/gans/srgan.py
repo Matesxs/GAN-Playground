@@ -5,6 +5,7 @@ import keras.backend as K
 from keras.optimizers import Optimizer, Adam
 from keras.layers import Input, Dense
 from keras.models import Model
+from keras.losses import Loss
 from keras.engine.network import Network
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
@@ -36,7 +37,10 @@ class SRGAN:
   def __init__(self, dataset_path:str, num_of_upscales:int,
                gen_mod_name:str, disc_mod_name:str,
                training_progress_save_path:str,
+               feature_extractor_layers:Union[list, None],
                generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
+               gen_loss="mae", disc_loss="binary_crossentropy", feature_loss="mae",
+               gen_loss_weight:float=1.0, disc_loss_weight:float=0.003, feature_loss_weight:float=0.0833,
                generator_lr_decay_interval:Union[int, None]=None, discriminator_lr_decay_interval:Union[int, None]=None,
                generator_lr_decay_factor:Union[float, None]=None, discriminator_lr_decay_factor:Union[float, None]=None,
                generator_min_lr:Union[float, None]=None, discriminator_min_lr:Union[float, None]=None,
@@ -61,6 +65,10 @@ class SRGAN:
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
 
     self.episode_counter = 0
+
+    # Insert empty list if extractor layers are None
+    if feature_extractor_layers is None:
+      feature_extractor_layers = []
 
     # Create array of input image paths
     self.train_data = get_paths_of_files_from_path(dataset_path, only_files=True)
@@ -109,19 +117,19 @@ class SRGAN:
     ###      Create discriminator     ###
     #####################################
     self.discriminator = self.__build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss=DISC_LOSS, optimizer=discriminator_optimizer)
+    self.discriminator.compile(loss=disc_loss, optimizer=discriminator_optimizer)
 
     #####################################
     ###       Create generator        ###
     #####################################
     self.generator = self.__build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception(f"Invalid image input size for this generator model\nGenerator shape: {self.generator.output_shape[1:]}, Target shape: {self.target_image_shape}")
-    self.generator.compile(loss=GEN_LOSS, optimizer=generator_optimizer, metrics=[PSNR_Y, PSNR, SSIM])
+    self.generator.compile(loss=gen_loss, optimizer=generator_optimizer, metrics=[PSNR_Y, PSNR, SSIM])
 
     #####################################
     ###      Create vgg network       ###
     #####################################
-    self.vgg = create_feature_extractor(self.target_image_shape, FEATURE_EXTRACTOR_LAYERS)
+    self.vgg = create_feature_extractor(self.target_image_shape, feature_extractor_layers)
 
     #####################################
     ### Create combined discriminator ###
@@ -138,7 +146,7 @@ class SRGAN:
     real_validity = self.discriminator(large_image_input_discriminator)
 
     self.combined_discriminator_model = Model(inputs=[small_image_input_discriminator, large_image_input_discriminator], outputs=[fake_validity, real_validity], name="combined_discriminator")
-    self.combined_discriminator_model.compile(loss=DISC_LOSS, optimizer=discriminator_optimizer, loss_weights=[1., 1.])
+    self.combined_discriminator_model.compile(loss=disc_loss, optimizer=discriminator_optimizer, loss_weights=[1., 1.])
 
     #####################################
     ###   Create combined generator   ###
@@ -160,8 +168,8 @@ class SRGAN:
     # Combine models
     # Train generator to fool discriminator
     self.combined_generator_model = Model(inputs=small_image_input_generator, outputs=[gen_images, validity] + [*generated_features], name="srgan")
-    self.combined_generator_model.compile(loss=[GEN_LOSS, DISC_LOSS] + ([FEATURE_LOSS] * len(generated_features)),
-                                          loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + ([FEATURE_LOSS_WEIGHT / len(FEATURE_EXTRACTOR_LAYERS)] * len(FEATURE_EXTRACTOR_LAYERS)),
+    self.combined_generator_model.compile(loss=[gen_loss, disc_loss] + ([feature_loss] * len(generated_features)),
+                                          loss_weights=[gen_loss_weight, disc_loss_weight] + ([feature_loss_weight / len(feature_extractor_layers)] * len(feature_extractor_layers)),
                                           optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR, SSIM]})
 
     # Print all summaries
