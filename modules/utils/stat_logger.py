@@ -16,6 +16,13 @@ class StatLogger(Thread):
 
     self.start()
 
+  def __del__(self):
+    len_of_stats = len(self.__stats)
+    if len_of_stats > 0:
+      for _ in range(len_of_stats):
+        stat_pair = self.__stats.popleft()
+        self.__tensorboard._write_logs(stat_pair[1], stat_pair[0])
+
   def terminate(self):
     self.__terminated = True
 
