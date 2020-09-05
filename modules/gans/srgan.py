@@ -35,10 +35,8 @@ FEATURE_LOSS = "mae"
 FEATURE_EXTRACTOR_LAYERS = [2, 5, 8] # [2, 5, 8], [5, 9]
 
 GEN_LOSS_WEIGHT = 1.0 # 0.8
-DISC_LOSS_WEIGHT = 0 # 0.01, 0.003
-FEATURE_LOSS_WEIGHTS = [0.027, 0.027, 0.027] # 0.0415, 0.003
-
-assert len(FEATURE_EXTRACTOR_LAYERS) == len(FEATURE_LOSS_WEIGHTS)
+DISC_LOSS_WEIGHT = 0.003 # 0.01, 0.003
+FEATURE_LOSS_WEIGHT = 0 # 0.0415, 0.003, 0.027
 
 class SRGAN:
   SHOW_STATS_INTERVAL = 200  # Interval of saving data for pretrains
@@ -156,7 +154,7 @@ class SRGAN:
     # Train generator to fool discriminator
     self.combined_generator_model = Model(inputs=small_image_input, outputs=[gen_images, validity] + [*generated_features], name="srgan")
     self.combined_generator_model.compile(loss=[GEN_LOSS, DISC_LOSS] + ([FEATURE_LOSS] * len(generated_features)),
-                                          loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + FEATURE_LOSS_WEIGHTS,
+                                          loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + ([FEATURE_LOSS_WEIGHT / len(FEATURE_EXTRACTOR_LAYERS)] * len(FEATURE_EXTRACTOR_LAYERS)),
                                           optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR, SSIM]})
 
     # Print all summaries
@@ -262,8 +260,7 @@ class SRGAN:
   def train(self, target_episode:int, pretrain_episodes:Union[int, None]=None, discriminator_training_multiplier:int=1,
             progress_images_save_interval:Union[int, None]=None, save_raw_progress_images:bool=True, weights_save_interval:Union[int, None]=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
-            generator_smooth_labels:bool=False,
-            save_only_best_pnsr_weights:bool=False):
+            generator_smooth_labels:bool=False):
 
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
@@ -341,7 +338,7 @@ class SRGAN:
         self.__save_img(save_raw_progress_images)
 
       # Save weights of models
-      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0 and not save_only_best_pnsr_weights:
+      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0:
         self.__save_weights()
 
       # Save checkpoint
@@ -361,8 +358,7 @@ class SRGAN:
     self.stat_logger.terminate()
     self.batch_maker.terminate()
     self.save_checkpoint()
-    if not save_only_best_pnsr_weights:
-      self.__save_weights()
+    self.__save_weights()
     self.batch_maker.join()
     self.stat_logger.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)

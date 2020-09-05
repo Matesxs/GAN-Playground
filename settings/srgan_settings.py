@@ -48,9 +48,6 @@ GEN_WEIGHTS = None
 DISC_MODEL = "mod_base_9layers"
 DICS_WEIGHTS = None
 
-# Saving settings
-SAVE_ONLY_BEST_PNSR_WEIGHTS = False
-
 # Check if you want to load last autocheckpoint (If weights were provided thne checkpoint will be overriden by them)
 LOAD_FROM_CHECKPOINTS = True
 # Leave this false only when you are sure your dataset is consistent (Check whole dataset if all images have same dimensions before training)

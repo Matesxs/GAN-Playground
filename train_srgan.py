@@ -55,8 +55,7 @@ if __name__ == '__main__':
                           progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                           weights_save_interval=WEIGHTS_SAVE_INTERVAL,
                           discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
-                          generator_smooth_labels=False,
-                          save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)
+                          generator_smooth_labels=False)
   except KeyboardInterrupt:
     if training_object:
       print(Fore.BLUE + f"Quiting on epoch: {training_object.episode_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)
