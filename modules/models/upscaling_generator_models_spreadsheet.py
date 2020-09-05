@@ -43,6 +43,25 @@ def mod_srgan_exp(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_upsc
   m = Conv2D(filters=start_image_shape[2], kernel_size=3, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
   return m
 
+
+def mod_srgan_v2(inp: Union[Tensor, Layer], start_image_shape: tuple, num_of_upscales: int, kernel_initializer: Initializer = RandomNormal(stddev=0.02)):
+  m = conv_layer(inp, filters=32, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, kernel_initializer=kernel_initializer)
+
+  skip = m
+
+  for _ in range(10):
+    m = RRDB2(m, filters=32, kernel_size=3, use_bias=True, kernel_initializer=kernel_initializer, num_of_RDBs=3, conv_layers_in_dense_block=4)
+
+  m = conv_layer(m, filters=32, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, kernel_initializer=kernel_initializer)
+
+  m = Add()([skip, m])
+
+  for _ in range(num_of_upscales):
+    m = deconv_layer(m, 128, kernel_size=3, upscale_multiplier=2, act="leaky", batch_norm=None, use_subpixel_conv2d=True, use_bias=True, kernel_initializer=kernel_initializer)
+
+  m = Conv2D(filters=start_image_shape[2], kernel_size=3, strides=1, padding="same", activation="tanh", kernel_initializer=kernel_initializer)(m)
+  return m
+
 def mod_srgan_exp_v2(inp:Union[Tensor, Layer], start_image_shape:tuple, num_of_upscales:int, kernel_initializer:Initializer=RandomNormal(stddev=0.02)):
   m = conv_layer(inp, filters=32, kernel_size=3, strides=1, dropout=None, batch_norm=None, act=None, use_bias=True, kernel_initializer=kernel_initializer)
 
