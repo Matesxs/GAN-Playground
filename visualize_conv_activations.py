@@ -27,6 +27,7 @@ from keras.layers import Input
 from modules.models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet, generator_models_spreadsheet
 from settings.visualize_conv_activations_settings import *
 
+# This method is only bruteforce thing to create some grid of that images
 def calculate_grid(num_of_images):
   row_size = num_of_images
   col_size = 1
@@ -38,6 +39,7 @@ def calculate_grid(num_of_images):
 
   return col_size, row_size
 
+# Load model based on selected mode
 if VISUALIZATION_MODE == "upscale":
   model_input = Input(shape=INPUT_IMAGE_SHAPE_FOR_UPSCALE)
 
@@ -71,27 +73,48 @@ elif VISUALIZATION_MODE == "discriminator":
 else:
   raise Exception("Unknown visualization mode")
 
+# Get conv layers and their names
 output_layers = [layer.output for layer in base_model.layers if "conv" in layer.name.lower()]
 output_layer_names = [f"{idx}layer_{layer.name}" for idx, layer in enumerate(base_model.layers) if "conv" in layer.name.lower()]
 assert len(output_layers) > 0
 
+# Create visualization model based on base model
 vis_model = Model(base_model.input, output_layers)
 
+# Remove output folder if exist and create new empty one
 if os.path.exists(OUTPUT_FOLDER_PATH): shutil.rmtree(OUTPUT_FOLDER_PATH, True)
 os.makedirs(OUTPUT_FOLDER_PATH)
 
+# Make images from activations
 def make_and_save_images(activations, output_layer_names):
+  def translate(sensor_val, in_from, in_to, out_from, out_to):
+    out_range = out_to - out_from
+    in_range = in_to - in_from
+    in_val = sensor_val - in_from
+    val = (in_val / in_range) * out_range
+    out_val = out_from + val
+    return out_val
+
   for activation, layer_name in zip(activations, output_layer_names):
     activation_shape = activation.shape
     grid_sizes = calculate_grid(activation_shape[3])
 
+    # Create empty image grid
     final_image = np.zeros((activation_shape[1] * grid_sizes[0], activation_shape[2] * grid_sizes[1]))
+
+    # Iterate over the empty image grid
     for col_idx in range(grid_sizes[0]):
       for row_idx in range(grid_sizes[1]):
-        final_image[int(col_idx * activation_shape[1]):int((col_idx + 1) * activation_shape[1]), int(row_idx * activation_shape[2]):int((row_idx + 1) * activation_shape[2])] = (0.5 * activation[0, :, :, int((col_idx * grid_sizes[1]) + row_idx)] + 0.5) * 255
+        # Normalize image to 0 - 255
+        normalized_image = translate(activation[0, :, :, int((col_idx * grid_sizes[1]) + row_idx)], float(np.min(activation[0, :, :, int((col_idx * grid_sizes[1]) + row_idx)])), float(np.max(activation[0, :, :, int((col_idx * grid_sizes[1]) + row_idx)])), 0, 255)
 
+        # Add image to grid
+        final_image[int(col_idx * activation_shape[1]):int((col_idx + 1) * activation_shape[1]), int(row_idx * activation_shape[2]):int((row_idx + 1) * activation_shape[2])] = normalized_image
+
+    # Save image of whole layer
     cv.imwrite(os.path.join(OUTPUT_FOLDER_PATH, f"{layer_name}.png"), np.array(final_image))
 
+# Based on model used read input image and preprocess it to size for that model
 if VISUALIZATION_MODE == "upscale":
   lr_image = cv.imread(SR_INPUT_IMAGE_PATH)
 
