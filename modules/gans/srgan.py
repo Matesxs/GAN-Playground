@@ -5,7 +5,6 @@ import keras.backend as K
 from keras.optimizers import Optimizer, Adam
 from keras.layers import Input, Dense
 from keras.models import Model
-from keras.losses import Loss
 from keras.engine.network import Network
 from keras.initializers import RandomNormal
 from keras.utils import plot_model
