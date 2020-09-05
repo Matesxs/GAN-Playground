@@ -57,8 +57,8 @@ if __name__ == '__main__':
                           discriminator_training_multiplier=DISCRIMINATOR_TRAINING_MULTIPLIER,
                           progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                           weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
-                          generator_smooth_labels=False)
+                          discriminator_smooth_real_labels=DISC_REAL_LABEL_SMOOTHING, discriminator_smooth_fake_labels=DISC_FAKE_LABEL_SMOOTHING,
+                          generator_smooth_labels=GENERATOR_LABEL_SMOOTHING)
   except KeyboardInterrupt:
     if training_object:
       print(Fore.BLUE + f"Quiting on epoch: {training_object.episode_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)

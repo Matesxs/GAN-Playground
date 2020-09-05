@@ -34,6 +34,11 @@ DISC_LR_DECAY_INTERVAL = 40_000
 DISC_LR_DECAY_FACTOR = 0.5
 DISC_MIN_LR = 1e-7
 
+# Label smoothing settings
+DISC_REAL_LABEL_SMOOTHING = True
+DISC_FAKE_LABEL_SMOOTHING = True
+GENERATOR_LABEL_SMOOTHING = False
+
 # Discriminator label noise settings
 # Leave as None for not use noise
 DISCRIMINATOR_START_NOISE = 0.1
