@@ -36,10 +36,10 @@ class SRGAN:
   def __init__(self, dataset_path:str, num_of_upscales:int,
                gen_mod_name:str, disc_mod_name:str,
                training_progress_save_path:str,
-               feature_extractor_layers:Union[list, None],
                generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
                gen_loss="mae", disc_loss="binary_crossentropy", feature_loss="mae",
-               gen_loss_weight:float=1.0, disc_loss_weight:float=0.003, feature_loss_weight:float=0.0833,
+               gen_loss_weight:float=1.0, disc_loss_weight:float=0.003, feature_loss_weights:Union[list, None]=None,
+               feature_extractor_layers: Union[list, None] = None,
                generator_lr_decay_interval:Union[int, None]=None, discriminator_lr_decay_interval:Union[int, None]=None,
                generator_lr_decay_factor:Union[float, None]=None, discriminator_lr_decay_factor:Union[float, None]=None,
                generator_min_lr:Union[float, None]=None, discriminator_min_lr:Union[float, None]=None,
@@ -68,6 +68,11 @@ class SRGAN:
     # Insert empty list if extractor layers are None
     if feature_extractor_layers is None:
       feature_extractor_layers = []
+
+    if feature_loss_weights is None:
+      feature_loss_weights = []
+
+    assert len(feature_extractor_layers) == len(feature_loss_weights), Fore.RED + "Number of extractor layers and feature loss weights must match!" + Fore.RESET
 
     # Create array of input image paths
     self.__train_data = get_paths_of_files_from_path(dataset_path, only_files=True)
@@ -168,7 +173,7 @@ class SRGAN:
     # Train generator to fool discriminator
     self.__combined_generator_model = Model(inputs=small_image_input_generator, outputs=[gen_images, validity] + [*generated_features], name="srgan")
     self.__combined_generator_model.compile(loss=[gen_loss, disc_loss] + ([feature_loss] * len(generated_features)),
-                                            loss_weights=[gen_loss_weight, disc_loss_weight] + ([feature_loss_weight / len(feature_extractor_layers)] * len(feature_extractor_layers)),
+                                            loss_weights=[gen_loss_weight, disc_loss_weight] + feature_loss_weights,
                                             optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR, SSIM]})
 
     # Print all summaries
@@ -490,6 +495,9 @@ class SRGAN:
 
     gen_path = f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5"
     disc_path = f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5"
+
+    if os.path.exists(f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5.lock")
+    if os.path.exists(f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5.lock")
 
     if os.path.exists(gen_path): os.rename(gen_path, f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5.lock")
     if os.path.exists(disc_path): os.rename(disc_path, f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5.lock")

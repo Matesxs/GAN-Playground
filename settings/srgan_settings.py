@@ -69,7 +69,7 @@ FEATURE_EXTRACTOR_LAYERS = [2, 5, 8] # [2, 5, 8], [5, 9]
 
 GEN_LOSS_WEIGHT = 1.0 # 0.8
 DISC_LOSS_WEIGHT = 0.005 # 0.01, 0.003
-FEATURE_LOSS_WEIGHT = 0.08 # 0.0833
+FEATURE_PER_LAYER_LOSS_WEIGHTS = [0.027, 0.027, 0.027] # 0.0833
 
 ### General Settings ###
 # Check if you want to load last autocheckpoint (If weights were provided thne checkpoint will be overriden by them)
