@@ -22,7 +22,7 @@ from multiprocessing.pool import ThreadPool
 from ..models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet
 from ..keras_extensions.custom_tensorboard import TensorBoardCustom
 from ..keras_extensions.custom_lrscheduler import LearningRateScheduler
-from ..utils.batch_maker import BatchMaker
+from ..utils.batch_maker import BatchMaker, AugmentationSettings
 from ..utils.stat_logger import StatLogger
 from ..utils.helpers import time_to_format, get_paths_of_files_from_path, count_upscaling_start_size
 from ..keras_extensions.feature_extractor import create_feature_extractor, preprocess_vgg
@@ -36,10 +36,11 @@ class SRGAN:
   def __init__(self, dataset_path:str, num_of_upscales:int,
                gen_mod_name:str, disc_mod_name:str,
                training_progress_save_path:str,
+               dataset_augmentation_settings:Union[AugmentationSettings, None]=None,
                generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
                gen_loss="mae", disc_loss="binary_crossentropy", feature_loss="mae",
-               gen_loss_weight:float=1.0, disc_loss_weight:float=0.003, feature_loss_weights:Union[list, None]=None,
-               feature_extractor_layers: Union[list, None] = None,
+               gen_loss_weight:float=1.0, disc_loss_weight:float=0.003, feature_loss_weights:Union[list, float, None]=None,
+               feature_extractor_layers: Union[list, None]=None,
                generator_lr_decay_interval:Union[int, None]=None, discriminator_lr_decay_interval:Union[int, None]=None,
                generator_lr_decay_factor:Union[float, None]=None, discriminator_lr_decay_factor:Union[float, None]=None,
                generator_min_lr:Union[float, None]=None, discriminator_min_lr:Union[float, None]=None,
@@ -65,14 +66,18 @@ class SRGAN:
 
     self.__episode_counter = 0
 
-    # Insert empty list if extractor layers are None
+    # Insert empty lists if feature extractor settings are empty
     if feature_extractor_layers is None:
       feature_extractor_layers = []
 
     if feature_loss_weights is None:
       feature_loss_weights = []
 
-    assert len(feature_extractor_layers) == len(feature_loss_weights), Fore.RED + "Number of extractor layers and feature loss weights must match!" + Fore.RESET
+    # If feature_loss_weights is float then create list of the weights from it
+    if isinstance(feature_loss_weights, float) and len(feature_extractor_layers) > 0:
+      feature_loss_weights = [feature_loss_weights / len(feature_extractor_layers)] * len(feature_extractor_layers)
+    else:
+      assert len(feature_extractor_layers) == len(feature_loss_weights), Fore.RED + "Number of extractor layers and feature loss weights must match!" + Fore.RESET
 
     # Create array of input image paths
     self.__train_data = get_paths_of_files_from_path(dataset_path, only_files=True)
@@ -111,7 +116,7 @@ class SRGAN:
       self.__progress_test_images_paths = [random.choice(self.__train_data)]
 
     # Create batchmaker and start it
-    self.batch_maker = BatchMaker(self.__train_data, self.__batch_size, buffered_batches=buffered_batches, secondary_size=self.__start_image_shape, num_of_loading_workers=num_of_loading_workers)
+    self.batch_maker = BatchMaker(self.__train_data, self.__batch_size, buffered_batches=buffered_batches, secondary_size=self.__start_image_shape, num_of_loading_workers=num_of_loading_workers, augmentation_settings=dataset_augmentation_settings)
 
     # Create LR Schedulers for both "Optimizer"
     self.__gen_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(generator_optimizer.lr)), lr_decay_factor=generator_lr_decay_factor, lr_decay_interval=generator_lr_decay_interval, min_lr=generator_min_lr)
@@ -181,8 +186,6 @@ class SRGAN:
     self.__discriminator.summary()
     print("\nGenerator Summary:")
     self.__generator.summary()
-    print("\nGAN Summary")
-    self.__combined_generator_model.summary()
 
     # Load checkpoint
     self.__initiated = False

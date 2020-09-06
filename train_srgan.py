@@ -27,6 +27,7 @@ if gpus:
 from keras.optimizers import Adam
 
 from modules.gans import SRGAN
+from modules.utils.batch_maker import AugmentationSettings
 from settings.srgan_settings import *
 
 if __name__ == '__main__':
@@ -36,6 +37,7 @@ if __name__ == '__main__':
 
   try:
     training_object = SRGAN(DATASET_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
+                            dataset_augmentation_settings=AugmentationSettings(flip_chance=FLIP_CHANCE, rotation_chance=ROTATION_CHANCE, rotation_ammount=ROTATION_AMOUNT, blur_chance=BLUR_CHANCE, blur_amount=BLUR_AMOUNT),
                             batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
                             gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
                             generator_optimizer=Adam(GEN_LR, 0.9), discriminator_optimizer=Adam(DISC_LR, 0.9),
