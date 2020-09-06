@@ -463,12 +463,18 @@ class SRGAN:
         try:
           self.__generator.load_weights(data["gen_path"])
         except:
-          print(Fore.YELLOW + "Failed to load generator weights from checkpoint" + Fore.RESET)
+          try:
+            self.__generator.load_weights(data["gen_path"] + ".lock")
+          except:
+            print(Fore.YELLOW + "Failed to load generator weights from checkpoint" + Fore.RESET)
 
         try:
           self.__discriminator.load_weights(data["disc_path"])
         except:
-          print(Fore.YELLOW + "Failed to load discriminator weights from checkpoint" + Fore.RESET)
+          try:
+            self.__discriminator.load_weights(data["disc_path"] + ".lock")
+          except:
+            print(Fore.YELLOW + "Failed to load discriminator weights from checkpoint" + Fore.RESET)
 
         if "disc_label_noise" in data.keys():
           self.__discriminator_label_noise = float(data["disc_label_noise"])
