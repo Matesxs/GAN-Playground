@@ -28,18 +28,6 @@ from ..utils.helpers import time_to_format, get_paths_of_files_from_path, count_
 from ..keras_extensions.feature_extractor import create_feature_extractor, preprocess_vgg
 from ..utils.metrics import PSNR, PSNR_Y, SSIM
 
-GEN_LOSS = "mae"
-DISC_LOSS = "binary_crossentropy"
-FEATURE_LOSS = "mae"
-
-FEATURE_EXTRACTOR_LAYERS = [2, 5, 8] # [2, 5, 8], [5, 9]
-
-GEN_LOSS_WEIGHT = 1.0 # 0.8
-DISC_LOSS_WEIGHT = 0.004 # 0.01, 0.003
-FEATURE_LOSS_WEIGHTS = [0.002, 0.002, 0.002] # 0.0415, 0.003
-
-assert len(FEATURE_EXTRACTOR_LAYERS) == len(FEATURE_LOSS_WEIGHTS)
-
 class SRGAN:
   SHOW_STATS_INTERVAL = 200  # Interval of saving data for pretrains
   RESET_SEEDS_INTERVAL = 5_000  # Interval of checking norm gradient value of combined model
@@ -48,7 +36,10 @@ class SRGAN:
   def __init__(self, dataset_path:str, num_of_upscales:int,
                gen_mod_name:str, disc_mod_name:str,
                training_progress_save_path:str,
+               feature_extractor_layers:Union[list, None],
                generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
+               gen_loss="mae", disc_loss="binary_crossentropy", feature_loss="mae",
+               gen_loss_weight:float=1.0, disc_loss_weight:float=0.003, feature_loss_weight:float=0.0833,
                generator_lr_decay_interval:Union[int, None]=None, discriminator_lr_decay_interval:Union[int, None]=None,
                generator_lr_decay_factor:Union[float, None]=None, discriminator_lr_decay_factor:Union[float, None]=None,
                generator_min_lr:Union[float, None]=None, discriminator_min_lr:Union[float, None]=None,
@@ -73,6 +64,10 @@ class SRGAN:
     assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
 
     self.episode_counter = 0
+
+    # Insert empty list if extractor layers are None
+    if feature_extractor_layers is None:
+      feature_extractor_layers = []
 
     # Create array of input image paths
     self.train_data = get_paths_of_files_from_path(dataset_path, only_files=True)
@@ -117,31 +112,48 @@ class SRGAN:
     self.gen_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(generator_optimizer.lr)), lr_decay_factor=generator_lr_decay_factor, lr_decay_interval=generator_lr_decay_interval, min_lr=generator_min_lr)
     self.disc_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(discriminator_optimizer.lr)), lr_decay_factor=discriminator_lr_decay_factor, lr_decay_interval=discriminator_lr_decay_interval, min_lr=discriminator_min_lr)
 
-    #################################
-    ###   Create discriminator    ###
-    #################################
+    #####################################
+    ###      Create discriminator     ###
+    #####################################
     self.discriminator = self.__build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss=DISC_LOSS, optimizer=discriminator_optimizer)
+    self.discriminator.compile(loss=disc_loss, optimizer=discriminator_optimizer)
 
-    #################################
-    ###     Create generator      ###
-    #################################
+    #####################################
+    ###       Create generator        ###
+    #####################################
     self.generator = self.__build_generator(gen_mod_name)
     if self.generator.output_shape[1:] != self.target_image_shape: raise Exception(f"Invalid image input size for this generator model\nGenerator shape: {self.generator.output_shape[1:]}, Target shape: {self.target_image_shape}")
-    self.generator.compile(loss=GEN_LOSS, optimizer=generator_optimizer, metrics=[PSNR_Y, PSNR, SSIM])
+    self.generator.compile(loss=gen_loss, optimizer=generator_optimizer, metrics=[PSNR_Y, PSNR, SSIM])
 
-    #################################
-    ###    Create vgg network     ###
-    #################################
-    self.vgg = create_feature_extractor(self.target_image_shape, FEATURE_EXTRACTOR_LAYERS)
+    #####################################
+    ###      Create vgg network       ###
+    #####################################
+    self.vgg = create_feature_extractor(self.target_image_shape, feature_extractor_layers)
 
-    #################################
-    ### Create combined generator ###
-    #################################
-    small_image_input = Input(shape=self.start_image_shape, name="small_image_input")
+    #####################################
+    ### Create combined discriminator ###
+    #####################################
+    small_image_input_discriminator = Input(shape=self.start_image_shape, name="small_image_input")
+    large_image_input_discriminator = Input(shape=self.target_image_shape, name="large_image_input")
+
+    frozen_generator = Network(self.generator.inputs, self.generator.outputs, name="frozen_generator")
+    frozen_generator.trainable = False
+
+    upscaled_images = frozen_generator(small_image_input_discriminator)
+
+    fake_validity = self.discriminator(upscaled_images)
+    real_validity = self.discriminator(large_image_input_discriminator)
+
+    self.combined_discriminator_model = Model(inputs=[small_image_input_discriminator, large_image_input_discriminator], outputs=[fake_validity, real_validity], name="combined_discriminator")
+    self.combined_discriminator_model.compile(loss=disc_loss, optimizer=discriminator_optimizer, loss_weights=[1., 1.])
+
+    #####################################
+    ###   Create combined generator   ###
+    #####################################
+    small_image_input_generator = Input(shape=self.start_image_shape, name="small_image_input")
 
     # Images upscaled by generator
-    gen_images = self.generator(small_image_input)
+    gen_images = self.generator(small_image_input_generator)
 
     # Discriminator takes images and determinates validity
     frozen_discriminator = Network(self.discriminator.inputs, self.discriminator.outputs, name="frozen_discriminator")
@@ -154,9 +166,9 @@ class SRGAN:
 
     # Combine models
     # Train generator to fool discriminator
-    self.combined_generator_model = Model(small_image_input, outputs=[gen_images, validity] + [*generated_features], name="srgan")
-    self.combined_generator_model.compile(loss=[GEN_LOSS, DISC_LOSS] + ([FEATURE_LOSS] * len(generated_features)),
-                                          loss_weights=[GEN_LOSS_WEIGHT, DISC_LOSS_WEIGHT] + FEATURE_LOSS_WEIGHTS,
+    self.combined_generator_model = Model(inputs=small_image_input_generator, outputs=[gen_images, validity] + [*generated_features], name="srgan")
+    self.combined_generator_model.compile(loss=[gen_loss, disc_loss] + ([feature_loss] * len(generated_features)),
+                                          loss_weights=[gen_loss_weight, disc_loss_weight] + ([feature_loss_weight / len(feature_extractor_layers)] * len(feature_extractor_layers)),
                                           optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR, SSIM]})
 
     # Print all summaries
@@ -241,11 +253,10 @@ class SRGAN:
       disc_fake_labels += (np.random.uniform(size=(self.batch_size, 1)) * (self.discriminator_label_noise / 2))
 
     large_images, small_images = self.batch_maker.get_batch()
-    gen_imgs = self.generator.predict(small_images)
 
-    real_loss = self.discriminator.train_on_batch(large_images, disc_real_labels)
-    fake_loss = self.discriminator.train_on_batch(gen_imgs, disc_fake_labels)
-    return real_loss, fake_loss
+    disc_loss, disc_fake_loss, disc_real_loss = self.combined_discriminator_model.train_on_batch([small_images, large_images], [disc_fake_labels, disc_real_labels])
+
+    return float(disc_loss), float(disc_fake_loss), float(disc_real_loss)
 
   def __train_gan(self, generator_smooth_labels:bool=False):
     large_images, small_images = self.batch_maker.get_batch()
@@ -262,8 +273,7 @@ class SRGAN:
   def train(self, target_episode:int, pretrain_episodes:Union[int, None]=None, discriminator_training_multiplier:int=1,
             progress_images_save_interval:Union[int, None]=None, save_raw_progress_images:bool=True, weights_save_interval:Union[int, None]=None,
             discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False,
-            generator_smooth_labels:bool=False,
-            save_only_best_pnsr_weights:bool=False):
+            generator_smooth_labels:bool=False):
 
     # Check arguments and input data
     assert target_episode > 0, Fore.RED + "Invalid number of episodes" + Fore.RESET
@@ -298,12 +308,11 @@ class SRGAN:
       disc_stats = deque(maxlen=discriminator_training_multiplier)
 
       for _ in range(discriminator_training_multiplier):
-        real_loss, fake_loss = self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
-        disc_stats.append([real_loss, fake_loss])
+        disc_loss, real_loss, fake_loss = self.__train_discriminator(discriminator_smooth_real_labels, discriminator_smooth_fake_labels)
+        disc_stats.append([disc_loss, real_loss, fake_loss])
 
       # Calculate mean of losses of discriminator from all trainings and calculate disc loss
       disc_stats = np.mean(disc_stats, 0)
-      disc_loss = sum(disc_stats) * 0.5
 
       if pretrain_episodes and self.episode_counter < pretrain_episodes:
         ### Pretrain Generator ###
@@ -316,21 +325,20 @@ class SRGAN:
 
       # Set LR based on episode count and schedule
       # new_gen_lr = self.gen_lr_scheduler.set_lr(self.generator)
-      new_gen_lr = self.gen_lr_scheduler.set_lr(self.combined_generator_model, self.episode_counter)
-      new_disc_lr = self.disc_lr_scheduler.set_lr(self.discriminator, self.episode_counter)
-
-      if new_gen_lr: print(Fore.MAGENTA + f"New LR for generator is {new_gen_lr}" + Fore.RESET)
-      if new_disc_lr: print(Fore.MAGENTA + f"New LR for discriminator is {new_disc_lr}" + Fore.RESET)
+      if self.gen_lr_scheduler.set_lr(self.combined_generator_model, self.episode_counter):
+        print(Fore.MAGENTA + f"New LR for generator is {self.gen_lr_scheduler.current_lr}" + Fore.RESET)
+      if self.disc_lr_scheduler.set_lr(self.discriminator, self.episode_counter):
+        print(Fore.MAGENTA + f"New LR for discriminator is {self.disc_lr_scheduler.current_lr}" + Fore.RESET)
 
       # Append stats to stat logger
-      self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_loss, disc_real_loss=disc_stats[0], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, ssim=ssim, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0, gen_lr=self.gen_lr_scheduler.current_lr, disc_lr=self.disc_lr_scheduler.current_lr)
+      self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_stats[0], disc_real_loss=disc_stats[2], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, ssim=ssim, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0, gen_lr=self.gen_lr_scheduler.current_lr, disc_lr=self.disc_lr_scheduler.current_lr)
 
       self.episode_counter += 1
       self.tensorboard.step = self.episode_counter
 
       # Save stats and print them to console
       if self.episode_counter % self.SHOW_STATS_INTERVAL == 0:
-        print(Fore.GREEN + f"{self.episode_counter}/{target_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (target_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}\t\tDiscriminator: [loss: {round(disc_loss, 5)}, real_loss: {round(float(disc_stats[0]), 5)}, fake_loss: {round(float(disc_stats[1]), 5)}, label_noise: {round(self.discriminator_label_noise * 100, 2) if self.discriminator_label_noise else 0}%] Generator: [loss: {round(gen_loss, 5)}, partial_losses: {partial_gan_losses}, psnr: {round(psnr, 3)}dB, psnr_y: {round(psnr_y, 3)}dB, ssim: {round(ssim, 5)}]\n"
+        print(Fore.GREEN + f"{self.episode_counter}/{target_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (target_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}\t\tDiscriminator: [loss: {round(disc_stats[0], 5)}, real_loss: {round(float(disc_stats[2]), 5)}, fake_loss: {round(float(disc_stats[1]), 5)}, label_noise: {round(self.discriminator_label_noise * 100, 2) if self.discriminator_label_noise else 0}%] Generator: [loss: {round(gen_loss, 5)}, partial_losses: {partial_gan_losses}, psnr: {round(psnr, 3)}dB, psnr_y: {round(psnr_y, 3)}dB, ssim: {round(ssim, 5)}]\n"
                            f"Generator LR: {self.gen_lr_scheduler.current_lr}, Discriminator LR: {self.disc_lr_scheduler.current_lr}" + Fore.RESET)
 
       # Decay label noise
@@ -342,7 +350,7 @@ class SRGAN:
         self.__save_img(save_raw_progress_images)
 
       # Save weights of models
-      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0 and not save_only_best_pnsr_weights:
+      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0:
         self.__save_weights()
 
       # Save checkpoint
@@ -362,8 +370,7 @@ class SRGAN:
     self.stat_logger.terminate()
     self.batch_maker.terminate()
     self.save_checkpoint()
-    if not save_only_best_pnsr_weights:
-      self.__save_weights()
+    self.__save_weights()
     self.batch_maker.join()
     self.stat_logger.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
@@ -436,6 +443,7 @@ class SRGAN:
     plot_model(self.combined_generator_model, os.path.join(save_path, "combined.png"), expand_nested=True, show_shapes=True)
     plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
     plot_model(self.discriminator, os.path.join(save_path, "discriminator.png"), expand_nested=True, show_shapes=True)
+    plot_model(self.combined_discriminator_model, os.path.join(save_path, "combined_discriminator.png"), expand_nested=True, show_shapes=True)
 
   # Load progress of training from checkpoint
   def __load_checkpoint(self):

@@ -24,19 +24,7 @@ from ..utils.batch_maker import BatchMaker
 from ..models import discriminator_models_spreadsheet, generator_models_spreadsheet
 from ..keras_extensions.custom_tensorboard import TensorBoardCustom
 from ..utils.helpers import time_to_format, get_paths_of_files_from_path
-
-# Custom loss function
-def wasserstein_loss(y_true, y_pred):
-  return K.mean(y_true * y_pred)
-
-# Gradient penalty loss function
-def gradient_penalty_loss(_, y_pred, averaged_samples):
-  gradients = K.gradients(y_pred, averaged_samples)[0]
-  gradients_sqr = K.square(gradients)
-  gradients_sqr_sum = K.sum(gradients_sqr, axis=np.arange(1, len(gradients_sqr.shape)))
-  gradient_l2_norm = K.sqrt(gradients_sqr_sum)
-  gradient_penalty = K.square(1 - gradient_l2_norm)
-  return K.mean(gradient_penalty)
+from ..keras_extensions.custom_losses import wasserstein_loss, gradient_penalty_loss
 
 # Weighted average function
 class RandomWeightedAverage(Layer):

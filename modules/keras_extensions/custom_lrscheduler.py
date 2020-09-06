@@ -23,8 +23,8 @@ class LearningRateScheduler:
     self.current_lr = self.start_lr
 
   def set_lr(self, object:Union[Model, Optimizer], episode:int):
-    if self.lr_decay_factor is None or self.lr_decay_interval is None or self.start_lr is None: return None
-    if self.lr_decay_factor == 0 or self.lr_decay_interval == 0: return None
+    if self.lr_decay_factor is None or self.lr_decay_interval is None or self.start_lr is None: return False
+    if self.lr_decay_factor == 0 or self.lr_decay_interval == 0: return False
 
     n_decays = episode // self.lr_decay_interval
     lr = self.start_lr * (self.lr_decay_factor ** n_decays)
@@ -37,12 +37,12 @@ class LearningRateScheduler:
       if float(K.get_value(object.optimizer.lr)) != lr:
         K.set_value(object.optimizer.lr, lr)
         self.current_lr = lr
-        return lr
+        return True
 
     elif isinstance(object, Optimizer):
       if float(K.get_value(object.lr)) != lr:
         K.set_value(object.lr, lr)
         self.current_lr = lr
-        return lr
+        return True
 
-    return None
+    return False

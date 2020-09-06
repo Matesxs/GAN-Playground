@@ -40,6 +40,9 @@ if __name__ == '__main__':
                             batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
                             gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
                             generator_optimizer=Adam(GEN_LR, 0.9), discriminator_optimizer=Adam(DISC_LR, 0.9),
+                            gen_loss=GEN_LOSS, disc_loss=DISC_LOSS, feature_loss=FEATURE_LOSS,
+                            gen_loss_weight=GEN_LOSS_WEIGHT, disc_loss_weight=DISC_LOSS_WEIGHT, feature_loss_weight=FEATURE_LOSS_WEIGHT,
+                            feature_extractor_layers=FEATURE_EXTRACTOR_LAYERS,
                             generator_lr_decay_interval=GEN_LR_DECAY_INTERVAL, discriminator_lr_decay_interval=DISC_LR_DECAY_INTERVAL,
                             generator_lr_decay_factor=GEN_LR_DECAY_FACTOR, discriminator_lr_decay_factor=DISC_LR_DECAY_FACTOR,
                             generator_min_lr=GEN_MIN_LR, discriminator_min_lr=DISC_MIN_LR,
@@ -54,9 +57,8 @@ if __name__ == '__main__':
                           discriminator_training_multiplier=DISCRIMINATOR_TRAINING_MULTIPLIER,
                           progress_images_save_interval=PROGRESS_IMAGE_SAVE_INTERVAL, save_raw_progress_images=SAVE_RAW_IMAGES,
                           weights_save_interval=WEIGHTS_SAVE_INTERVAL,
-                          discriminator_smooth_real_labels=True, discriminator_smooth_fake_labels=True,
-                          generator_smooth_labels=False,
-                          save_only_best_pnsr_weights=SAVE_ONLY_BEST_PNSR_WEIGHTS)
+                          discriminator_smooth_real_labels=DISC_REAL_LABEL_SMOOTHING, discriminator_smooth_fake_labels=DISC_FAKE_LABEL_SMOOTHING,
+                          generator_smooth_labels=GENERATOR_LABEL_SMOOTHING)
   except KeyboardInterrupt:
     if training_object:
       print(Fore.BLUE + f"Quiting on epoch: {training_object.episode_counter} - This could take little time, get some coffe and rest :)" + Fore.RESET)

@@ -10,6 +10,7 @@
 
 ## Table of contents
 * [General info](#general-info)
+* [Content](#content)
 * [Project Folder Structure](#project-folder-structure)
 * [Setup](#setup)
 * [Usage](#usage)
@@ -21,12 +22,17 @@
 * [Resources](#resources)
 
 ## General info
-This project contains documented code for DCGAN, WGAN and SRGAN. \
-GAN and WGAN are for creating new unique images from latent vector. \
-Sometimes somebody could refed to it as noise but in general its more like settings values. \
-SRGAN is more useful GAN, its purpose is to upscale image from low to higher resolution.
+This project contains code for some of the most know types of GAN (Generative Adverserial Network).
+I am using this repo to play with these types of networks to get better understanding how they work and how to properly train them.
 
 Disclaimer: This repository is more like proof of concept than download and run!
+
+## Content
+```
+DCGAN - GAN for generating new images from latent vector
+WGAN(GC) - GAN for generating new images from latent vector
+SRGAN - GAN for upscaling images
+```
 
 ## Project Folder Structure
 ```
