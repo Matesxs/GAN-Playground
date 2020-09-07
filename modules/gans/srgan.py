@@ -116,7 +116,7 @@ class SRGAN:
       self.__progress_test_images_paths = [random.choice(self.__train_data)]
 
     # Create batchmaker and start it
-    self.batch_maker = BatchMaker(self.__train_data, self.__batch_size, buffered_batches=buffered_batches, secondary_size=self.__start_image_shape, num_of_loading_workers=num_of_loading_workers, augmentation_settings=dataset_augmentation_settings)
+    self.__batch_maker = BatchMaker(self.__train_data, self.__batch_size, buffered_batches=buffered_batches, secondary_size=self.__start_image_shape, num_of_loading_workers=num_of_loading_workers, augmentation_settings=dataset_augmentation_settings)
 
     # Create LR Schedulers for both "Optimizer"
     self.__gen_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(generator_optimizer.lr)), lr_decay_factor=generator_lr_decay_factor, lr_decay_interval=generator_lr_decay_interval, min_lr=generator_min_lr)
@@ -244,7 +244,7 @@ class SRGAN:
     return Model(img, m, name="discriminator")
 
   def __train_generator(self):
-    large_images, small_images = self.batch_maker.get_batch()
+    large_images, small_images = self.__batch_maker.get_batch()
     gen_loss, psnr_y, psnr, ssim = self.__generator.train_on_batch(small_images, large_images)
     return float(gen_loss), float(psnr), float(psnr_y), float(ssim)
 
@@ -264,14 +264,14 @@ class SRGAN:
       disc_real_labels += (np.random.uniform(size=(self.__batch_size, 1)) * (self.__discriminator_label_noise / 2))
       disc_fake_labels += (np.random.uniform(size=(self.__batch_size, 1)) * (self.__discriminator_label_noise / 2))
 
-    large_images, small_images = self.batch_maker.get_batch()
+    large_images, small_images = self.__batch_maker.get_batch()
 
     disc_loss, disc_fake_loss, disc_real_loss = self.__combined_discriminator_model.train_on_batch([small_images, large_images], [disc_fake_labels, disc_real_labels])
 
     return float(disc_loss), float(disc_fake_loss), float(disc_real_loss)
 
   def __train_gan(self, generator_smooth_labels:bool=False):
-    large_images, small_images = self.batch_maker.get_batch()
+    large_images, small_images = self.__batch_maker.get_batch()
     if generator_smooth_labels:
       valid_labels = np.random.uniform(0.8, 1.0, size=(self.__batch_size, 1))
     else:
@@ -380,10 +380,10 @@ class SRGAN:
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
     self.__stat_logger.terminate()
-    self.batch_maker.terminate()
+    self.__batch_maker.terminate()
     self.save_checkpoint()
     self.__save_weights()
-    self.batch_maker.join()
+    self.__batch_maker.join()
     self.__stat_logger.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
 

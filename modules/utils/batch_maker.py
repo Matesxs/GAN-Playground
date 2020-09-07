@@ -25,7 +25,7 @@ class BatchMaker(Thread):
     self.__terminate = False
 
     self.__secondary_size = secondary_size
-    self.augmentation_settings = augmentation_settings
+    self.__augmentation_settings = augmentation_settings
 
     self.__batches_in_buffer_number = buffered_batches
     assert 0 <= missing_threshold_perc <= 1, Fore.RED + "Invalid missing threshold" + Fore.RESET
@@ -75,16 +75,16 @@ class BatchMaker(Thread):
       for im_p in data:
         original_image = cv.imread(im_p)
 
-        if self.augmentation_settings:
-          if random.random() >= self.augmentation_settings.blur_chance:
-            original_image = cv.GaussianBlur(original_image, (3, 3), self.augmentation_settings.blur_amount)
+        if self.__augmentation_settings:
+          if random.random() >= self.__augmentation_settings.blur_chance:
+            original_image = cv.GaussianBlur(original_image, (3, 3), self.__augmentation_settings.blur_amount)
 
-          if random.random() >= self.augmentation_settings.flip_chance:
+          if random.random() >= self.__augmentation_settings.flip_chance:
             original_image = cv.flip(original_image, random.randint(-1, 1))
 
-          if random.random() >= self.augmentation_settings.rotation_chance:
+          if random.random() >= self.__augmentation_settings.rotation_chance:
             rows, cols, c = original_image.shape
-            M = cv.getRotationMatrix2D((cols / 2, rows / 2), random.random() * self.augmentation_settings.rotation_ammount, 1)
+            M = cv.getRotationMatrix2D((cols / 2, rows / 2), random.random() * self.__augmentation_settings.rotation_ammount, 1)
             original_image = cv.warpAffine(original_image, M, (cols, rows))
 
         batch.append(cv.cvtColor(original_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0)
