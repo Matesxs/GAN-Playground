@@ -27,12 +27,13 @@ if gpus:
 from keras import optimizers
 
 from modules.gans import WGANGC
+from modules.utils.helpers import start_tensorboard
 from settings.wgan_settings import *
 
 if __name__ == '__main__':
   training_object = None
   if not os.path.exists("training_data/wgan"): os.makedirs("training_data/wgan")
-  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data/wgan --samples_per_plugin=images=500", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  bmanager = start_tensorboard("training_data/wgan")
 
   try:
     training_object = WGANGC(DATASET_PATH, training_progress_save_path="training_data/wgan",

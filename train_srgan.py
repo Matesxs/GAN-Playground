@@ -28,12 +28,13 @@ from keras.optimizers import Adam
 
 from modules.gans import SRGAN
 from modules.utils.batch_maker import AugmentationSettings
+from modules.utils.helpers import start_tensorboard
 from settings.srgan_settings import *
 
 if __name__ == '__main__':
   training_object = None
   if not os.path.exists("training_data/srgan"): os.makedirs("training_data/srgan")
-  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data/srgan --samples_per_plugin=images=200 --port 6006", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  tbmanager = start_tensorboard("training_data/srgan")
 
   try:
     training_object = SRGAN(DATASET_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",

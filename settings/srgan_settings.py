@@ -13,7 +13,10 @@ BLUR_CHANCE = 0.05
 BLUR_AMOUNT = 0.1
 
 # Num of worker used to preload data for training/testing
-NUM_OF_LOADING_WORKERS = 10
+NUM_OF_LOADING_WORKERS = 12
+
+# Num of batches preloaded in buffer
+BUFFERED_BATCHES = 100
 
 # Leave this false only when you are sure your dataset is consistent (Check whole dataset if all images have same dimensions before training)
 CHECK_DATASET = False
@@ -22,6 +25,8 @@ CHECK_DATASET = False
 # Episodes from training episodes
 GENERATOR_PRETRAIN_EPISODES = 100_000
 TRAINING_EPISODES = 400_000
+
+BATCH_SIZE = 8
 
 # Num of episodes after whitch progress image/s will be created to "track" progress of training
 PROGRESS_IMAGE_SAVE_INTERVAL = 100
@@ -55,10 +60,6 @@ DISCRIMINATOR_TARGET_NOISE = 0.005
 
 # Discriminator training settings
 DISCRIMINATOR_TRAINING_MULTIPLIER = 1
-
-BATCH_SIZE = 8
-# Num of batches preloaded in buffer
-BUFFERED_BATCHES = 100
 
 ### Model settings ###
 # Number of doubling resolution

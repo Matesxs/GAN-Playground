@@ -1,4 +1,6 @@
 import os
+import subprocess
+from colorama import Fore
 
 def get_paths_of_files_from_path(path, only_files:bool=False):
   if not os.path.exists(path): return None
@@ -40,3 +42,16 @@ def count_upscaling_start_size(target_image_shape: tuple, num_of_upscales: int):
   upsc = (target_image_shape[0] // (2 ** num_of_upscales), target_image_shape[1] // (2 ** num_of_upscales), target_image_shape[2])
   if upsc[0] < 1 or upsc[1] < 1: raise Exception(f"Invalid upscale start size! ({upsc})")
   return upsc
+
+def start_tensorboard(data_path):
+  try:
+    if os.path.exists("./venv/Scripts"):
+      return subprocess.Popen(f"./venv/Scripts/python.exe -m tensorboard.main --logdir {data_path} --samples_per_plugin=images=200 --port 6006", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    else:
+      return subprocess.Popen(f"python -m tensorboard.main --logdir {data_path} --samples_per_plugin=images=200 --port 6006", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  except:
+    try:
+      return subprocess.Popen(f"tensorboard --logdir {data_path} --samples_per_plugin=images=200 --port 6006", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except:
+      print(Fore.YELLOW + "Cant start tensorboard thread, check helper function in helper module start_tensorboard in modules/utils and change way of starting tensorboard thread according to your system" + Fore.RESET)
+      return None
