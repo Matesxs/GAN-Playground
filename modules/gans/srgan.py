@@ -76,8 +76,8 @@ class SRGAN:
     # If feature_loss_weights is float then create list of the weights from it
     if isinstance(feature_loss_weights, float) and len(feature_extractor_layers) > 0:
       feature_loss_weights = [feature_loss_weights / len(feature_extractor_layers)] * len(feature_extractor_layers)
-    else:
-      assert len(feature_extractor_layers) == len(feature_loss_weights), Fore.RED + "Number of extractor layers and feature loss weights must match!" + Fore.RESET
+
+    assert len(feature_extractor_layers) == len(feature_loss_weights), Fore.RED + "Number of extractor layers and feature loss weights must match!" + Fore.RESET
 
     # Create array of input image paths
     self.__train_data = get_paths_of_files_from_path(dataset_path, only_files=True)
@@ -139,23 +139,6 @@ class SRGAN:
     ###      Create vgg network       ###
     #####################################
     self.__vgg = create_feature_extractor(self.__target_image_shape, feature_extractor_layers)
-
-    #####################################
-    ### Create combined discriminator ###
-    #####################################
-    small_image_input_discriminator = Input(shape=self.__start_image_shape, name="small_image_input")
-    large_image_input_discriminator = Input(shape=self.__target_image_shape, name="large_image_input")
-
-    frozen_generator = Network(self.__generator.inputs, self.__generator.outputs, name="frozen_generator")
-    frozen_generator.trainable = False
-
-    upscaled_images = frozen_generator(small_image_input_discriminator)
-
-    fake_validity = self.__discriminator(upscaled_images)
-    real_validity = self.__discriminator(large_image_input_discriminator)
-
-    self.__combined_discriminator_model = Model(inputs=[small_image_input_discriminator, large_image_input_discriminator], outputs=[fake_validity, real_validity], name="combined_discriminator")
-    self.__combined_discriminator_model.compile(loss=disc_loss, optimizer=discriminator_optimizer, loss_weights=[1., 1.])
 
     #####################################
     ###   Create combined generator   ###
@@ -266,9 +249,10 @@ class SRGAN:
 
     large_images, small_images = self.__batch_maker.get_batch()
 
-    disc_loss, disc_fake_loss, disc_real_loss = self.__combined_discriminator_model.train_on_batch([small_images, large_images], [disc_fake_labels, disc_real_labels])
+    disc_real_loss = self.__discriminator.train_on_batch(large_images, disc_real_labels)
+    disc_fake_loss = self.__discriminator.train_on_batch(self.__generator.predict(small_images), disc_fake_labels)
 
-    return float(disc_loss), float(disc_fake_loss), float(disc_real_loss)
+    return float((disc_real_loss + disc_fake_loss) * 0.5), float(disc_fake_loss), float(disc_real_loss)
 
   def __train_gan(self, generator_smooth_labels:bool=False):
     large_images, small_images = self.__batch_maker.get_batch()
@@ -455,7 +439,6 @@ class SRGAN:
     plot_model(self.__combined_generator_model, os.path.join(save_path, "combined.png"), expand_nested=True, show_shapes=True)
     plot_model(self.__generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
     plot_model(self.__discriminator, os.path.join(save_path, "discriminator.png"), expand_nested=True, show_shapes=True)
-    plot_model(self.__combined_discriminator_model, os.path.join(save_path, "combined_discriminator.png"), expand_nested=True, show_shapes=True)
 
   # Load progress of training from checkpoint
   def __load_checkpoint(self):
