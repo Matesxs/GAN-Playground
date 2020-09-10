@@ -6,9 +6,9 @@ DATASET_PATH = "datasets/faces_normalized__256x256"
 CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2.png", "datasets/testing_image3.jpg"]
 
 # Augmentation settings
-FLIP_CHANCE = 0.25
+FLIP_CHANCE = 0.20
 ROTATION_CHANCE = 0.30
-ROTATION_AMOUNT = 20
+ROTATION_AMOUNT = 15
 BLUR_CHANCE = 0.05
 BLUR_AMOUNT = 0.1
 
