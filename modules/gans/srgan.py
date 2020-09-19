@@ -22,7 +22,7 @@ from multiprocessing.pool import ThreadPool
 from ..models import upscaling_generator_models_spreadsheet, discriminator_models_spreadsheet
 from ..keras_extensions.custom_tensorboard import TensorBoardCustom
 from ..keras_extensions.custom_lrscheduler import LearningRateScheduler
-from ..utils.batch_maker import BatchMaker
+from ..utils.batch_maker import BatchMaker, AugmentationSettings
 from ..utils.stat_logger import StatLogger
 from ..utils.helpers import time_to_format, get_paths_of_files_from_path, count_upscaling_start_size
 from ..keras_extensions.feature_extractor import create_feature_extractor, preprocess_vgg
@@ -36,10 +36,11 @@ class SRGAN:
   def __init__(self, dataset_path:str, num_of_upscales:int,
                gen_mod_name:str, disc_mod_name:str,
                training_progress_save_path:str,
-               feature_extractor_layers:Union[list, None],
+               dataset_augmentation_settings:Union[AugmentationSettings, None]=None,
                generator_optimizer:Optimizer=Adam(0.0001, 0.9), discriminator_optimizer:Optimizer=Adam(0.0001, 0.9),
                gen_loss="mae", disc_loss="binary_crossentropy", feature_loss="mae",
-               gen_loss_weight:float=1.0, disc_loss_weight:float=0.003, feature_loss_weight:float=0.0833,
+               gen_loss_weight:float=1.0, disc_loss_weight:float=0.003, feature_loss_weights:Union[list, float, None]=None,
+               feature_extractor_layers: Union[list, None]=None,
                generator_lr_decay_interval:Union[int, None]=None, discriminator_lr_decay_interval:Union[int, None]=None,
                generator_lr_decay_factor:Union[float, None]=None, discriminator_lr_decay_factor:Union[float, None]=None,
                generator_min_lr:Union[float, None]=None, discriminator_min_lr:Union[float, None]=None,
@@ -50,168 +51,162 @@ class SRGAN:
                custom_hr_test_images_paths:Union[list, None]=None, check_dataset:bool=True, num_of_loading_workers:int=8):
 
     # Save params to inner variables
-    self.disc_mod_name = disc_mod_name
-    self.gen_mod_name = gen_mod_name
-    self.num_of_upscales = num_of_upscales
-    assert self.num_of_upscales >= 0, Fore.RED + "Invalid number of upscales" + Fore.RESET
+    self.__disc_mod_name = disc_mod_name
+    self.__gen_mod_name = gen_mod_name
+    self.__num_of_upscales = num_of_upscales
+    assert self.__num_of_upscales >= 0, Fore.RED + "Invalid number of upscales" + Fore.RESET
 
-    self.discriminator_label_noise = discriminator_label_noise
-    self.discriminator_label_noise_decay = discriminator_label_noise_decay
-    self.discriminator_label_noise_min = discriminator_label_noise_min
-    if self.discriminator_label_noise_min is None: self.discriminator_label_noise_min = 0
+    self.__discriminator_label_noise = discriminator_label_noise
+    self.__discriminator_label_noise_decay = discriminator_label_noise_decay
+    self.__discriminator_label_noise_min = discriminator_label_noise_min
+    if self.__discriminator_label_noise_min is None: self.__discriminator_label_noise_min = 0
 
-    self.batch_size = batch_size
-    assert self.batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
+    self.__batch_size = batch_size
+    assert self.__batch_size > 0, Fore.RED + "Invalid batch size" + Fore.RESET
 
-    self.episode_counter = 0
+    self.__episode_counter = 0
 
-    # Insert empty list if extractor layers are None
+    # Insert empty lists if feature extractor settings are empty
     if feature_extractor_layers is None:
       feature_extractor_layers = []
 
+    if feature_loss_weights is None:
+      feature_loss_weights = []
+
+    # If feature_loss_weights is float then create list of the weights from it
+    if isinstance(feature_loss_weights, float) and len(feature_extractor_layers) > 0:
+      feature_loss_weights = [feature_loss_weights / len(feature_extractor_layers)] * len(feature_extractor_layers)
+
+    assert len(feature_extractor_layers) == len(feature_loss_weights), Fore.RED + "Number of extractor layers and feature loss weights must match!" + Fore.RESET
+
     # Create array of input image paths
-    self.train_data = get_paths_of_files_from_path(dataset_path, only_files=True)
-    assert self.train_data, Fore.RED + "Training dataset is not loaded" + Fore.RESET
+    self.__train_data = get_paths_of_files_from_path(dataset_path, only_files=True)
+    assert self.__train_data, Fore.RED + "Training dataset is not loaded" + Fore.RESET
 
     # Load one image to get shape of it
-    self.target_image_shape = cv.imread(self.train_data[0]).shape
+    self.__target_image_shape = cv.imread(self.__train_data[0]).shape
 
     # Check image size validity
-    if self.target_image_shape[0] < 4 or self.target_image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
+    if self.__target_image_shape[0] < 4 or self.__target_image_shape[1] < 4: raise Exception("Images too small, min size (4, 4)")
 
     # Starting image size calculate
-    self.start_image_shape = count_upscaling_start_size(self.target_image_shape, self.num_of_upscales)
+    self.__start_image_shape = count_upscaling_start_size(self.__target_image_shape, self.__num_of_upscales)
 
     # Check validity of whole datasets
     if check_dataset:
       self.__validate_dataset()
 
     # Initialize training data folder and logging
-    self.training_progress_save_path = training_progress_save_path
-    self.training_progress_save_path = os.path.join(self.training_progress_save_path, f"{self.gen_mod_name}__{self.disc_mod_name}__{self.start_image_shape}_to_{self.target_image_shape}")
-    self.tensorboard = TensorBoardCustom(log_dir=os.path.join(self.training_progress_save_path, "logs"))
-    self.stat_logger = StatLogger(self.tensorboard)
+    self.__training_progress_save_path = training_progress_save_path
+    self.__training_progress_save_path = os.path.join(self.__training_progress_save_path, f"{self.__gen_mod_name}__{self.__disc_mod_name}__{self.__start_image_shape}_to_{self.__target_image_shape}")
+    self.__tensorboard = TensorBoardCustom(log_dir=os.path.join(self.__training_progress_save_path, "logs"))
+    self.__stat_logger = StatLogger(self.__tensorboard)
 
     # Define static vars
     self.kernel_initializer = RandomNormal(stddev=0.02)
-    self.custom_hr_test_images_paths = custom_hr_test_images_paths
-    self.custom_loading_failed = False
+    self.__custom_loading_failed = False
+    self.__custom_test_images = True if custom_hr_test_images_paths else False
     if custom_hr_test_images_paths:
-      self.progress_test_images_paths = custom_hr_test_images_paths
-      for idx, image_path in enumerate(self.progress_test_images_paths):
+      self.__progress_test_images_paths = custom_hr_test_images_paths
+      for idx, image_path in enumerate(self.__progress_test_images_paths):
         if not os.path.exists(image_path):
-          self.custom_loading_failed = True
-          self.progress_test_images_paths[idx] = random.choice(self.train_data)
+          self.__custom_loading_failed = True
+          self.__progress_test_images_paths[idx] = random.choice(self.__train_data)
     else:
-      self.progress_test_images_paths = [random.choice(self.train_data)]
+      self.__progress_test_images_paths = [random.choice(self.__train_data)]
 
     # Create batchmaker and start it
-    self.batch_maker = BatchMaker(self.train_data, self.batch_size, buffered_batches=buffered_batches, secondary_size=self.start_image_shape, num_of_loading_workers=num_of_loading_workers)
+    self.__batch_maker = BatchMaker(self.__train_data, self.__batch_size, buffered_batches=buffered_batches, secondary_size=self.__start_image_shape, num_of_loading_workers=num_of_loading_workers, augmentation_settings=dataset_augmentation_settings)
 
     # Create LR Schedulers for both "Optimizer"
-    self.gen_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(generator_optimizer.lr)), lr_decay_factor=generator_lr_decay_factor, lr_decay_interval=generator_lr_decay_interval, min_lr=generator_min_lr)
-    self.disc_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(discriminator_optimizer.lr)), lr_decay_factor=discriminator_lr_decay_factor, lr_decay_interval=discriminator_lr_decay_interval, min_lr=discriminator_min_lr)
+    self.__gen_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(generator_optimizer.lr)), lr_decay_factor=generator_lr_decay_factor, lr_decay_interval=generator_lr_decay_interval, min_lr=generator_min_lr)
+    self.__disc_lr_scheduler = LearningRateScheduler(start_lr=float(K.get_value(discriminator_optimizer.lr)), lr_decay_factor=discriminator_lr_decay_factor, lr_decay_interval=discriminator_lr_decay_interval, min_lr=discriminator_min_lr)
 
     #####################################
     ###      Create discriminator     ###
     #####################################
-    self.discriminator = self.__build_discriminator(disc_mod_name)
-    self.discriminator.compile(loss=disc_loss, optimizer=discriminator_optimizer)
+    self.__discriminator = self.__build_discriminator(disc_mod_name)
+    self.__discriminator.compile(loss=disc_loss, optimizer=discriminator_optimizer)
 
     #####################################
     ###       Create generator        ###
     #####################################
-    self.generator = self.__build_generator(gen_mod_name)
-    if self.generator.output_shape[1:] != self.target_image_shape: raise Exception(f"Invalid image input size for this generator model\nGenerator shape: {self.generator.output_shape[1:]}, Target shape: {self.target_image_shape}")
-    self.generator.compile(loss=gen_loss, optimizer=generator_optimizer, metrics=[PSNR_Y, PSNR, SSIM])
+    self.__generator = self.__build_generator(gen_mod_name)
+    if self.__generator.output_shape[1:] != self.__target_image_shape: raise Exception(f"Invalid image input size for this generator model\nGenerator shape: {self.__generator.output_shape[1:]}, Target shape: {self.__target_image_shape}")
+    self.__generator.compile(loss=gen_loss, optimizer=generator_optimizer, metrics=[PSNR_Y, PSNR, SSIM])
 
     #####################################
     ###      Create vgg network       ###
     #####################################
-    self.vgg = create_feature_extractor(self.target_image_shape, feature_extractor_layers)
-
-    #####################################
-    ### Create combined discriminator ###
-    #####################################
-    small_image_input_discriminator = Input(shape=self.start_image_shape, name="small_image_input")
-    large_image_input_discriminator = Input(shape=self.target_image_shape, name="large_image_input")
-
-    frozen_generator = Network(self.generator.inputs, self.generator.outputs, name="frozen_generator")
-    frozen_generator.trainable = False
-
-    upscaled_images = frozen_generator(small_image_input_discriminator)
-
-    fake_validity = self.discriminator(upscaled_images)
-    real_validity = self.discriminator(large_image_input_discriminator)
-
-    self.combined_discriminator_model = Model(inputs=[small_image_input_discriminator, large_image_input_discriminator], outputs=[fake_validity, real_validity], name="combined_discriminator")
-    self.combined_discriminator_model.compile(loss=disc_loss, optimizer=discriminator_optimizer, loss_weights=[1., 1.])
+    self.__vgg = create_feature_extractor(self.__target_image_shape, feature_extractor_layers)
 
     #####################################
     ###   Create combined generator   ###
     #####################################
-    small_image_input_generator = Input(shape=self.start_image_shape, name="small_image_input")
+    small_image_input_generator = Input(shape=self.__start_image_shape, name="small_image_input")
 
     # Images upscaled by generator
-    gen_images = self.generator(small_image_input_generator)
+    gen_images = self.__generator(small_image_input_generator)
 
     # Discriminator takes images and determinates validity
-    frozen_discriminator = Network(self.discriminator.inputs, self.discriminator.outputs, name="frozen_discriminator")
+    frozen_discriminator = Network(self.__discriminator.inputs, self.__discriminator.outputs, name="frozen_discriminator")
     frozen_discriminator.trainable = False
 
     validity = frozen_discriminator(gen_images)
 
     # Extracts features from generated images
-    generated_features = self.vgg(preprocess_vgg(gen_images))
+    generated_features = self.__vgg(preprocess_vgg(gen_images))
 
     # Combine models
     # Train generator to fool discriminator
-    self.combined_generator_model = Model(inputs=small_image_input_generator, outputs=[gen_images, validity] + [*generated_features], name="srgan")
-    self.combined_generator_model.compile(loss=[gen_loss, disc_loss] + ([feature_loss] * len(generated_features)),
-                                          loss_weights=[gen_loss_weight, disc_loss_weight] + ([feature_loss_weight / len(feature_extractor_layers)] * len(feature_extractor_layers)),
-                                          optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR, SSIM]})
+    self.__combined_generator_model = Model(inputs=small_image_input_generator, outputs=[gen_images, validity] + [*generated_features], name="srgan")
+    self.__combined_generator_model.compile(loss=[gen_loss, disc_loss] + ([feature_loss] * len(generated_features)),
+                                            loss_weights=[gen_loss_weight, disc_loss_weight] + feature_loss_weights,
+                                            optimizer=generator_optimizer, metrics={"generator": [PSNR_Y, PSNR, SSIM]})
 
     # Print all summaries
     print("\nDiscriminator Summary:")
-    self.discriminator.summary()
+    self.__discriminator.summary()
     print("\nGenerator Summary:")
-    self.generator.summary()
-    print("\nGAN Summary")
-    self.combined_generator_model.summary()
+    self.__generator.summary()
 
     # Load checkpoint
-    self.initiated = False
+    self.__initiated = False
     if load_from_checkpoint: self.__load_checkpoint()
 
     # Load weights from param and override checkpoint weights
-    if generator_weights: self.generator.load_weights(generator_weights)
-    if discriminator_weights: self.discriminator.load_weights(discriminator_weights)
+    if generator_weights: self.__generator.load_weights(generator_weights)
+    if discriminator_weights: self.__discriminator.load_weights(discriminator_weights)
 
     # Set LR
-    self.gen_lr_scheduler.set_lr(self.combined_generator_model, self.episode_counter)
-    self.disc_lr_scheduler.set_lr(self.discriminator, self.episode_counter)
+    self.__gen_lr_scheduler.set_lr(self.__combined_generator_model, self.__episode_counter)
+    self.__disc_lr_scheduler.set_lr(self.__discriminator, self.__episode_counter)
+
+  @property
+  def episode_counter(self):
+    return self.__episode_counter
 
   # Check if datasets have consistent shapes
   def __validate_dataset(self):
     def check_image(image_path):
       im_shape = imagesize.get(image_path)
-      if im_shape[0] != self.target_image_shape[0] or im_shape[1] != self.target_image_shape[1]:
+      if im_shape[0] != self.__target_image_shape[0] or im_shape[1] != self.__target_image_shape[1]:
         return False
       return True
 
     print(Fore.BLUE + "Checking dataset validity" + Fore.RESET)
     with ThreadPool(processes=8) as p:
-      res = p.map(check_image, self.train_data)
+      res = p.map(check_image, self.__train_data)
       if not all(res): raise Exception("Inconsistent training dataset")
 
     print(Fore.BLUE + "Dataset valid" + Fore.RESET)
 
   # Create generator based on template selected by name
   def __build_generator(self, model_name:str):
-    small_image_input = Input(shape=self.start_image_shape)
+    small_image_input = Input(shape=self.__start_image_shape)
 
     try:
-      m = getattr(upscaling_generator_models_spreadsheet, model_name)(small_image_input, self.start_image_shape, self.num_of_upscales, self.kernel_initializer)
+      m = getattr(upscaling_generator_models_spreadsheet, model_name)(small_image_input, self.__start_image_shape, self.__num_of_upscales, self.kernel_initializer)
     except Exception as e:
       raise Exception(f"Generator model not found!\n{e}")
 
@@ -219,7 +214,7 @@ class SRGAN:
 
   # Create discriminator based on teplate selected by name
   def __build_discriminator(self, model_name:str, classification:bool=True):
-    img = Input(shape=self.target_image_shape)
+    img = Input(shape=self.__target_image_shape)
 
     try:
       m = getattr(discriminator_models_spreadsheet, model_name)(img, self.kernel_initializer)
@@ -232,41 +227,42 @@ class SRGAN:
     return Model(img, m, name="discriminator")
 
   def __train_generator(self):
-    large_images, small_images = self.batch_maker.get_batch()
-    gen_loss, psnr_y, psnr, ssim = self.generator.train_on_batch(small_images, large_images)
+    large_images, small_images = self.__batch_maker.get_batch()
+    gen_loss, psnr_y, psnr, ssim = self.__generator.train_on_batch(small_images, large_images)
     return float(gen_loss), float(psnr), float(psnr_y), float(ssim)
 
   def __train_discriminator(self, discriminator_smooth_real_labels:bool=False, discriminator_smooth_fake_labels:bool=False):
     if discriminator_smooth_real_labels:
-      disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.batch_size, 1))
+      disc_real_labels = np.random.uniform(0.7, 1.2, size=(self.__batch_size, 1))
     else:
-      disc_real_labels = np.ones(shape=(self.batch_size, 1))
+      disc_real_labels = np.ones(shape=(self.__batch_size, 1))
 
     if discriminator_smooth_fake_labels:
-      disc_fake_labels = np.random.uniform(0, 0.2, size=(self.batch_size, 1))
+      disc_fake_labels = np.random.uniform(0, 0.2, size=(self.__batch_size, 1))
     else:
-      disc_fake_labels = np.zeros(shape=(self.batch_size, 1))
+      disc_fake_labels = np.zeros(shape=(self.__batch_size, 1))
 
     # Adding random noise to discriminator labels
-    if self.discriminator_label_noise and self.discriminator_label_noise > 0:
-      disc_real_labels += (np.random.uniform(size=(self.batch_size, 1)) * (self.discriminator_label_noise / 2))
-      disc_fake_labels += (np.random.uniform(size=(self.batch_size, 1)) * (self.discriminator_label_noise / 2))
+    if self.__discriminator_label_noise and self.__discriminator_label_noise > 0:
+      disc_real_labels += (np.random.uniform(size=(self.__batch_size, 1)) * (self.__discriminator_label_noise / 2))
+      disc_fake_labels += (np.random.uniform(size=(self.__batch_size, 1)) * (self.__discriminator_label_noise / 2))
 
-    large_images, small_images = self.batch_maker.get_batch()
+    large_images, small_images = self.__batch_maker.get_batch()
 
-    disc_loss, disc_fake_loss, disc_real_loss = self.combined_discriminator_model.train_on_batch([small_images, large_images], [disc_fake_labels, disc_real_labels])
+    disc_real_loss = self.__discriminator.train_on_batch(large_images, disc_real_labels)
+    disc_fake_loss = self.__discriminator.train_on_batch(self.__generator.predict(small_images), disc_fake_labels)
 
-    return float(disc_loss), float(disc_fake_loss), float(disc_real_loss)
+    return float((disc_real_loss + disc_fake_loss) * 0.5), float(disc_fake_loss), float(disc_real_loss)
 
   def __train_gan(self, generator_smooth_labels:bool=False):
-    large_images, small_images = self.batch_maker.get_batch()
+    large_images, small_images = self.__batch_maker.get_batch()
     if generator_smooth_labels:
-      valid_labels = np.random.uniform(0.8, 1.0, size=(self.batch_size, 1))
+      valid_labels = np.random.uniform(0.8, 1.0, size=(self.__batch_size, 1))
     else:
-      valid_labels = np.ones(shape=(self.batch_size, 1))
-    predicted_features = self.vgg.predict(preprocess_vgg(large_images))
+      valid_labels = np.ones(shape=(self.__batch_size, 1))
+    predicted_features = self.__vgg.predict(preprocess_vgg(large_images))
 
-    gan_metrics = self.combined_generator_model.train_on_batch(small_images, [large_images, valid_labels] + predicted_features)
+    gan_metrics = self.__combined_generator_model.train_on_batch(small_images, [large_images, valid_labels] + predicted_features)
 
     return float(gan_metrics[0]), [round(float(x), 5) for x in gan_metrics[1:-3]], float(gan_metrics[-2]), float(gan_metrics[-3]), float(gan_metrics[-1])
 
@@ -285,20 +281,20 @@ class SRGAN:
     if weights_save_interval:
       assert weights_save_interval <= target_episode, Fore.RED + "Invalid weights save interval" + Fore.RESET
 
-    if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
+    if not os.path.exists(self.__training_progress_save_path): os.makedirs(self.__training_progress_save_path)
 
     # Calculate epochs to go
-    episodes_to_go = target_episode - self.episode_counter
+    episodes_to_go = target_episode - self.__episode_counter
     assert episodes_to_go > 0, Fore.CYAN + "Training is already finished" + Fore.RESET
 
     epochs_time_history = deque(maxlen=self.SHOW_STATS_INTERVAL * 50)
 
     # Save starting kernels and biases
-    if not self.initiated:
+    if not self.__initiated:
       self.__save_img(save_raw_progress_images)
       self.save_checkpoint()
 
-    print(Fore.GREEN + f"Starting training on episode {self.episode_counter} for {target_episode} episode" + Fore.RESET)
+    print(Fore.GREEN + f"Starting training on episode {self.__episode_counter} for {target_episode} episode" + Fore.RESET)
     print(Fore.MAGENTA + "Preview training stats in tensorboard: http://localhost:6006" + Fore.RESET)
     for _ in range(episodes_to_go):
       ep_start = time.time()
@@ -314,7 +310,7 @@ class SRGAN:
       # Calculate mean of losses of discriminator from all trainings and calculate disc loss
       disc_stats = np.mean(disc_stats, 0)
 
-      if pretrain_episodes and self.episode_counter < pretrain_episodes:
+      if pretrain_episodes and self.__episode_counter < pretrain_episodes:
         ### Pretrain Generator ###
         gen_loss, psnr, psnr_y, ssim = self.__train_generator()
         partial_gan_losses = None
@@ -325,41 +321,41 @@ class SRGAN:
 
       # Set LR based on episode count and schedule
       # new_gen_lr = self.gen_lr_scheduler.set_lr(self.generator)
-      if self.gen_lr_scheduler.set_lr(self.combined_generator_model, self.episode_counter):
-        print(Fore.MAGENTA + f"New LR for generator is {self.gen_lr_scheduler.current_lr}" + Fore.RESET)
-      if self.disc_lr_scheduler.set_lr(self.discriminator, self.episode_counter):
-        print(Fore.MAGENTA + f"New LR for discriminator is {self.disc_lr_scheduler.current_lr}" + Fore.RESET)
+      if self.__gen_lr_scheduler.set_lr(self.__combined_generator_model, self.__episode_counter):
+        print(Fore.MAGENTA + f"New LR for generator is {self.__gen_lr_scheduler.current_lr}" + Fore.RESET)
+      if self.__disc_lr_scheduler.set_lr(self.__discriminator, self.__episode_counter):
+        print(Fore.MAGENTA + f"New LR for discriminator is {self.__disc_lr_scheduler.current_lr}" + Fore.RESET)
 
       # Append stats to stat logger
-      self.stat_logger.append_stats(self.episode_counter, disc_loss=disc_stats[0], disc_real_loss=disc_stats[2], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, ssim=ssim, disc_label_noise=self.discriminator_label_noise if self.discriminator_label_noise else 0, gen_lr=self.gen_lr_scheduler.current_lr, disc_lr=self.disc_lr_scheduler.current_lr)
+      self.__stat_logger.append_stats(self.__episode_counter, disc_loss=disc_stats[0], disc_real_loss=disc_stats[2], disc_fake_loss=disc_stats[1], gen_loss=gen_loss, psnr=psnr, psnr_y=psnr_y, ssim=ssim, disc_label_noise=self.__discriminator_label_noise if self.__discriminator_label_noise else 0, gen_lr=self.__gen_lr_scheduler.current_lr, disc_lr=self.__disc_lr_scheduler.current_lr)
 
-      self.episode_counter += 1
-      self.tensorboard.step = self.episode_counter
+      self.__episode_counter += 1
+      self.__tensorboard.step = self.__episode_counter
 
       # Save stats and print them to console
-      if self.episode_counter % self.SHOW_STATS_INTERVAL == 0:
-        print(Fore.GREEN + f"{self.episode_counter}/{target_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (target_episode - self.episode_counter))) if epochs_time_history else 'Unable to calculate'}\t\tDiscriminator: [loss: {round(disc_stats[0], 5)}, real_loss: {round(float(disc_stats[2]), 5)}, fake_loss: {round(float(disc_stats[1]), 5)}, label_noise: {round(self.discriminator_label_noise * 100, 2) if self.discriminator_label_noise else 0}%] Generator: [loss: {round(gen_loss, 5)}, partial_losses: {partial_gan_losses}, psnr: {round(psnr, 3)}dB, psnr_y: {round(psnr_y, 3)}dB, ssim: {round(ssim, 5)}]\n"
-                           f"Generator LR: {self.gen_lr_scheduler.current_lr}, Discriminator LR: {self.disc_lr_scheduler.current_lr}" + Fore.RESET)
+      if self.__episode_counter % self.SHOW_STATS_INTERVAL == 0:
+        print(Fore.GREEN + f"{self.__episode_counter}/{target_episode}, Remaining: {(time_to_format(mean(epochs_time_history) * (target_episode - self.__episode_counter))) if epochs_time_history else 'Unable to calculate'}\t\tDiscriminator: [loss: {round(disc_stats[0], 5)}, real_loss: {round(float(disc_stats[2]), 5)}, fake_loss: {round(float(disc_stats[1]), 5)}, label_noise: {round(self.__discriminator_label_noise * 100, 2) if self.__discriminator_label_noise else 0}%] Generator: [loss: {round(gen_loss, 5)}, partial_losses: {partial_gan_losses}, psnr: {round(psnr, 3)}dB, psnr_y: {round(psnr_y, 3)}dB, ssim: {round(ssim, 5)}]\n"
+                           f"Generator LR: {self.__gen_lr_scheduler.current_lr}, Discriminator LR: {self.__disc_lr_scheduler.current_lr}" + Fore.RESET)
 
       # Decay label noise
-      if self.discriminator_label_noise and self.discriminator_label_noise_decay:
-        self.discriminator_label_noise = max([self.discriminator_label_noise_min, (self.discriminator_label_noise * self.discriminator_label_noise_decay)])
+      if self.__discriminator_label_noise and self.__discriminator_label_noise_decay:
+        self.__discriminator_label_noise = max([self.__discriminator_label_noise_min, (self.__discriminator_label_noise * self.__discriminator_label_noise_decay)])
 
       # Save progress
-      if progress_images_save_interval is not None and self.episode_counter % progress_images_save_interval == 0:
+      if progress_images_save_interval is not None and self.__episode_counter % progress_images_save_interval == 0:
         self.__save_img(save_raw_progress_images)
 
       # Save weights of models
-      if weights_save_interval is not None and self.episode_counter % weights_save_interval == 0:
+      if weights_save_interval is not None and self.__episode_counter % weights_save_interval == 0:
         self.__save_weights()
 
       # Save checkpoint
-      if self.episode_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
+      if self.__episode_counter % self.CHECKPOINT_SAVE_INTERVAL == 0:
         self.save_checkpoint()
         print(Fore.BLUE + "Checkpoint created" + Fore.RESET)
 
       # Reset seeds
-      if self.episode_counter % self.RESET_SEEDS_INTERVAL == 0:
+      if self.__episode_counter % self.RESET_SEEDS_INTERVAL == 0:
         np.random.seed(None)
         random.seed()
 
@@ -367,150 +363,158 @@ class SRGAN:
 
     # Shutdown helper threads
     print(Fore.GREEN + "Training Complete - Waiting for other threads to finish" + Fore.RESET)
-    self.stat_logger.terminate()
-    self.batch_maker.terminate()
+    self.__stat_logger.terminate()
+    self.__batch_maker.terminate()
     self.save_checkpoint()
     self.__save_weights()
-    self.batch_maker.join()
-    self.stat_logger.join()
+    self.__batch_maker.join()
+    self.__stat_logger.join()
     print(Fore.GREEN + "All threads finished" + Fore.RESET)
 
   def __save_img(self, save_raw_progress_images:bool=True, tensorflow_description:str="progress"):
-    if not os.path.exists(self.training_progress_save_path + "/progress_images"): os.makedirs(self.training_progress_save_path + "/progress_images")
+    if not os.path.exists(self.__training_progress_save_path + "/progress_images"): os.makedirs(self.__training_progress_save_path + "/progress_images")
 
-    final_image = np.zeros(shape=(self.target_image_shape[0] * len(self.progress_test_images_paths), self.target_image_shape[1] * 3, self.target_image_shape[2])).astype(np.float32)
+    final_image = np.zeros(shape=(self.__target_image_shape[0] * len(self.__progress_test_images_paths), self.__target_image_shape[1] * 3, self.__target_image_shape[2])).astype(np.float32)
 
-    for idx, test_image_path in enumerate(self.progress_test_images_paths):
+    for idx, test_image_path in enumerate(self.__progress_test_images_paths):
       if not os.path.exists(test_image_path):
         print(Fore.YELLOW + f"Failed to locate test image: {test_image_path}, replacing it with new one!" + Fore.RESET)
-        self.progress_test_images_paths[idx] = random.choice(self.train_data)
+        self.__progress_test_images_paths[idx] = random.choice(self.__train_data)
         self.save_checkpoint()
 
       # Load image for upscale and resize it to starting (small) image size
       original_unscaled_image = cv.imread(test_image_path)
       # print(f"[DEBUG] {original_unscaled_image.shape}, {self.target_image_shape}")
-      if original_unscaled_image.shape != self.target_image_shape:
-        original_image = cv.resize(original_unscaled_image, dsize=(self.start_image_shape[1], self.start_image_shape[0]), interpolation=(cv.INTER_AREA if (original_unscaled_image.shape[0] > self.start_image_shape[0] and original_unscaled_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
+      if original_unscaled_image.shape != self.__target_image_shape:
+        original_image = cv.resize(original_unscaled_image, dsize=(self.__start_image_shape[1], self.__start_image_shape[0]), interpolation=(cv.INTER_AREA if (original_unscaled_image.shape[0] > self.__start_image_shape[0] and original_unscaled_image.shape[1] > self.__start_image_shape[1]) else cv.INTER_CUBIC))
       else:
         original_image = original_unscaled_image
-      small_image = cv.resize(original_image, dsize=(self.start_image_shape[1], self.start_image_shape[0]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.start_image_shape[0] and original_image.shape[1] > self.start_image_shape[1]) else cv.INTER_CUBIC))
+      small_image = cv.resize(original_image, dsize=(self.__start_image_shape[1], self.__start_image_shape[0]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.__start_image_shape[0] and original_image.shape[1] > self.__start_image_shape[1]) else cv.INTER_CUBIC))
 
       # Conver image to RGB colors and upscale it
-      gen_img = self.generator.predict(np.array([cv.cvtColor(small_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0]))[0]
+      gen_img = self.__generator.predict(np.array([cv.cvtColor(small_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0]))[0]
 
       # Rescale images 0 to 255
       gen_img = (0.5 * gen_img + 0.5) * 255
       gen_img = cv.cvtColor(gen_img, cv.COLOR_RGB2BGR)
 
       # Place side by side image resized by opencv, original (large) image and upscaled by gan
-      final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], 0:gen_img.shape[0], :] = cv.resize(small_image, dsize=(self.target_image_shape[1], self.target_image_shape[0]), interpolation=(cv.INTER_AREA if (small_image.shape[0] > self.target_image_shape[0] and small_image.shape[1] > self.target_image_shape[1]) else cv.INTER_CUBIC))
+      final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], 0:gen_img.shape[0], :] = cv.resize(small_image, dsize=(self.__target_image_shape[1], self.__target_image_shape[0]), interpolation=(cv.INTER_AREA if (small_image.shape[0] > self.__target_image_shape[0] and small_image.shape[1] > self.__target_image_shape[1]) else cv.INTER_CUBIC))
       final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], gen_img.shape[0]:gen_img.shape[0] * 2, :] = original_image
       final_image[idx * gen_img.shape[1]:(idx + 1) * gen_img.shape[1], gen_img.shape[0] * 2:gen_img.shape[0] * 3, :] = gen_img
 
     # Save image to folder and to tensorboard
     if save_raw_progress_images:
-      cv.imwrite(f"{self.training_progress_save_path}/progress_images/{self.episode_counter}.png", final_image)
-    self.tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32), description=tensorflow_description)
+      cv.imwrite(f"{self.__training_progress_save_path}/progress_images/{self.__episode_counter}.png", final_image)
+    self.__tensorboard.write_image(np.reshape(cv.cvtColor(final_image, cv.COLOR_BGR2RGB) / 255, (-1, final_image.shape[0], final_image.shape[1], final_image.shape[2])).astype(np.float32), description=tensorflow_description)
 
   # Save weights of generator and discriminator model
   def __save_weights(self):
-    save_dir = self.training_progress_save_path + "/weights/" + str(self.episode_counter)
+    save_dir = self.__training_progress_save_path + "/weights/" + str(self.__episode_counter)
     if not os.path.exists(save_dir): os.makedirs(save_dir)
-    self.generator.save_weights(f"{save_dir}/generator_{self.gen_mod_name}.h5")
-    self.discriminator.save_weights(f"{save_dir}/discriminator_{self.disc_mod_name}.h5")
+    self.__generator.save_weights(f"{save_dir}/generator_{self.__gen_mod_name}.h5")
+    self.__discriminator.save_weights(f"{save_dir}/discriminator_{self.__disc_mod_name}.h5")
 
   # Load weights to models from given episode
   def load_gen_weights_from_episode(self, episode:int):
-    weights_dir = self.training_progress_save_path + "/weights/" + str(episode)
+    weights_dir = self.__training_progress_save_path + "/weights/" + str(episode)
     if not os.path.exists(weights_dir): return
 
-    gen_weights_path = weights_dir + f"/generator_{self.gen_mod_name}.h5"
+    gen_weights_path = weights_dir + f"/generator_{self.__gen_mod_name}.h5"
     if os.path.exists(gen_weights_path):
-      self.generator.load_weights(gen_weights_path)
+      self.__generator.load_weights(gen_weights_path)
 
   def load_disc_weights_from_episode(self, episode:int):
-    weights_dir = self.training_progress_save_path + "/weights/" + str(episode)
+    weights_dir = self.__training_progress_save_path + "/weights/" + str(episode)
     if not os.path.exists(weights_dir): return
 
-    disc_weights_path = weights_dir + f"/discriminator_{self.disc_mod_name}.h5"
+    disc_weights_path = weights_dir + f"/discriminator_{self.__disc_mod_name}.h5"
     if os.path.exists(disc_weights_path):
-      self.discriminator.load_weights(disc_weights_path)
+      self.__discriminator.load_weights(disc_weights_path)
 
   # Save images of model structures
   def save_models_structure_images(self):
-    save_path = self.training_progress_save_path + "/model_structures"
+    save_path = self.__training_progress_save_path + "/model_structures"
     if not os.path.exists(save_path): os.makedirs(save_path)
-    plot_model(self.combined_generator_model, os.path.join(save_path, "combined.png"), expand_nested=True, show_shapes=True)
-    plot_model(self.generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
-    plot_model(self.discriminator, os.path.join(save_path, "discriminator.png"), expand_nested=True, show_shapes=True)
-    plot_model(self.combined_discriminator_model, os.path.join(save_path, "combined_discriminator.png"), expand_nested=True, show_shapes=True)
+    plot_model(self.__combined_generator_model, os.path.join(save_path, "combined.png"), expand_nested=True, show_shapes=True)
+    plot_model(self.__generator, os.path.join(save_path, "generator.png"), expand_nested=True, show_shapes=True)
+    plot_model(self.__discriminator, os.path.join(save_path, "discriminator.png"), expand_nested=True, show_shapes=True)
 
   # Load progress of training from checkpoint
   def __load_checkpoint(self):
-    checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
+    checkpoint_base_path = os.path.join(self.__training_progress_save_path, "checkpoint")
     if not os.path.exists(os.path.join(checkpoint_base_path, "checkpoint_data.json")): return
 
     with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "rb") as f:
       data = json.load(f)
 
       if data:
-        self.episode_counter = int(data["episode"])
+        self.__episode_counter = int(data["episode"])
 
         try:
-          self.generator.load_weights(data["gen_path"])
+          self.__generator.load_weights(data["gen_path"])
         except:
-          print(Fore.YELLOW + "Failed to load generator weights from checkpoint" + Fore.RESET)
+          try:
+            self.__generator.load_weights(data["gen_path"] + ".lock")
+          except:
+            print(Fore.YELLOW + "Failed to load generator weights from checkpoint" + Fore.RESET)
 
         try:
-          self.discriminator.load_weights(data["disc_path"])
+          self.__discriminator.load_weights(data["disc_path"])
         except:
-          print(Fore.YELLOW + "Failed to load discriminator weights from checkpoint" + Fore.RESET)
+          try:
+            self.__discriminator.load_weights(data["disc_path"] + ".lock")
+          except:
+            print(Fore.YELLOW + "Failed to load discriminator weights from checkpoint" + Fore.RESET)
 
         if "disc_label_noise" in data.keys():
-          self.discriminator_label_noise = float(data["disc_label_noise"])
+          self.__discriminator_label_noise = float(data["disc_label_noise"])
 
-        if not self.custom_hr_test_images_paths or self.custom_loading_failed:
-          self.progress_test_images_paths = data["test_image"]
-        self.initiated = True
+        if not self.__custom_test_images or self.__custom_loading_failed:
+          self.__progress_test_images_paths = data["test_image"]
+        self.__initiated = True
 
   # Save progress of training
   def save_checkpoint(self):
-    checkpoint_base_path = os.path.join(self.training_progress_save_path, "checkpoint")
+    checkpoint_base_path = os.path.join(self.__training_progress_save_path, "checkpoint")
     if not os.path.exists(checkpoint_base_path): os.makedirs(checkpoint_base_path)
 
-    gen_path = f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5"
-    disc_path = f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5"
+    gen_path = f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5"
+    disc_path = f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5"
 
-    if os.path.exists(gen_path): os.rename(gen_path, f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock")
-    if os.path.exists(disc_path): os.rename(disc_path, f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5.lock")
+    if os.path.exists(f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5.lock")
+    if os.path.exists(f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5.lock")
 
-    self.generator.save_weights(gen_path)
-    self.discriminator.save_weights(disc_path)
+    if os.path.exists(gen_path): os.rename(gen_path, f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5.lock")
+    if os.path.exists(disc_path): os.rename(disc_path, f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5.lock")
 
-    if os.path.exists(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/generator_{self.gen_mod_name}.h5.lock")
-    if os.path.exists(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/discriminator_{self.disc_mod_name}.h5.lock")
+    self.__generator.save_weights(gen_path)
+    self.__discriminator.save_weights(disc_path)
+
+    if os.path.exists(f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/generator_{self.__gen_mod_name}.h5.lock")
+    if os.path.exists(f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5.lock"): os.remove(f"{checkpoint_base_path}/discriminator_{self.__disc_mod_name}.h5.lock")
 
     data = {
-      "episode": self.episode_counter,
+      "episode": self.__episode_counter,
       "gen_path": gen_path,
       "disc_path": disc_path,
-      "disc_label_noise": self.discriminator_label_noise,
-      "test_image": self.progress_test_images_paths,
+      "disc_label_noise": self.__discriminator_label_noise,
+      "test_image": self.__progress_test_images_paths,
     }
 
     with open(os.path.join(checkpoint_base_path, "checkpoint_data.json"), "w", encoding='utf-8') as f:
       json.dump(data, f)
 
   def make_progress_gif(self, frame_duration:int=16):
-    if not os.path.exists(self.training_progress_save_path): os.makedirs(self.training_progress_save_path)
-    if not os.path.exists(self.training_progress_save_path + "/progress_images"): return
+    if not os.path.exists(self.__training_progress_save_path): os.makedirs(self.__training_progress_save_path)
+    if not os.path.exists(self.__training_progress_save_path + "/progress_images"): return
 
     frames = []
-    img_file_names = os.listdir(self.training_progress_save_path + "/progress_images")
+    img_file_names = os.listdir(self.__training_progress_save_path + "/progress_images")
 
     for im_file in img_file_names:
-      if os.path.isfile(self.training_progress_save_path + "/progress_images/" + im_file):
-        frames.append(Image.open(self.training_progress_save_path + "/progress_images/" + im_file))
+      if os.path.isfile(self.__training_progress_save_path + "/progress_images/" + im_file):
+        frames.append(Image.open(self.__training_progress_save_path + "/progress_images/" + im_file))
 
     if len(frames) > 2:
-      frames[0].save(f"{self.training_progress_save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, optimize=False, duration=frame_duration, loop=0)
+      frames[0].save(f"{self.__training_progress_save_path}/progress_gif.gif", format="GIF", append_images=frames[1:], save_all=True, optimize=False, duration=frame_duration, loop=0)

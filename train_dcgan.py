@@ -27,12 +27,13 @@ if gpus:
 from keras import optimizers
 
 from modules.gans import DCGAN
+from modules.utils.helpers import start_tensorboard
 from settings.dcgan_settings import *
 
 if __name__ == '__main__':
   training_object = None
   if not os.path.exists("training_data/dcgan"): os.makedirs("training_data/dcgan")
-  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data/dcgan --samples_per_plugin=images=200", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  bmanager = start_tensorboard("training_data/dcgan")
 
   try:
     training_object = DCGAN(DATASET_PATH, training_progress_save_path="training_data/dcgan",

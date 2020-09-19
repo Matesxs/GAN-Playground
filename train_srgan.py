@@ -27,21 +27,23 @@ if gpus:
 from keras.optimizers import Adam
 
 from modules.gans import SRGAN
-from modules.keras_extensions.custom_adam_optimizer import AccumulateAdam
+from modules.utils.batch_maker import AugmentationSettings
+from modules.utils.helpers import start_tensorboard
 from settings.srgan_settings import *
 
 if __name__ == '__main__':
   training_object = None
   if not os.path.exists("training_data/srgan"): os.makedirs("training_data/srgan")
-  tbmanager = subprocess.Popen("./venv/Scripts/python.exe -m tensorboard.main --logdir training_data/srgan --samples_per_plugin=images=200 --port 6006", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  tbmanager = start_tensorboard("training_data/srgan")
 
   try:
     training_object = SRGAN(DATASET_PATH, num_of_upscales=NUM_OF_UPSCALES, training_progress_save_path="training_data/srgan",
+                            dataset_augmentation_settings=AugmentationSettings(flip_chance=FLIP_CHANCE, rotation_chance=ROTATION_CHANCE, rotation_ammount=ROTATION_AMOUNT, blur_chance=BLUR_CHANCE, blur_amount=BLUR_AMOUNT),
                             batch_size=BATCH_SIZE, buffered_batches=BUFFERED_BATCHES,
                             gen_mod_name=GEN_MODEL, disc_mod_name=DISC_MODEL,
                             generator_optimizer=Adam(GEN_LR, 0.9), discriminator_optimizer=Adam(DISC_LR, 0.9),
                             gen_loss=GEN_LOSS, disc_loss=DISC_LOSS, feature_loss=FEATURE_LOSS,
-                            gen_loss_weight=GEN_LOSS_WEIGHT, disc_loss_weight=DISC_LOSS_WEIGHT, feature_loss_weight=FEATURE_LOSS_WEIGHT,
+                            gen_loss_weight=GEN_LOSS_WEIGHT, disc_loss_weight=DISC_LOSS_WEIGHT, feature_loss_weights=FEATURE_PER_LAYER_LOSS_WEIGHTS,
                             feature_extractor_layers=FEATURE_EXTRACTOR_LAYERS,
                             generator_lr_decay_interval=GEN_LR_DECAY_INTERVAL, discriminator_lr_decay_interval=DISC_LR_DECAY_INTERVAL,
                             generator_lr_decay_factor=GEN_LR_DECAY_FACTOR, discriminator_lr_decay_factor=DISC_LR_DECAY_FACTOR,

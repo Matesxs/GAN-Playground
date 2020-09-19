@@ -55,7 +55,8 @@ pip install -r requirements.txt
 ## Dependencies
 ```
 - Python3.7
-- Tensorflow 2.2
+- Tensorflow 2.2.0
+- Keras 2.3.1
 
 For GPU acceleration:
     - Cuda Toolkit 10.1

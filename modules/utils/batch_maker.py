@@ -6,14 +6,26 @@ from typing import Union
 from cv2 import cv2 as cv
 import time
 from colorama import Fore
+import random
+
+
+class AugmentationSettings:
+  def __init__(self, rotation_chance:float=0, rotation_ammount:float=0, blur_chance:float=0, blur_amount:float=0, flip_chance:float=0):
+    self.rotation_chance = rotation_chance
+    self.rotation_ammount = rotation_ammount
+    self.blur_chance = blur_chance
+    self.blur_amount = blur_amount
+    self.flip_chance = flip_chance
 
 class BatchMaker(Thread):
-  def __init__(self, train_data:list, batch_size:int, buffered_batches:int=5, secondary_size:tuple=None, missing_threshold_perc:float=0.2, num_of_loading_workers:int=8):
+  def __init__(self, train_data:list, batch_size:int, buffered_batches:int=5, secondary_size:tuple=None, missing_threshold_perc:float=0.2, num_of_loading_workers:int=8, augmentation_settings:AugmentationSettings=None):
     super().__init__()
     self.daemon = True
 
     self.__terminate = False
+
     self.__secondary_size = secondary_size
+    self.__augmentation_settings = augmentation_settings
 
     self.__batches_in_buffer_number = buffered_batches
     assert 0 <= missing_threshold_perc <= 1, Fore.RED + "Invalid missing threshold" + Fore.RESET
@@ -62,6 +74,19 @@ class BatchMaker(Thread):
 
       for im_p in data:
         original_image = cv.imread(im_p)
+
+        if self.__augmentation_settings:
+          if random.random() >= self.__augmentation_settings.blur_chance:
+            original_image = cv.GaussianBlur(original_image, (3, 3), self.__augmentation_settings.blur_amount)
+
+          if random.random() >= self.__augmentation_settings.flip_chance:
+            original_image = cv.flip(original_image, random.randint(-1, 1))
+
+          if random.random() >= self.__augmentation_settings.rotation_chance:
+            rows, cols, c = original_image.shape
+            M = cv.getRotationMatrix2D((cols / 2, rows / 2), random.random() * self.__augmentation_settings.rotation_ammount, 1)
+            original_image = cv.warpAffine(original_image, M, (cols, rows))
+
         batch.append(cv.cvtColor(original_image, cv.COLOR_BGR2RGB) / 127.5 - 1.0)
         if self.__secondary_size:
           resized_batch.append(cv.cvtColor(cv.resize(original_image, dsize=(self.__secondary_size[0], self.__secondary_size[1]), interpolation=(cv.INTER_AREA if (original_image.shape[0] > self.__secondary_size[1] and original_image.shape[1] > self.__secondary_size[0]) else cv.INTER_CUBIC)), cv.COLOR_BGR2RGB) / 127.5 - 1.0)
