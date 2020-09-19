@@ -1,6 +1,6 @@
 ### Data settings ###
 # Data source settings (RELATIVE TO TRAIN SCRIPT POSITION OR ABSOLUTE)
-DATASET_PATH = "datasets/faces_normalized__256x256"
+DATASET_PATH = "datasets/all_normalized__256x256"
 
 # If none will be provided then script will select some random one
 CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2.png", "datasets/testing_image3.jpg"]
@@ -23,7 +23,7 @@ CHECK_DATASET = False
 
 ### Training settings ###
 # Episodes from training episodes
-GENERATOR_PRETRAIN_EPISODES = 100_000
+GENERATOR_PRETRAIN_EPISODES = 200_000
 TRAINING_EPISODES = 400_000
 
 BATCH_SIZE = 8
@@ -75,7 +75,7 @@ FEATURE_LOSS = "mae"
 
 FEATURE_EXTRACTOR_LAYERS = [2, 5, 8] # [2, 5, 8], [5, 9]
 
-GEN_LOSS_WEIGHT = 0.8 # 0.8
+GEN_LOSS_WEIGHT = 1.0 # 0.8
 DISC_LOSS_WEIGHT = 0.01 # 0.01, 0.003
 FEATURE_PER_LAYER_LOSS_WEIGHTS = [0.027, 0.027, 0.027] # 0.0833
 
