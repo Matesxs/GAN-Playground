@@ -128,12 +128,12 @@ Note: Some utility scripts have its settings in settings folder
 - Testing best working model pairs for WGAN
 - Refactoring
 - Retraining all SRGAN models
+- Testing efects of pretrain on SRGAN model
 ```
 
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
 MAE loss is causing lot of artifacts and image distortions (like color shifting, "image bleedoff", etc) in results from SRGAN. \
-SRGAN will be trained only on face images, bacause I am not able to balance enough dataset (You can compensate it in some minor way by introducing labels to generator)
 
 ## Testing setup
 ```
