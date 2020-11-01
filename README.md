@@ -100,7 +100,7 @@ For my dataset ideal pretrain of generator is something around 50k episodes
 <br/>
 <br/>
 3) 200k pretrain, 400k episodes
-![SRGAN_image_2](media/srgan_results/sragan_200k_pretrain.png?raw=true)
+![SRGAN_image_3](media/srgan_results/sragan_200k_pretrain.png?raw=true)
 
 ## Used models
 ```
