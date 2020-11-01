@@ -23,7 +23,7 @@ CHECK_DATASET = False
 
 ### Training settings ###
 # Episodes from training episodes
-GENERATOR_PRETRAIN_EPISODES = 0
+GENERATOR_PRETRAIN_EPISODES = 50_000
 TRAINING_EPISODES = 400_000
 
 BATCH_SIZE = 8

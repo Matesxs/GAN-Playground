@@ -89,12 +89,19 @@ Note: Some utility scripts have its settings in settings folder
 
 ## Results
 ##### SRGAN Results - (Upscaled by opencv, Original, Upscaled by SRGAN)
-1) Model without using bias (batch normalization "bias" is used instead) and without using spectral normalization \
-1 400 000 episodes
-![SRGAN_image_1](media/srgan_results/srganResultImage1.png?raw=true)
-2) Model using bias and spectral normalization \
-2 500 000 episodes
-![SRGAN_image_2](media/srgan_results/srganResultImage2.png?raw=true)
+###### Pretrain
+For my dataset ideal pretrain of generator is something around 50k episodes
+<br/>
+1) No pretrain, 400k episodes
+![SRGAN_image_1](media/srgan_results/srgan_no_pretrain.png?raw=true)
+<br/>
+<br/>
+2) 50k pretrain, 400k episodes
+![SRGAN_image_2](media/srgan_results/sragan_50k_pretrain.png?raw=true)
+<br/>
+<br/>
+3) 200k pretrain, 400k episodes
+![SRGAN_image_2](media/srgan_results/sragan_200k_pretrain.png?raw=true)
 
 ## Used models
 ```
