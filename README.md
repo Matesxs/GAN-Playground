@@ -4,7 +4,6 @@
 <img align="left" src=https://img.shields.io/github/license/Matesxs/GAN-Playground>
 <img align="left" src=https://img.shields.io/github/stars/Matesxs/GAN-Playground>
 <img align="left" src=https://img.shields.io/github/forks/Matesxs/GAN-Playground>
-<img align="left" src=https://badges.pufler.dev/visits/Matesxs/GAN-Playground>
 <img align="left" src=https://img.shields.io/github/issues/Matesxs/GAN-Playground>
 <br/>
 
