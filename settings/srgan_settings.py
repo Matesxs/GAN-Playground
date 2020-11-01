@@ -6,10 +6,10 @@ DATASET_PATH = "datasets/all_normalized__256x256"
 CUSTOM_HR_TEST_IMAGES = ["datasets/testing_image1.png", "datasets/testing_image2.png", "datasets/testing_image3.jpg"]
 
 # Augmentation settings
-FLIP_CHANCE = 0.20
+FLIP_CHANCE = 0.30
 ROTATION_CHANCE = 0.30
-ROTATION_AMOUNT = 15
-BLUR_CHANCE = 0.05
+ROTATION_AMOUNT = 20
+BLUR_CHANCE = 0.1
 BLUR_AMOUNT = 0.1
 
 # Num of worker used to preload data for training/testing
@@ -23,7 +23,7 @@ CHECK_DATASET = False
 
 ### Training settings ###
 # Episodes from training episodes
-GENERATOR_PRETRAIN_EPISODES = 200_000
+GENERATOR_PRETRAIN_EPISODES = 50_000
 TRAINING_EPISODES = 400_000
 
 BATCH_SIZE = 8
@@ -77,7 +77,7 @@ FEATURE_EXTRACTOR_LAYERS = [2, 5, 8] # [2, 5, 8], [5, 9]
 
 GEN_LOSS_WEIGHT = 1.0 # 0.8
 DISC_LOSS_WEIGHT = 0.01 # 0.01, 0.003
-FEATURE_PER_LAYER_LOSS_WEIGHTS = [0.027, 0.027, 0.027] # 0.0833
+FEATURE_PER_LAYER_LOSS_WEIGHTS = [0.025, 0.025, 0.025] # 0.0833
 
 ### General Settings ###
 # Check if you want to load last autocheckpoint (If weights were provided thne checkpoint will be overriden by them)

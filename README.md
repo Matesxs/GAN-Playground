@@ -88,12 +88,19 @@ Note: Some utility scripts have its settings in settings folder
 
 ## Results
 ##### SRGAN Results - (Upscaled by opencv, Original, Upscaled by SRGAN)
-1) Model without using bias (batch normalization "bias" is used instead) and without using spectral normalization \
-1 400 000 episodes
-![SRGAN_image_1](media/srgan_results/srganResultImage1.png?raw=true)
-2) Model using bias and spectral normalization \
-2 500 000 episodes
-![SRGAN_image_2](media/srgan_results/srganResultImage2.png?raw=true)
+###### Pretrain
+For my dataset ideal pretrain of generator is something around 50k episodes
+<br/>
+1) No pretrain, 400k episodes
+![SRGAN_image_1](media/srgan_results/srgan_no_pretrain.png?raw=true)
+<br/>
+<br/>
+2) 50k pretrain, 400k episodes
+![SRGAN_image_2](media/srgan_results/sragan_50k_pretrain.png?raw=true)
+<br/>
+<br/>
+3) 200k pretrain, 400k episodes
+![SRGAN_image_2](media/srgan_results/sragan_200k_pretrain.png?raw=true)
 
 ## Used models
 ```
@@ -119,6 +126,7 @@ Note: Some utility scripts have its settings in settings folder
 - [ ] Optimize batch maker to use generator class from keras
 - [x] Optimize preprocessing dataset (Too slow)
 - [x] Optimize interface scripts with more acessible settings
+- [x] Test pretrain effect on results from SRGAN
 - [ ] Retrain all SRGAN models with single test image with same train settings to properly compare them
 - [ ] Implement gradient accumulation to "simulate" larger batch
 
@@ -127,12 +135,12 @@ Note: Some utility scripts have its settings in settings folder
 - Testing best working model pairs for WGAN
 - Refactoring
 - Retraining all SRGAN models
+- Testing efects of pretrain on SRGAN model
 ```
 
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
 MAE loss is causing lot of artifacts and image distortions (like color shifting, "image bleedoff", etc) in results from SRGAN. \
-SRGAN will be trained only on face images, bacause I am not able to balance enough dataset (You can compensate it in some minor way by introducing labels to generator)
 
 ## Testing setup
 ```
