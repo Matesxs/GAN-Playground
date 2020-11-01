@@ -90,15 +90,10 @@ Note: Some utility scripts have its settings in settings folder
 ##### SRGAN Results - (Upscaled by opencv, Original, Upscaled by SRGAN)
 ###### Pretrain
 For my dataset ideal pretrain of generator is something around 50k episodes
-<br/>
 1) No pretrain, 400k episodes
 ![SRGAN_image_1](media/srgan_results/srgan_no_pretrain.png?raw=true)
-<br/>
-<br/>
 2) 50k pretrain, 400k episodes
 ![SRGAN_image_2](media/srgan_results/sragan_50k_pretrain.png?raw=true)
-<br/>
-<br/>
 3) 200k pretrain, 400k episodes
 ![SRGAN_image_3](media/srgan_results/sragan_200k_pretrain.png?raw=true)
 
