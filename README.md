@@ -127,6 +127,7 @@ For my dataset ideal pretrain of generator is something around 50k episodes
 - [ ] Optimize batch maker to use generator class from keras
 - [x] Optimize preprocessing dataset (Too slow)
 - [x] Optimize interface scripts with more acessible settings
+- [x] Test pretrain effect on results from SRGAN
 - [ ] Retrain all SRGAN models with single test image with same train settings to properly compare them
 - [ ] Implement gradient accumulation to "simulate" larger batch
 
