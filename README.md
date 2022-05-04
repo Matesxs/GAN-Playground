@@ -30,19 +30,12 @@ Disclaimer: This repository is more like proof of concept than download and run!
 ```
 DCGAN - GAN for generating new images from latent vector
 WGAN(GC) - GAN for generating new images from latent vector
-SRGAN - GAN for upscaling images
 ```
 
 ## Project Folder Structure
 ```
 - datasets (place for all data that you will want feed to network)
 - media (folder with media files of repo)
-- modules
-    - gans (trainers for all GANs are pleced)
-    - keras_extensions (extesions based on keras functionality)
-    - models (models and building blocks for models)
-    - utils (other helper stuff)
-- settings (settings for scripts)
 - utility_scripts (scripts for data processing and other useful stuff)
 ```
 
@@ -53,13 +46,8 @@ pip install -r requirements.txt
 
 ## Dependencies
 ```
-- Python3.7
-- Tensorflow 2.2.0
-- Keras 2.3.1
-
-For GPU acceleration:
-    - Cuda Toolkit 10.1
-    - cuDNN for toolkit version
+- Python3.10
+- PyTorch 1.11.0
 ```
 
 ## Usage
@@ -80,50 +68,14 @@ Note: These scripts are still in progress of making, some of them may not work!
 ## Utility
 ```
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
-visualize_conv_activations.py - Script for displaying activation of each conv layer as image
-show_vgg_structure.py - Script that will print all layers of vgg19 usable for perceptual loss
-parse_hr_image.py - Script to parse large images to small ones (WIP)
-Note: Some utility scripts have its settings in settings folder
 ```
 
 ## Results
-##### SRGAN Results - (Upscaled by opencv, Original, Upscaled by SRGAN)
-###### Pretrain
-For my dataset ideal pretrain of generator is something around 50k episodes \
-1) No pretrain, 400k episodes \
-![SRGAN_image_1](media/srgan_results/srgan_no_pretrain.png?raw=true)
-2) 50k pretrain, 400k episodes \
-![SRGAN_image_2](media/srgan_results/sragan_50k_pretrain.png?raw=true)
-3) 200k pretrain, 400k episodes \
-![SRGAN_image_2](media/srgan_results/sragan_200k_pretrain.png?raw=true)
-
-## Used models
-```
-    Generator / Discriminator (Critic)
-1. mod_srgan_exp / mod_base_9layers
-2. mod_srgan_exp_sn / mod_base_9layers_sn
-```
 
 ## TODO
-- [x] Implement DCGAN
-- [x] Implement WGAN
-- [x] Implement SRGAN
-- [ ] Implement StyleGAN
-- [x] Implement custom Tensorboard for logging stats
-- [x] Implement learning rate scheduler
-- [x] Implement spectral normalization layer
-- [x] Test Charbonnier loss instead of MSE loss in SRGAN
-- [ ] Test Huber loss instead of MSE loss in SRGAN
-- [x] Test MAE loss instead of MSE loss in SRGAN
-- [ ] Test impact of different weights of losses in SRGAN
-- [x] Optimize training loop of SRGAN (Too much time is spending of testing performance)
-- [x] Implement custom batch maker
-- [ ] Optimize batch maker to use generator class from keras
-- [x] Optimize preprocessing dataset (Too slow)
-- [x] Optimize interface scripts with more acessible settings
-- [x] Test pretrain effect on results from SRGAN
-- [ ] Retrain all SRGAN models with single test image with same train settings to properly compare them
-- [ ] Implement gradient accumulation to "simulate" larger batch
+- [ ] Implement basic DCGAN
+- [ ] Implement basic WGAN
+- [ ] Implement WGAN-GP (WGAN with gradient penalty)
 
 ## Current tasks
 ```
@@ -135,7 +87,7 @@ For my dataset ideal pretrain of generator is something around 50k episodes \
 
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
-MAE loss is causing lot of artifacts and image distortions (like color shifting, "image bleedoff", etc) in results from SRGAN. \
+MAE loss is causing a lot of artifacts and image distortions (like color shifting, "image bleedoff", etc.) in results from SRGAN. \
 
 ## Testing setup
 ```
@@ -181,8 +133,7 @@ https://github.com/JGuillaumin/SuperResGAN-keras
 <br/>
 <br/>
 ##### ESDR (Enhanced Deep Residual Networks for Single Image Super-Resolution)
-https://github.com/Golbstein/EDSR-Keras \
-Note: Ideas used for improving SRGAN
+https://github.com/Golbstein/EDSR-Keras
 <br/>
 <br/>
 ##### Perceptual Loss

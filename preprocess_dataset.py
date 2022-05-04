@@ -7,8 +7,6 @@ import random
 import logging
 from multiprocessing.pool import ThreadPool
 
-from modules.utils.helpers import get_paths_of_files_from_path
-
 logging.getLogger("opencv-python").setLevel(logging.CRITICAL)
 
 DATASETS_FOLDER_PATH = r"datasets"
@@ -28,6 +26,13 @@ testing_split = None
 
 crop_images = False
 ignore_smaller_images_than_target = False
+
+def get_paths_of_files_from_path(path, only_files:bool=False):
+  if not os.path.exists(path): return None
+  content = [os.path.join(path, file_name) for file_name in os.listdir(path)]
+  if only_files:
+    content = [x for x in content if os.path.isfile(x)]
+  return content
 
 while True:
   print("Avaible input datasets:")
