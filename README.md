@@ -24,6 +24,7 @@
 This project contains code for some of the most know types of GAN (Generative Adverserial Network).
 I am using this repo to play with these types of networks to get better understanding how they work and how to properly train them.
 
+Previous version of this reposritory was moved to branch: old \
 Disclaimer: This repository is more like proof of concept than download and run!
 
 ## Content
