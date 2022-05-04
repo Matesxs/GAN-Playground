@@ -6,3 +6,4 @@ torchaudio
 opencv-python
 selenium
 tqdm
+colorama
