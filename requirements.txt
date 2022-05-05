@@ -1,9 +1,8 @@
 --extra-index-url https://download.pytorch.org/whl/cu113
 
-torch
-torchvision
-torchaudio
-opencv-python
-selenium
-tqdm
-colorama
+torch==1.11.0+cu113
+torchvision==0.12.0+cu113
+opencv-python==4.5.5.64
+torchsummary==1.5.1
+tqdm==4.64.0
+tensorboard==2.9.0

@@ -15,7 +15,6 @@
 * [Usage](#usage)
 * [Results](#results)
 * [TODO](#todo)
-* [Current tasks](#current-tasks)
 * [Notes](#notes)
 * [Testing setup](#testing-setup)
 * [Resources](#resources)
@@ -73,18 +72,23 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 
 ## Results
 
+### DCGAN
+1. Mnist dataset (64x64 grayscale) - 20epochs
+   1. Generated \
+   ![1](media/dcgan/mnist_dcgan_fake.png?raw=true)
+   2. Original \
+   ![2](media/dcgan/mnist_dcgan_real.png?raw=true)
+
+2. Celeb dataset (64x64 color, 250000 images)
+   1. Generated \
+   ![5](media/dcgan/faces_dcgan_fake.png?raw=true)
+   2. Original \
+   ![5](media/dcgan/faces_dcgan_real.png?raw=true)
 ## TODO
-- [ ] Implement basic DCGAN
+- [x] Implement basic DCGAN
+- [ ] Larger DCGAN models for larger and more complex images
 - [ ] Implement basic WGAN
 - [ ] Implement WGAN-GP (WGAN with gradient penalty)
-
-## Current tasks
-```
-- Testing best working model pairs for WGAN
-- Refactoring
-- Retraining all SRGAN models
-- Testing efects of pretrain on SRGAN model
-```
 
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
@@ -108,8 +112,10 @@ https://arxiv.org/pdf/1511.06434.pdf
 <br/>
 <br/>
 ##### WGAN (Wasserstein GAN)
-https://machinelearningmastery.com/how-to-code-a-wasserstein-generative-adversarial-network-wgan-from-scratch/ \
-https://arxiv.org/pdf/1704.00028.pdf
+https://www.alexirpan.com/2017/02/22/wasserstein-gan.html \
+https://arxiv.org/pdf/1701.07875.pdf \
+https://arxiv.org/pdf/1704.00028.pdf \
+https://machinelearningmastery.com/how-to-code-a-wasserstein-generative-adversarial-network-wgan-from-scratch/
 <br/>
 <br/>
 ##### WGAN-GP
