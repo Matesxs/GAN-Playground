@@ -50,21 +50,6 @@ pip install -r requirements.txt
 - PyTorch 1.11.0
 ```
 
-## Usage
-```
-Adjust settings in settings/****_settings.py
-Get datasets and place them in dataset directory (Or in directory you set in settings.py)
-python preprocess_dataset.py
-python train_****.py
-
-After training use
-1) python generate_images.py for DCGAN and WGAN
-2) python upscale_images.py for SRGAN
-(These scripts still needs tweaking because settings for them are hardcoded in them)
-
-Note: These scripts are still in progress of making, some of them may not work!
-```
-
 ## Utility
 ```
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
