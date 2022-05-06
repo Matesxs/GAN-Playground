@@ -82,17 +82,17 @@ class Generator(nn.Module):
 if __name__ == '__main__':
   batch = 8
   in_ch = 3
-  W, H = 128, 128
+  img_size = 64
   noise_dim = 128
 
-  x = torch.randn((batch, in_ch, H, W), device="cuda")
+  x = torch.randn((batch, in_ch, img_size, img_size), device="cuda")
   y = torch.randn((batch, noise_dim, 1, 1), device="cuda")
 
   disc = Discriminator(in_ch, 64).to("cuda")
   gen = Generator(noise_dim, in_ch, 64).to("cuda")
 
   print(f"Discriminator shape: {disc(x).shape}")
-  summary(disc, (in_ch, H, W), batch)
+  summary(disc, (in_ch, img_size, img_size), batch)
 
   print(f"Generator shape: {gen(y).shape}")
   summary(gen, (noise_dim, 1, 1), batch)
