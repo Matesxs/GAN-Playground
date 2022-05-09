@@ -29,10 +29,12 @@ Disclaimer: This repository is more like proof of concept than download and run!
 ```
 DCGAN - GAN for generating new images from latent vector
 WGAN(GC) - GAN for generating new images from latent vector
+Conditional GAN - GAN for generating new images from latent vector and labels
 ```
 
 ## Project Folder Structure
 ```
+- gans (scripts for each GAN)
 - datasets (place for all data that you will want feed to network)
 - media (folder with media files of repo)
 - utility_scripts (scripts for data processing and other useful stuff)

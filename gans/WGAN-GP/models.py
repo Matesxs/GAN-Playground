@@ -2,79 +2,12 @@ import torch
 import torch.nn as nn
 from torchsummary import summary
 
-def initialize_model(model):
-  for m in model.modules():
-    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
-      nn.init.normal_(m.weight.data, 0.0, 0.02)
-
-class Critic(nn.Module):
-  def __init__(self, image_channels, features_disc):
-    super(Critic, self).__init__()
-
-    self.critic = nn.Sequential(
-      nn.Conv2d(image_channels, features_disc, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1)),
-      nn.LeakyReLU(0.2),
-
-      # self._block(features_disc,      features_disc * 2,   (4, 4), (2, 2), (1, 1)),
-      # self._block(features_disc * 2,  features_disc * 4,   (4, 4), (2, 2), (1, 1)),
-      # self._block(features_disc * 4,  features_disc * 8,   (4, 4), (2, 2), (1, 1)),
-      # self._block(features_disc * 8,  features_disc * 16,  (4, 4), (2, 2), (1, 1)),
-
-      self._block(features_disc,      features_disc * 2,   (4, 4), (2, 2), (1, 1)),
-      self._block(features_disc * 2,  features_disc * 4,   (4, 4), (2, 2), (1, 1)),
-      self._block(features_disc * 4,  features_disc * 8,   (4, 4), (2, 2), (1, 1)),
-
-      # nn.Conv2d(features_disc * 16, 1, kernel_size=(4, 4), stride=(2, 2), padding=(0, 0)) #1x1
-
-      nn.Conv2d(features_disc * 8, 1, kernel_size=(4, 4), stride=(2, 2), padding=(0, 0))  # 1x1
-    )
-
-    initialize_model(self)
-
-  @staticmethod
-  def _block(in_ch, out_ch, kernel, stride, padding):
-    return nn.Sequential(
-      nn.Conv2d(in_ch, out_ch, kernel, stride, padding, bias=False),
-      nn.InstanceNorm2d(out_ch, affine=True),
-      nn.LeakyReLU(0.2)
-    )
-
-  def forward(self, x):
-    return self.critic(x)
 
 
-class Generator(nn.Module):
-  def __init__(self, noise_dim, image_channels, features_gen):
-    super(Generator, self).__init__()
 
-    self.generator = nn.Sequential(
-      # self._block(noise_dim,         features_gen * 32, (4, 4), (2, 2), (0, 0)),
-      # self._block(features_gen * 32, features_gen * 16, (4, 4), (2, 2), (1, 1)),
-      # self._block(features_gen * 16, features_gen * 8,  (4, 4), (2, 2), (1, 1)),
-      # self._block(features_gen * 8,  features_gen * 4,  (4, 4), (2, 2), (1, 1)),
-      # self._block(features_gen * 4,  features_gen * 2,  (4, 4), (2, 2), (1, 1)),
 
-      self._block(noise_dim, features_gen * 16, (4, 4), (2, 2), (0, 0)),
-      self._block(features_gen * 16, features_gen * 8,  (4, 4), (2, 2), (1, 1)),
-      self._block(features_gen * 8,  features_gen * 4,  (4, 4), (2, 2), (1, 1)),
-      self._block(features_gen * 4,  features_gen * 2,  (4, 4), (2, 2), (1, 1)),
 
-      nn.ConvTranspose2d(features_gen * 2, image_channels, (4, 4), (2, 2), (1, 1)),
-      nn.Tanh()
-    )
 
-    initialize_model(self)
-
-  @staticmethod
-  def _block(in_ch, out_ch, kernel, stride, padding):
-    return nn.Sequential(
-      nn.ConvTranspose2d(in_ch, out_ch, kernel, stride, padding, bias=False),
-      nn.BatchNorm2d(out_ch),
-      nn.ReLU()
-    )
-
-  def forward(self, x):
-    return self.generator(x)
 
 
 if __name__ == '__main__':
