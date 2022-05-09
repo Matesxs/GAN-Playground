@@ -12,7 +12,6 @@
 * [Content](#content)
 * [Project Folder Structure](#project-folder-structure)
 * [Setup](#setup)
-* [Usage](#usage)
 * [Results](#results)
 * [TODO](#todo)
 * [Notes](#notes)
@@ -58,22 +57,44 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 ## Results
 
 ### DCGAN
-1. Mnist dataset (64x64 grayscale) - 20epochs
-   1. Generated \
+1. Mnist dataset (64x64 grayscale) - 20epochs, batch size 128 \
    ![1](media/dcgan/mnist_dcgan_fake.png?raw=true)
-   2. Original \
-   ![2](media/dcgan/mnist_dcgan_real.png?raw=true)
 
-2. Celeb dataset (64x64 color, 250000 images)
+2. Celeb dataset (64x64 color, 200000 images) - batch size 128 \
+   Unstable training and colapsed after few more epochs \
+   No need for more training, because its by design prone to fails   
+
+   1. Generated - 100epochs \
+   ![2](media/dcgan/faces_dcgan_fake.png?raw=true)
+   2. Colapsed network (epoch 110) \
+   ![3](media/dcgan/faces_dcgan_fake_colapsed.png?raw=true)
+
+### WGAN
+1. Celeb dataset (64x64 color, 200000 images) - batch size 64
+   1. Generated - 30epochs \
+   ![4](media/dcgan/faces_wgan_fake1.png?raw=true)
+
+### WGAN-GP
+1. Celeb dataset (64x64 color, 200000 images) - batch size 64
+
+### Conditional GAN - Based on WGAN-GP
+1. Mnist dataset (64x64 grayscale) - 20epochs, batch size 64
    1. Generated \
-   ![5](media/dcgan/faces_dcgan_fake.png?raw=true)
-   2. Original \
-   ![5](media/dcgan/faces_dcgan_real.png?raw=true)
+   ![6](media/dcgan/mnist_cond-gan_fake.png?raw=true)
+   2. Real \
+   ![7](media/dcgan/mnist_cond-gan_real.png?raw=true)
+
 ## TODO
 - [x] Implement basic DCGAN
-- [ ] Larger DCGAN models for larger and more complex images
-- [ ] Implement basic WGAN
-- [ ] Implement WGAN-GP (WGAN with gradient penalty)
+- [x] Larger DCGAN models for larger and more complex images
+- [x] Implement basic WGAN
+- [x] Implement WGAN-GP (WGAN with gradient penalty)
+- [x] Implement basic Conditional GAN
+- [ ] Implement basic CycleGAN
+- [ ] Implement basic ESRGAN
+- [ ] Implement basic ProGAN
+- [ ] Implement basic SRGAN
+- [ ] Implement basic StyleGAN
 
 ## Notes
 Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
