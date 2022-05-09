@@ -134,6 +134,10 @@ https://github.com/keras-team/keras/issues/8585 \
 Note: Some of these concepts were used in my implementation of my WGAN
 <br/>
 <br/>
+##### Pix2Pix using GAN
+https://arxiv.org/pdf/1611.07004.pdf
+<br/>
+<br/>
 ##### SRGAN (Super Resolution GAN)
 https://arxiv.org/pdf/1609.04802.pdf \
 https://github.com/deepak112/Keras-SRGAN/blob/master/Network.py \
