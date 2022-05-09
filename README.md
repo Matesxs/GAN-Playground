@@ -90,6 +90,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [x] Implement basic WGAN
 - [x] Implement WGAN-GP (WGAN with gradient penalty)
 - [x] Implement basic Conditional GAN
+- [ ] Implement Pix2Pix based on GAN
 - [ ] Implement basic CycleGAN
 - [ ] Implement basic ESRGAN
 - [ ] Implement basic ProGAN
