@@ -24,8 +24,7 @@ transform = transforms.Compose(
 
 def train():
   # dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)
-  dataset = datasets.ImageFolder(root="datasets/celeb_normalized__64x64", transform=transform)
-  # dataset = datasets.ImageFolder(root="datasets/celeb_normalized__128x128", transform=transform)
+  dataset = datasets.ImageFolder(root=DATASET_PATH, transform=transform)
   loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
   gen = Generator(NOISE_DIM, IMG_CH, FEATURES_GEN).to(device)

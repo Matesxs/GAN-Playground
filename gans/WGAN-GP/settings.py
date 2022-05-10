@@ -14,6 +14,8 @@ LAMBDA_GRAD_PENALTY = 10
 START_STEP_VAL = 0
 SAMPLE_PER_STEPS = 200
 
+DATASET_PATH = "datasets/celeb_normalized__64x64"
+
 MODEL_NAME = "celeb_wgan-gp_model"
 NUMBER_OF_SAMPLE_IMAGES = 32
 
