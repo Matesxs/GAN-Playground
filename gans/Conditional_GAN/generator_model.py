@@ -16,9 +16,9 @@ class Generator(nn.Module):
       upscale_block(features_gen * 8,  features_gen * 4,  (4, 4), (2, 2), (1, 1)),
       upscale_block(features_gen * 4,  features_gen * 2,  (4, 4), (2, 2), (1, 1)),
 
-      nn.Conv2d(features_gen * 2, features_gen * 2, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
-      nn.InstanceNorm2d(features_gen * 2, affine=True),
-      nn.ReLU(),
+      # nn.Conv2d(features_gen * 2, features_gen * 2, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
+      # nn.InstanceNorm2d(features_gen * 2, affine=True),
+      # nn.ReLU(),
 
       nn.ConvTranspose2d(features_gen * 2, image_channels, (4, 4), (2, 2), (1, 1)),
       nn.Tanh()

@@ -18,9 +18,9 @@ class Critic(nn.Module):
       downscale_block(features_disc * 2,  features_disc * 4,   (4, 4), (2, 2), (1, 1)),
       downscale_block(features_disc * 4,  features_disc * 8,   (4, 4), (2, 2), (1, 1)),
 
-      nn.Conv2d(features_disc * 8, features_disc * 8, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
-      nn.InstanceNorm2d(features_disc * 8, affine=True),
-      nn.LeakyReLU(0.2),
+      # nn.Conv2d(features_disc * 8, features_disc * 8, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
+      # nn.InstanceNorm2d(features_disc * 8, affine=True),
+      # nn.LeakyReLU(0.2),
 
       nn.Conv2d(features_disc * 8, 1, kernel_size=(4, 4), stride=(2, 2), padding=(0, 0))
     )
