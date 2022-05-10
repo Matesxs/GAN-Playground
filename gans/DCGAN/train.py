@@ -7,10 +7,13 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
+import pathlib
 
 from generator_model import Generator
 from discriminator_model import Discriminator
 from settings import *
+
+from gans.utils.model_saver import load_model, save_model
 
 transform = transforms.Compose(
   [
@@ -29,25 +32,39 @@ def train():
   gen = Generator(NOISE_DIM, IMG_CH, FEATURES_GEN).to(device)
   disc = Discriminator(IMG_CH, FEATURES_DISC).to(device)
 
-  try:
-    if os.path.exists(f"models/{MODEL_NAME}_gen.mod") and os.path.isfile(f"models/{MODEL_NAME}_gen.mod"):
-      gen.load_state_dict(torch.load(f"models/{MODEL_NAME}_gen.mod"))
+  optimizer_gen = optim.Adam(gen.parameters(), lr=LR, betas=(0.5, 0.999))
+  optimizer_disc = optim.Adam(disc.parameters(), lr=LR, betas=(0.5, 0.999))
 
-    if os.path.exists(f"models/{MODEL_NAME}_disc.mod") and os.path.isfile(f"models/{MODEL_NAME}_disc.mod"):
-      disc.load_state_dict(torch.load(f"models/{MODEL_NAME}_disc.mod"))
+  try:
+    if os.path.exists(f"models/{MODEL_NAME}/gen.mod") and os.path.isfile(f"models/{MODEL_NAME}/gen.mod"):
+      load_model(f"models/{MODEL_NAME}/gen.mod", gen, optimizer_gen, LR, device)
+
+    if os.path.exists(f"models/{MODEL_NAME}/disc.mod") and os.path.isfile(f"models/{MODEL_NAME}/disc.mod"):
+      load_model(f"models/{MODEL_NAME}/disc.mod", disc, optimizer_disc, LR, device)
   except:
     print("Models are incompatible with found model parameters")
     exit(1)
 
-  optimizer_gen = optim.Adam(gen.parameters(), lr=LR, betas=(0.5, 0.999))
-  optimizer_disc = optim.Adam(disc.parameters(), lr=LR, betas=(0.5, 0.999))
+  if GEN_MODEL_WEIGHTS_TO_LOAD is not None:
+    try:
+      load_model(GEN_MODEL_WEIGHTS_TO_LOAD, gen, optimizer_gen, LR, device)
+    except:
+      print("Generator model weights are incompatible with found model parameters")
+      exit(2)
+
+  if DISC_MODEL_WEIGHTS_TO_LOAD is not None:
+    try:
+      load_model(DISC_MODEL_WEIGHTS_TO_LOAD, disc, optimizer_disc, LR, device)
+    except:
+      print("Discriminator model weights are incompatible with found model parameters")
+      exit(2)
 
   loss = nn.BCELoss()
 
   test_noise = torch.randn((32, NOISE_DIM, 1, 1), device=device)
 
-  summary_writer_real = SummaryWriter(f"logs/{MODEL_NAME}/real")
-  summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}/fake")
+  summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}")
+  summary_writer_values = SummaryWriter(f"logs/{MODEL_NAME}/scalars")
   step = START_STEP_VAL
 
   gen.train()
@@ -59,8 +76,8 @@ def train():
   print("Generator")
   summary(gen, (NOISE_DIM, 1, 1), batch_size=BATCH_SIZE)
 
-  if not os.path.exists("models"):
-    os.mkdir("models")
+  if not os.path.exists(f"models/{MODEL_NAME}"):
+    pathlib.Path(f"models/{MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
   try:
     for epoch in range(EPOCHS):
@@ -94,23 +111,24 @@ def train():
 
           with torch.no_grad():
             fake = gen(test_noise)
-
-            img_grid_real = torchvision.utils.make_grid(real[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
             img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
-
-            summary_writer_real.add_image("Real", img_grid_real, global_step=step)
             summary_writer_fake.add_image("Fake", img_grid_fake, global_step=step)
 
-          step += 1
+            summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=step)
+            summary_writer_values.add_scalar("Disc Loss", loss_disc, global_step=step)
 
-        if batch_idx % 500 == 0:
-          torch.save(gen.state_dict(), f"models/{MODEL_NAME}_gen.mod")
-          torch.save(disc.state_dict(), f"models/{MODEL_NAME}_disc.mod")
+          save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{step}.mod")
+          save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc_{step}.mod")
+
+          save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
+          save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
+
+          step += 1
   except KeyboardInterrupt:
     print("Exiting")
-
-  torch.save(gen.state_dict(), f"models/{MODEL_NAME}_gen.mod")
-  torch.save(disc.state_dict(), f"models/{MODEL_NAME}_disc.mod")
+  finally:
+    save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
+    save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
 
 if __name__ == '__main__':
     train()

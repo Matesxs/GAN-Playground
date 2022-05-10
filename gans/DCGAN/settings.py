@@ -14,4 +14,7 @@ START_STEP_VAL = 0
 MODEL_NAME = "celeb_BIG_dcgan_model"
 NUMBER_OF_SAMPLE_IMAGES = 16
 
+GEN_MODEL_WEIGHTS_TO_LOAD = None
+DISC_MODEL_WEIGHTS_TO_LOAD = None
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

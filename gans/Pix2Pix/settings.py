@@ -5,6 +5,11 @@ from albumentations.pytorch import ToTensorV2
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 MODEL_NAME = "maps_pix2pix_model"
+TRAINING_DATASET_PATH = "datasets/maps/train"
+TESTING_DATASET_PATH = "datasets/maps/val"
+
+GEN_MODEL_WEIGHTS_TO_LOAD = None
+DISC_MODEL_WEIGHTS_TO_LOAD = None
 
 LR = 2e-4
 BATCH_SIZE = 16

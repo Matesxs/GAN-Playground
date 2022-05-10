@@ -19,4 +19,7 @@ SAMPLE_PER_STEPS = 100
 MODEL_NAME = "mnist_cond-gan_model"
 NUMBER_OF_SAMPLE_IMAGES = 32
 
+GEN_MODEL_WEIGHTS_TO_LOAD = None
+CRITIC_MODEL_WEIGHTS_TO_LOAD = None
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

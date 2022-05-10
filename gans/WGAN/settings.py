@@ -11,10 +11,13 @@ FEATURES_CRIT = FEATURES_GEN = 64
 CRITIC_ITERATIONS = 5
 WEIGHT_CLIP = 0.01
 
-START_STEP_VAL = 638
+START_STEP_VAL = 0
 SAMPLE_PER_STEPS = 200
 
 MODEL_NAME = "celeb_wgan_model"
 NUMBER_OF_SAMPLE_IMAGES = 32
+
+GEN_MODEL_WEIGHTS_TO_LOAD = None
+CRITIC_MODEL_WEIGHTS_TO_LOAD = None
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

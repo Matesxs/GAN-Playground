@@ -30,6 +30,7 @@ Disclaimer: This repository is more like proof of concept than download and run!
 DCGAN - GAN for generating new images from latent vector
 WGAN(GC) - GAN for generating new images from latent vector
 Conditional GAN - GAN for generating new images from latent vector and labels
+Pix2Pix using GAN - Model for transforming image
 ```
 
 ## Project Folder Structure
@@ -78,6 +79,8 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 
 ### WGAN-GP
 1. Celeb dataset (64x64 color, 200000 images) - batch size 64
+   1. Generated - 30epochs \
+   ![5](media/dcgan/faces_wgan-gp_fake1.png?raw=true)
 
 ### Conditional GAN - Based on WGAN-GP
 1. Mnist dataset (64x64 grayscale) - 20epochs, batch size 64
@@ -92,7 +95,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 - [x] Implement basic WGAN
 - [x] Implement WGAN-GP (WGAN with gradient penalty)
 - [x] Implement basic Conditional GAN
-- [ ] Implement Pix2Pix based on GAN
+- [x] Implement Pix2Pix based on GAN
 - [ ] Implement basic CycleGAN
 - [ ] Implement basic ESRGAN
 - [ ] Implement basic ProGAN

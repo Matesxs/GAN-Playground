@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 
 import settings
 
-class Pix2PixDataset(Dataset):
+class PairDataset(Dataset):
   def __init__(self, root_dir, image_size=600):
     self.image_size = image_size
     self.root_dir = root_dir

@@ -6,11 +6,14 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
+import pathlib
 
 from critic_model import Critic
 from generator_model import Generator
 from helpers import gradient_penalty
 from settings import *
+
+from gans.utils.model_saver import load_model, save_model
 
 transform = transforms.Compose(
   [
@@ -29,18 +32,32 @@ def train():
   gen = Generator(NOISE_DIM, IMG_CH, FEATURES_GEN).to(device)
   crit = Critic(IMG_CH, FEATURES_CRIT).to(device)
 
-  try:
-    if os.path.exists(f"models/{MODEL_NAME}_gen.mod") and os.path.isfile(f"models/{MODEL_NAME}_gen.mod"):
-      gen.load_state_dict(torch.load(f"models/{MODEL_NAME}_gen.mod"))
+  optimizer_gen = optim.Adam(gen.parameters(), lr=LR, betas=(0.5, 0.9))
+  optimizer_crit = optim.Adam(crit.parameters(), lr=LR, betas=(0.5, 0.9))
 
-    if os.path.exists(f"models/{MODEL_NAME}_crit.mod") and os.path.isfile(f"models/{MODEL_NAME}_crit.mod"):
-      crit.load_state_dict(torch.load(f"models/{MODEL_NAME}_crit.mod"))
+  try:
+    if os.path.exists(f"models/{MODEL_NAME}/gen.mod") and os.path.isfile(f"models/{MODEL_NAME}/gen.mod"):
+      load_model(f"models/{MODEL_NAME}/gen.mod", gen, optimizer_gen, LR, device)
+
+    if os.path.exists(f"models/{MODEL_NAME}/crit.mod") and os.path.isfile(f"models/{MODEL_NAME}/crit.mod"):
+      load_model(f"models/{MODEL_NAME}/crit.mod", crit, optimizer_crit, LR, device)
   except:
     print("Models are incompatible with found model parameters")
     exit(1)
 
-  optimizer_gen = optim.Adam(gen.parameters(), lr=LR, betas=(0.5, 0.9))
-  optimizer_crit = optim.Adam(crit.parameters(), lr=LR, betas=(0.5, 0.9))
+  if GEN_MODEL_WEIGHTS_TO_LOAD is not None:
+    try:
+      load_model(GEN_MODEL_WEIGHTS_TO_LOAD, gen, optimizer_gen, LR, device)
+    except:
+      print("Generator model weights are incompatible with found model parameters")
+      exit(2)
+
+  if CRITIC_MODEL_WEIGHTS_TO_LOAD is not None:
+    try:
+      load_model(CRITIC_MODEL_WEIGHTS_TO_LOAD, crit, optimizer_crit, LR, device)
+    except:
+      print("Critic model weights are incompatible with found model parameters")
+      exit(2)
 
   test_noise = torch.randn((32, NOISE_DIM, 1, 1), device=device)
 
@@ -58,8 +75,8 @@ def train():
   print("Generator")
   summary(gen, (NOISE_DIM, 1, 1), batch_size=BATCH_SIZE)
 
-  if not os.path.exists("models"):
-    os.mkdir("models")
+  if not os.path.exists(f"models/{MODEL_NAME}"):
+    pathlib.Path(f"models/{MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
   try:
     for epoch in range(EPOCHS):
@@ -105,16 +122,18 @@ def train():
             summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=step)
             summary_writer_values.add_scalar("Critic Loss", loss_crit, global_step=step)
 
-          step += 1
+          save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{step}.mod")
+          save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit_{step}.mod")
 
-        if batch_idx % 500 == 0:
-          torch.save(gen.state_dict(), f"models/{MODEL_NAME}_gen.mod")
-          torch.save(crit.state_dict(), f"models/{MODEL_NAME}_crit.mod")
+          save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
+          save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
+
+          step += 1
   except KeyboardInterrupt:
     print("Exiting")
-
-  torch.save(gen.state_dict(), f"models/{MODEL_NAME}_gen.mod")
-  torch.save(crit.state_dict(), f"models/{MODEL_NAME}_crit.mod")
+  finally:
+    save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
+    save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
 
 if __name__ == '__main__':
     train()
