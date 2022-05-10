@@ -12,7 +12,7 @@ from dataset import PairDataset
 from generator_model import Generator
 from discriminator_model import Discriminator
 
-from gans.utils.model_saver import load_model, save_model
+from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
 
 def train(disc, gen, train_dataloader, opt_discriminator, opt_generator, l1_loss, bce_loss, g_scaler, d_scaler):
   loop = tqdm(train_dataloader, leave=True)
@@ -70,7 +70,15 @@ def main():
       load_model(f"models/{settings.MODEL_NAME}/disc.mod", disc, opt_discriminator, settings.LR, settings.device)
   except:
     print("Models are incompatible with found model parameters")
-    exit(1)
+
+  metadata = None
+  if os.path.exists(f"models/{settings.MODEL_NAME}/metadata.pkl") and os.path.isfile(f"models/{settings.MODEL_NAME}/metadata.pkl"):
+    metadata = load_metadata(f"models/{settings.MODEL_NAME}/metadata.pkl")
+
+  start_epoch = 0
+  if metadata is not None:
+    if "epoch" in metadata.keys():
+      start_epoch = int(metadata["epoch"])
 
   if settings.GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
@@ -97,8 +105,11 @@ def main():
   if not os.path.exists(f"models/{settings.MODEL_NAME}"):
     pathlib.Path(f"models/{settings.MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
+  last_epoch = 0
   try:
-    for epoch in range(settings.START_EPOCH, settings.EPOCHS):
+    for epoch in range(start_epoch, settings.EPOCHS):
+      last_epoch = epoch
+
       d_loss, g_loss = train(disc, gen, train_dataloader, opt_discriminator, opt_generator, l1_loss, bce_loss, g_scaler, d_scaler)
 
       if d_loss is not None and g_loss is not None:
@@ -112,6 +123,7 @@ def main():
 
         save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/{epoch}_gen.mod")
         save_model(disc, opt_discriminator, f"models/{settings.MODEL_NAME}/{epoch}_disc.mod")
+        save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
       x, y = next(iter(test_dataloader))
       x, y = x.to(settings.device), y.to(settings.device)
@@ -126,10 +138,10 @@ def main():
 
       gen.train()
   except KeyboardInterrupt:
-    pass
-  finally:
+    print("Exiting")
     save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
     save_model(disc, opt_discriminator, f"models/{settings.MODEL_NAME}/disc.mod")
+    save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
   main()

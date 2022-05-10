@@ -12,7 +12,7 @@ from critic_model import Critic
 from generator_model import Generator
 from settings import *
 
-from gans.utils.model_saver import load_model, save_model
+from gans.utils.training_saver import load_model, save_model, load_metadata, save_metadata
 
 transform = transforms.Compose(
   [
@@ -41,7 +41,19 @@ def train():
       load_model(f"models/{MODEL_NAME}/crit.mod", crit, optimizer_crit, LR, device)
   except:
     print("Models are incompatible with found model parameters")
-    exit(1)
+
+  metadata = None
+  if os.path.exists(f"models/{MODEL_NAME}/metadata.pkl") and os.path.isfile(f"models/{MODEL_NAME}/metadata.pkl"):
+    metadata = load_metadata(f"models/{MODEL_NAME}/metadata.pkl")
+
+  start_epoch = 0
+  start_stepval = 0
+  if metadata is not None:
+    if "epoch" in metadata.keys():
+      start_epoch = int(metadata["epoch"])
+
+    if "stepval" in metadata.keys():
+      start_stepval = int(metadata["stepval"])
 
   if GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
@@ -61,7 +73,7 @@ def train():
 
   summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}")
   summary_writer_values = SummaryWriter(f"logs/{MODEL_NAME}/scalars")
-  step = START_STEP_VAL
+  step = start_stepval
 
   gen.train()
   crit.train()
@@ -75,8 +87,11 @@ def train():
   if not os.path.exists(f"models/{MODEL_NAME}"):
     pathlib.Path(f"models/{MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
+  last_epoch = 0
   try:
-    for epoch in range(EPOCHS):
+    for epoch in range(start_epoch, EPOCHS):
+      last_epoch = epoch
+
       for batch_idx, (real, _) in enumerate(loader):
         real = real.to(device)
         noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
@@ -126,11 +141,12 @@ def train():
           save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
 
           step += 1
+          save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
-  finally:
     save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
     save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
+    save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
     train()

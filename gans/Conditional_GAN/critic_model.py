@@ -18,6 +18,10 @@ class Critic(nn.Module):
       downscale_block(features_disc * 2,  features_disc * 4,   (4, 4), (2, 2), (1, 1)),
       downscale_block(features_disc * 4,  features_disc * 8,   (4, 4), (2, 2), (1, 1)),
 
+      nn.Conv2d(features_disc * 8, features_disc * 8, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
+      nn.InstanceNorm2d(features_disc * 8, affine=True),
+      nn.LeakyReLU(0.2),
+
       nn.Conv2d(features_disc * 8, 1, kernel_size=(4, 4), stride=(2, 2), padding=(0, 0))
     )
 
@@ -29,3 +33,11 @@ class Critic(nn.Module):
     embed = self.embeding(labels).view(labels.shape[0], 1, self.img_size, self.img_size)
     x = torch.cat([x, embed], dim=1)
     return self.critic(x)
+
+if __name__ == '__main__':
+  x = torch.randn((1, 3, 64, 64))
+  labels = torch.randint(9, (1,))
+
+  critic = Critic(3, 64, 10, 64)
+  pred = critic(x, labels)
+  print(pred.shape)

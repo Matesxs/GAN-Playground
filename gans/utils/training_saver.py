@@ -16,7 +16,8 @@ def load_model(model_path:str, model:nn.Module, optimizer:optim.Optimizer=None, 
   if device is None:
     device = torch.device("cpu")
 
-  checkpoint = torch.load(model_path, map_location=device)
+  with open(model_path, "rb") as f:
+    checkpoint = torch.load(f, map_location=device)
   model.load_state_dict(checkpoint["state"])
 
   if optimizer is not None and "optim" in checkpoint.keys():
@@ -24,3 +25,13 @@ def load_model(model_path:str, model:nn.Module, optimizer:optim.Optimizer=None, 
       param_group["lr"] = learing_rate
 
   print(f"Loaded {model_path}")
+
+def save_metadata(metadata:dict, filepath:str):
+  torch.save(metadata, filepath)
+
+def load_metadata(filepath:str, device=None):
+  if device is None:
+    device = torch.device("cpu")
+  metadata = torch.load(filepath, map_location=device)
+  print("Metadata loaded")
+  return metadata

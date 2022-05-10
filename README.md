@@ -83,11 +83,17 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
    ![5](media/dcgan/faces_wgan-gp_fake1.png?raw=true)
 
 ### Conditional GAN - Based on WGAN-GP
-1. Mnist dataset (64x64 grayscale) - 20epochs, batch size 64
-   1. Generated \
-   ![6](media/dcgan/mnist_cond-gan_fake.png?raw=true)
-   2. Real \
-   ![7](media/dcgan/mnist_cond-gan_real.png?raw=true)
+1. Mnist dataset (64x64 grayscale) - batch size 64
+   1. Original model
+      1. Generated - 20epochs \
+      ![6](media/dcgan/mnist_cond-gan_fake.png?raw=true)
+      2. Real \
+      ![7](media/dcgan/mnist_cond-gan_real.png?raw=true)
+   2. Larger model
+      1. Generated - 20epochs \
+      ![8](media/dcgan/mnist_cond-gan_fake2.png?raw=true)
+      2. Real \
+      ![9](media/dcgan/mnist_cond-gan_real2.png?raw=true)
 
 ## TODO
 - [x] Implement basic DCGAN

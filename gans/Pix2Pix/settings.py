@@ -17,7 +17,6 @@ IMG_SIZE = 256
 IMG_CHAN = 3
 L1_LAMBDA = 100
 EPOCHS = 500
-START_EPOCH = 0
 
 both_transform = A.Compose(
     [A.Resize(width=IMG_SIZE, height=IMG_SIZE), A.HorizontalFlip(p=0.5),], additional_targets={"image0": "image"},
