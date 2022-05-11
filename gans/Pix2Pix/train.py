@@ -119,12 +119,12 @@ def main():
         summary_writer.add_scalar("Disc Loss", d_loss, global_step=epoch)
 
       if epoch % 5 == 0:
-        save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
-        save_model(disc, opt_discriminator, f"models/{settings.MODEL_NAME}/disc.mod")
-
         save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/{epoch}_gen.mod")
         save_model(disc, opt_discriminator, f"models/{settings.MODEL_NAME}/{epoch}_disc.mod")
-        save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+
+      save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
+      save_model(disc, opt_discriminator, f"models/{settings.MODEL_NAME}/disc.mod")
+      save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
       x, y = next(iter(test_dataloader))
       x, y = x.to(settings.device), y.to(settings.device)
