@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+import torchvision
 from tqdm import tqdm
 import os
 import pathlib
@@ -94,10 +95,10 @@ def main():
       print("Discriminator model weights are incompatible with found model parameters")
       exit(2)
 
-  train_dataset = PairDataset(root_dir=settings.TRAINING_DATASET_PATH)
-  train_dataloader = DataLoader(train_dataset, settings.BATCH_SIZE, True, num_workers=4)
-  test_dataset = PairDataset(root_dir=settings.TESTING_DATASET_PATH)
-  test_dataloader = DataLoader(test_dataset, 1, False)
+  train_dataset = PairDataset(root_dir=settings.TRAINING_DATASET_PATH, switch_sides=settings.SWITCH_INPUT_IMAGE_POSITIONS)
+  train_dataloader = DataLoader(train_dataset, settings.BATCH_SIZE, True, num_workers=4, persistent_workers=True)
+  test_dataset = PairDataset(root_dir=settings.TESTING_DATASET_PATH, switch_sides=settings.SWITCH_INPUT_IMAGE_POSITIONS)
+  test_dataloader = DataLoader(test_dataset, settings.TESTING_SAMPLES, False)
 
   g_scaler = torch.cuda.amp.GradScaler()
   d_scaler = torch.cuda.amp.GradScaler()
@@ -114,8 +115,8 @@ def main():
 
       if d_loss is not None and g_loss is not None:
         print(f"Epoch: {epoch}/{settings.EPOCHS} Loss disc: {d_loss:.4f}, Loss gen: {g_loss:.4f}")
-        summary_writer.add_scalar("Gen loss", g_loss, global_step=epoch)
-        summary_writer.add_scalar("Disc loss", d_loss, global_step=epoch)
+        summary_writer.add_scalar("Gen Loss", g_loss, global_step=epoch)
+        summary_writer.add_scalar("Disc Loss", d_loss, global_step=epoch)
 
       if epoch % 5 == 0:
         save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
@@ -132,16 +133,21 @@ def main():
       with torch.no_grad():
         y_fake = gen(x)
 
-        summary_writer.add_image("Input", x[0] * 0.5 + 0.5, global_step=epoch)
-        summary_writer.add_image("Generated", y_fake[0] * 0.5 + 0.5, global_step=epoch)
-        summary_writer.add_image("Real", y[0] * 0.5 + 0.5, global_step=epoch)
+        img_grid_input = torchvision.utils.make_grid(x[:settings.TESTING_SAMPLES], normalize=True)
+        img_grid_real = torchvision.utils.make_grid(y[:settings.TESTING_SAMPLES], normalize=True)
+        img_grid_fake = torchvision.utils.make_grid(y_fake[:settings.TESTING_SAMPLES], normalize=True)
+
+        summary_writer.add_image("Input", img_grid_input, global_step=epoch)
+        summary_writer.add_image("Generated", img_grid_fake, global_step=epoch)
+        summary_writer.add_image("Real", img_grid_real, global_step=epoch)
 
       gen.train()
   except KeyboardInterrupt:
     print("Exiting")
-    save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
-    save_model(disc, opt_discriminator, f"models/{settings.MODEL_NAME}/disc.mod")
-    save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+
+  save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
+  save_model(disc, opt_discriminator, f"models/{settings.MODEL_NAME}/disc.mod")
+  save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
   main()

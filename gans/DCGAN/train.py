@@ -140,9 +140,10 @@ def train():
           save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
-    save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
-    save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
-    save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
+
+  save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
+  save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
+  save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
     train()
