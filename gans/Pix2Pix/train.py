@@ -26,6 +26,7 @@ def train(disc, gen, train_dataloader, opt_discriminator, opt_generator, l1_loss
     # Train discriminator
     with torch.cuda.amp.autocast():
       y_fake = gen(x)
+
       D_real = disc(x, y)
       D_fake = disc(x, y_fake.detach())
 
@@ -54,8 +55,8 @@ def train(disc, gen, train_dataloader, opt_discriminator, opt_generator, l1_loss
 
 
 def main():
-  disc = Discriminator().to(settings.device)
-  gen = Generator().to(settings.device)
+  disc = Discriminator(channels=settings.IMG_CHAN, features=settings.FEATURES_DISC).to(settings.device)
+  gen = Generator(in_channels=settings.IMG_CHAN, features=settings.FEATURES_GEN).to(settings.device)
   opt_discriminator = optim.Adam(disc.parameters(), lr=settings.LR, betas=(0.5, 0.999))
   opt_generator = optim.Adam(gen.parameters(), lr=settings.LR, betas=(0.5, 0.999))
   bce_loss = nn.BCEWithLogitsLoss()
@@ -70,7 +71,13 @@ def main():
     if os.path.exists(f"models/{settings.MODEL_NAME}/disc.mod") and os.path.isfile(f"models/{settings.MODEL_NAME}/disc.mod"):
       load_model(f"models/{settings.MODEL_NAME}/disc.mod", disc, opt_discriminator, settings.LR, settings.device)
   except:
-    print("Models are incompatible with found model parameters")
+    print("Generator model is incompatible with found model parameters")
+
+  try:
+    if os.path.exists(f"models/{settings.MODEL_NAME}/disc.mod") and os.path.isfile(f"models/{settings.MODEL_NAME}/disc.mod"):
+      load_model(f"models/{settings.MODEL_NAME}/disc.mod", disc, opt_discriminator, settings.LR, settings.device)
+  except:
+    print("Discriminator model is incompatible with found model parameters")
 
   metadata = None
   if os.path.exists(f"models/{settings.MODEL_NAME}/metadata.pkl") and os.path.isfile(f"models/{settings.MODEL_NAME}/metadata.pkl"):
@@ -84,15 +91,15 @@ def main():
   if settings.GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
       load_model(settings.GEN_MODEL_WEIGHTS_TO_LOAD, gen, opt_generator, settings.LR, settings.device)
-    except:
-      print("Generator model weights are incompatible with found model parameters")
+    except Exception as e:
+      print(f"Generator model weights are incompatible with found model parameters\n{e}")
       exit(2)
 
   if settings.DISC_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
       load_model(settings.DISC_MODEL_WEIGHTS_TO_LOAD, disc, opt_discriminator, settings.LR, settings.device)
-    except:
-      print("Discriminator model weights are incompatible with found model parameters")
+    except Exception as e:
+      print(f"Discriminator model weights are incompatible with found model parameters\n{e}")
       exit(2)
 
   train_dataset = PairDataset(root_dir=settings.TRAINING_DATASET_PATH, switch_sides=settings.SWITCH_INPUT_IMAGE_POSITIONS)

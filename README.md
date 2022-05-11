@@ -74,16 +74,16 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 
 ### WGAN
 1. Celeb dataset (64x64 color, 200000 images) - batch size 64
-   1. Generated - 30 epochs \
+   1. Generated - 30 epochs - TODO: More training \
    ![4](media/dcgan/faces_wgan_fake1.png?raw=true)
 
 ### WGAN-GP
 1. Celeb dataset (64x64 color, 200000 images) - batch size 64
-   1. Generated - 30 epochs \
+   1. Generated - 30 epochs - TODO: More training \
    ![5](media/dcgan/faces_wgan-gp_fake1.png?raw=true)
 
 ### Conditional GAN - Based on WGAN-GP
-1. Mnist dataset (64x64 grayscale) - batch size 64
+1. Mnist dataset (64x64 grayscale) - batch size 64 - TODO: Revisit
    1. Original model
       1. Generated - 20 epochs \
       ![6](media/dcgan/mnist_cond-gan_fake.png?raw=true)
@@ -96,11 +96,13 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
       ![9](media/dcgan/mnist_cond-gan_real2.png?raw=true)
 
 ### Pix2Pix using GAN
-1. Maps segmentation (256x256 color, 2000 images) - batch size 16, 500 epochs \
-In order: Input, Real, Generated
+1. Maps segmentation (256x256 color, 2000 images) - batch size 16, 600 epochs \
+In order: Input, Real, Generated - TODO: Revisit
 ![10](media/dcgan/maps_pix2pix_input.png?raw=true)
-![12](media/dcgan/maps_pix2pix_real.png?raw=true)
-![11](media/dcgan/maps_pix2pix_fake.png?raw=true)
+![11](media/dcgan/maps_pix2pix_real.png?raw=true)
+![12](media/dcgan/maps_pix2pix_fake.png?raw=true)
+
+2. Anime coloring (256x256 color, 16000 images) - batch size 16, 1000 epochs
 
 ## TODO
 - [x] Implement basic DCGAN

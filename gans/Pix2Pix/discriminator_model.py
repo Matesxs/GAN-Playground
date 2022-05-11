@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torchsummary import summary
 
 class CNNBlock(nn.Module):
   def __init__(self, in_channels, out_channels, stride=(2,2)):
@@ -51,3 +52,5 @@ if __name__ == '__main__':
   disc = Discriminator()
   preds = disc(x, y)
   print(preds.shape)
+
+  summary(disc, [(3, 256, 256), (3, 256, 256)], device="cpu")
