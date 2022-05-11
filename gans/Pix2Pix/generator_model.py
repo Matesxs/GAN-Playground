@@ -88,3 +88,7 @@ if __name__ == '__main__':
   print(pred.shape)
 
   summary(gen, (3, 256, 256), device="cpu")
+
+  # input_names = ['Sentence']
+  # output_names = ['yhat']
+  # torch.onnx.export(gen, x, 'model.onnx', input_names=input_names, output_names=output_names)

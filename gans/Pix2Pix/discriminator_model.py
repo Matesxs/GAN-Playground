@@ -54,3 +54,7 @@ if __name__ == '__main__':
   print(preds.shape)
 
   summary(disc, [(3, 256, 256), (3, 256, 256)], device="cpu")
+
+  # input_names = ['Sentence']
+  # output_names = ['yhat']
+  # torch.onnx.export(disc, (x, y), 'model.onnx', input_names=input_names, output_names=output_names)
