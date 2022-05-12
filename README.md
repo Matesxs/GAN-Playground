@@ -30,7 +30,8 @@ Disclaimer: This repository is more like proof of concept than download and run!
 DCGAN - GAN for generating new images from latent vector
 WGAN(GC) - GAN for generating new images from latent vector
 Conditional GAN - GAN for generating new images from latent vector and labels
-Pix2Pix using GAN - Model for transforming image
+Pix2Pix using GAN - Model for transforming a image
+CycleGAN - GAN for transforming a image
 ```
 
 ## Project Folder Structure
@@ -156,6 +157,10 @@ Note: Some of these concepts were used in my implementation of my WGAN
 <br/>
 ##### Pix2Pix using GAN
 https://arxiv.org/pdf/1611.07004.pdf
+<br/>
+<br/>
+##### CycleGAN
+https://arxiv.org/pdf/1703.10593.pdf
 <br/>
 <br/>
 ##### SRGAN (Super Resolution GAN)

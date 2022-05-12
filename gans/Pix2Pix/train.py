@@ -16,7 +16,7 @@ from discriminator_model import Discriminator
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
 
 def train(disc, gen, train_dataloader, opt_discriminator, opt_generator, l1_loss, bce_loss, g_scaler, d_scaler):
-  loop = tqdm(train_dataloader, leave=True)
+  loop = tqdm(train_dataloader, leave=True, unit="batch")
 
   D_loss = None
   G_loss = None
@@ -122,7 +122,7 @@ def main():
         summary_writer.add_scalar("Gen Loss", g_loss, global_step=epoch)
         summary_writer.add_scalar("Disc Loss", d_loss, global_step=epoch)
 
-      if epoch % 5 == 0:
+      if epoch % 10 == 0:
         save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/{epoch}_gen.mod")
         save_model(disc, opt_discriminator, f"models/{settings.MODEL_NAME}/{epoch}_disc.mod")
 
