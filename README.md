@@ -97,13 +97,17 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
       ![9](media/dcgan/mnist_cond-gan_real2.png?raw=true)
 
 ### Pix2Pix using GAN
-1. Maps segmentation (256x256 color, 2000 images) - batch size 16, 600 epochs \
+1. Maps segmentation (256x256 color, 2000 images) - batch size 16, 200 epochs \
 In order: Input, Real, Generated - TODO: Revisit
 ![10](media/dcgan/maps_pix2pix_input.png?raw=true)
 ![11](media/dcgan/maps_pix2pix_real.png?raw=true)
 ![12](media/dcgan/maps_pix2pix_fake.png?raw=true)
 
-2. Anime coloring (256x256 color, 16000 images) - batch size 16, 1000 epochs
+2. Anime coloring (256x256 color, 16000 images) - batch size 16, 400 epochs \
+In order: Input, Real, Generated
+![13](media/dcgan/anime_pix2pix_input.png?raw=true)
+![14](media/dcgan/anime_pix2pix_real.png?raw=true)
+![15](media/dcgan/anime_pix2pix_fake.png?raw=true)
 
 ## TODO
 - [x] Implement basic DCGAN

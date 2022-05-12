@@ -9,10 +9,14 @@ def save_model(model:nn.Module, optimizer:optim.Optimizer=None, filepath:str="mo
 
   if optimizer is not None:
     checkpoint["optim"] = optimizer.state_dict()
+    for group in optimizer.param_groups:
+      if "lr" in group.keys():
+        checkpoint["lr"] = group["lr"]
+        break
 
   torch.save(checkpoint, filepath)
 
-def load_model(model_path:str, model:nn.Module, optimizer:optim.Optimizer=None, learing_rate:float=None, device=None):
+def load_model(model_path:str, model:nn.Module, optimizer:optim.Optimizer, learing_rate:float, device=None):
   if device is None:
     device = torch.device("cpu")
 
@@ -20,7 +24,11 @@ def load_model(model_path:str, model:nn.Module, optimizer:optim.Optimizer=None, 
     checkpoint = torch.load(f, map_location=device)
   model.load_state_dict(checkpoint["state"])
 
-  if optimizer is not None and "optim" in checkpoint.keys():
+
+  if "lr" in checkpoint.keys():
+    for param_group in optimizer.param_groups:
+      param_group["lr"] = float(checkpoint["lr"])
+  elif optimizer is not None and "optim" in checkpoint.keys():
     for param_group in optimizer.param_groups:
       param_group["lr"] = learing_rate
 
