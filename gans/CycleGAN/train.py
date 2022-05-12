@@ -17,6 +17,7 @@ from discriminator_model import Discriminator
 def train(disc_A, disc_B, gen_A, gen_B, train_dataloader, opt_disc, opt_gen, L1_loss, MSE_loss, d_scaler, g_scaler):
   loop = tqdm(train_dataloader, leave=True, unit="batch")
 
+  D_loss, G_loss = None, None
   for idx, (imageA, imageB) in enumerate(loop):
     imageA = imageA.to(settings.device)
     imageB = imageB.to(settings.device)
@@ -83,7 +84,7 @@ def train(disc_A, disc_B, gen_A, gen_B, train_dataloader, opt_disc, opt_gen, L1_
     g_scaler.step(opt_gen)
     g_scaler.update()
 
-    return D_loss, G_loss
+  return D_loss, G_loss
 
 
 def main():
@@ -161,9 +162,9 @@ def main():
       print(f"Discriminator model B weights are incompatible with found model parameters\n{e}")
       exit(2)
 
-  train_dataset = ImagePairDataset(root=settings.TRAIN_DIR)
+  train_dataset = ImagePairDataset(root=settings.TRAIN_DIR, transform=settings.transforms)
   train_dataloader = DataLoader(train_dataset, settings.BATCH_SIZE, True, num_workers=settings.WORKERS, persistent_workers=True, pin_memory=True)
-  test_dataset = ImagePairDataset(root=settings.VAL_DIR)
+  test_dataset = ImagePairDataset(root=settings.VAL_DIR, transform=settings.transforms)
   test_dataloader = DataLoader(test_dataset, settings.TESTING_SAMPLES, False)
 
   g_scaler = torch.cuda.amp.GradScaler()
