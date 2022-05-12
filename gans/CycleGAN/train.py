@@ -185,11 +185,11 @@ def main():
         summary_writer.add_scalar("Gen Loss", g_loss, global_step=epoch)
         summary_writer.add_scalar("Disc Loss", d_loss, global_step=epoch)
 
-      # if epoch % 10 == 0:
-      #   save_model(gen_A, opt_gen, f"models/{settings.MODEL_NAME}/{epoch}_genA.mod")
-      #   save_model(disc_A, opt_disc, f"models/{settings.MODEL_NAME}/{epoch}_discA.mod")
-      #   save_model(gen_B, opt_gen, f"models/{settings.MODEL_NAME}/{epoch}_genB.mod")
-      #   save_model(disc_B, opt_disc, f"models/{settings.MODEL_NAME}/{epoch}_discB.mod")
+      if epoch % settings.CHECKPOINT_EVERY == 0 and settings.SAVE_CHECKPOINTS:
+        save_model(gen_A, opt_gen, f"models/{settings.MODEL_NAME}/{epoch}_genA.mod")
+        save_model(disc_A, opt_disc, f"models/{settings.MODEL_NAME}/{epoch}_discA.mod")
+        save_model(gen_B, opt_gen, f"models/{settings.MODEL_NAME}/{epoch}_genB.mod")
+        save_model(disc_B, opt_disc, f"models/{settings.MODEL_NAME}/{epoch}_discB.mod")
 
       save_model(gen_A, opt_gen, f"models/{settings.MODEL_NAME}/genA.mod")
       save_model(disc_A, opt_disc, f"models/{settings.MODEL_NAME}/discA.mod")
@@ -197,30 +197,35 @@ def main():
       save_model(disc_B, opt_disc, f"models/{settings.MODEL_NAME}/discB.mod")
       save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
-      imgA, imgB = next(iter(test_dataloader))
-      imgA, imgB = imgA.to(settings.device), imgB.to(settings.device)
-      gen_A.eval()
-      gen_B.eval()
+      if epoch % settings.SAMPLE_EVERY == 0:
+        imgA, imgB = next(iter(test_dataloader))
+        imgA, imgB = imgA.to(settings.device), imgB.to(settings.device)
+        gen_A.eval()
+        gen_B.eval()
 
-      with torch.no_grad():
-        fake_A = gen_A(imgB)
-        fake_B = gen_B(imgA)
+        with torch.no_grad():
+          fake_A = gen_A(imgB)
+          fake_B = gen_B(imgA)
 
-        cycle_A = gen_A(fake_B)
-        cycle_B = gen_B(fake_A)
+          cycle_A = gen_A(fake_B)
+          cycle_B = gen_B(fake_A)
 
-        img_AtoB = torchvision.utils.make_grid(fake_B[:settings.TESTING_SAMPLES], normalize=True)
-        img_BtoA = torchvision.utils.make_grid(fake_A[:settings.TESTING_SAMPLES], normalize=True)
-        img_AtoBtoA = torchvision.utils.make_grid(cycle_A[:settings.TESTING_SAMPLES], normalize=True)
-        img_BtoAtoB = torchvision.utils.make_grid(cycle_B[:settings.TESTING_SAMPLES], normalize=True)
+          imgA_grid = torchvision.utils.make_grid(imgA[:settings.TESTING_SAMPLES], normalize=True)
+          imgB_grid = torchvision.utils.make_grid(imgB[:settings.TESTING_SAMPLES], normalize=True)
+          img_AtoB = torchvision.utils.make_grid(fake_B[:settings.TESTING_SAMPLES], normalize=True)
+          img_BtoA = torchvision.utils.make_grid(fake_A[:settings.TESTING_SAMPLES], normalize=True)
+          img_AtoBtoA = torchvision.utils.make_grid(cycle_A[:settings.TESTING_SAMPLES], normalize=True)
+          img_BtoAtoB = torchvision.utils.make_grid(cycle_B[:settings.TESTING_SAMPLES], normalize=True)
 
-        summary_writer.add_image("A to B", img_AtoB, global_step=epoch)
-        summary_writer.add_image("B to A", img_BtoA, global_step=epoch)
-        summary_writer.add_image("A to B to A", img_AtoBtoA, global_step=epoch)
-        summary_writer.add_image("B to A to B", img_BtoAtoB, global_step=epoch)
+          summary_writer.add_image("A", imgA_grid, global_step=epoch)
+          summary_writer.add_image("B", imgB_grid, global_step=epoch)
+          summary_writer.add_image("A to B", img_AtoB, global_step=epoch)
+          summary_writer.add_image("B to A", img_BtoA, global_step=epoch)
+          summary_writer.add_image("A to B to A", img_AtoBtoA, global_step=epoch)
+          summary_writer.add_image("B to A to B", img_BtoAtoB, global_step=epoch)
 
-      gen_A.train()
-      gen_B.train()
+        gen_A.train()
+        gen_B.train()
   except KeyboardInterrupt:
     pass
 
