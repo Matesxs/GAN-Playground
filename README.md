@@ -98,7 +98,7 @@ preprocess_dataset.py - Script for mass rescaling images to target size and opti
 
 ### Pix2Pix using GAN
 1. Maps segmentation (256x256 color, 2000 images) - batch size 16, 200 epochs \
-In order: Input, Real, Generated - TODO: Revisit
+In order: Input, Real, Generated
 ![10](media/dcgan/maps_pix2pix_input.png?raw=true)
 ![11](media/dcgan/maps_pix2pix_real.png?raw=true)
 ![12](media/dcgan/maps_pix2pix_fake.png?raw=true)
@@ -116,7 +116,7 @@ In order: Input, Real, Generated
 - [x] Implement WGAN-GP (WGAN with gradient penalty)
 - [x] Implement basic Conditional GAN
 - [x] Implement Pix2Pix based on GAN
-- [ ] Implement basic CycleGAN
+- [x] Implement basic CycleGAN
 - [ ] Implement basic ESRGAN
 - [ ] Implement basic ProGAN
 - [ ] Implement basic SRGAN
