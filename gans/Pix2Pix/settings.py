@@ -4,12 +4,12 @@ from albumentations.pytorch import ToTensorV2
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-MODEL_NAME = "maps_pix2pix_model"
+MODEL_NAME = "anime_pix2pix_model_upgr"
 
-SWITCH_INPUT_IMAGE_POSITIONS = False
+SWITCH_INPUT_IMAGE_POSITIONS = True
 TESTING_SAMPLES = 8
-TRAINING_DATASET_PATH = "datasets/maps/train"
-TESTING_DATASET_PATH = "datasets/maps/val"
+TRAINING_DATASET_PATH = "datasets/anime/train"
+TESTING_DATASET_PATH = "datasets/anime/val"
 
 GEN_MODEL_WEIGHTS_TO_LOAD = None
 DISC_MODEL_WEIGHTS_TO_LOAD = None
@@ -19,11 +19,11 @@ LR_DECAY = False
 LR_DECAY_COEF = 0.1
 LR_DECAY_EVERY = 50
 
-BATCH_SIZE = 1
+BATCH_SIZE = 8
 IMG_SIZE = 256
 IMG_CHAN = 3
-FEATURES_DISC = [64, 128, 256, 512] # [64 * 2, 128 * 2, 256 * 2, 512 * 2] [64, 128, 256, 512]
-FEATURES_GEN = [64, 128, 256, 512, 512, 512, 512] # [64 * 2, 128 * 2, 256 * 2, 512 * 2, 512 * 2, 512 * 2, 512 * 2] [64, 128, 256, 512, 512, 512, 512]
+FEATURES_DISC = [128, 256, 512, 1024] # [64 * 2, 128 * 2, 256 * 2, 512 * 2] [64, 128, 256, 512]
+FEATURES_GEN = [64, 128, 256, 512, 1024, 1024, 1024] # [64 * 2, 128 * 2, 256 * 2, 512 * 2, 512 * 2, 512 * 2, 512 * 2] [64, 128, 256, 512, 512, 512, 512]
 GEN_UPSCALE_DROPOUT = [True, True, True, False, False, False, False]
 L1_LAMBDA = 100
 EPOCHS = 200

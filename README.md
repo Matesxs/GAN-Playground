@@ -32,6 +32,7 @@ WGAN(GC) - GAN for generating new images from latent vector
 Conditional GAN - GAN for generating new images from latent vector and labels
 Pix2Pix using GAN - Model for transforming a image
 CycleGAN - GAN for transforming a image
+ProGAN - GAN for generating new images from latent vector, using progressive growing models and GP loss
 ```
 
 ## Project Folder Structure
@@ -118,13 +119,9 @@ In order: Input, Real, Generated
 - [x] Implement Pix2Pix based on GAN
 - [x] Implement basic CycleGAN
 - [ ] Implement basic ESRGAN
-- [ ] Implement basic ProGAN
+- [x] Implement basic ProGAN
 - [ ] Implement basic SRGAN
 - [ ] Implement basic StyleGAN
-
-## Notes
-Testing of Charbonnier loss for SRGAN failed because the values were too different from MSE loss values, maybe more tweaking required and test again. \
-MAE loss is causing a lot of artifacts and image distortions (like color shifting, "image bleedoff", etc.) in results from SRGAN. \
 
 ## Testing setup
 ```
@@ -167,6 +164,10 @@ https://arxiv.org/pdf/1611.07004.pdf
 https://arxiv.org/pdf/1703.10593.pdf
 <br/>
 <br/>
+##### ProGAN
+https://arxiv.org/pdf/1710.10196.pdf
+<br/>
+<br/>
 ##### SRGAN (Super Resolution GAN)
 https://arxiv.org/pdf/1609.04802.pdf \
 https://github.com/deepak112/Keras-SRGAN/blob/master/Network.py \
@@ -194,10 +195,5 @@ https://machinelearningmastery.com/practical-guide-to-gan-failure-modes/ \
 https://github.com/soumith/ganhacks \
 https://medium.com/intel-student-ambassadors/tips-on-training-your-gans-faster-and-achieve-better-results-9200354acaa5 \
 https://distill.pub/2016/deconv-checkerboard/
-<br/>
-<br/>
-##### Gradient accumulation
-https://stackoverflow.com/questions/55268762/how-to-accumulate-gradients-for-large-batch-sizes-in-keras \
-https://github.com/keras-team/keras/issues/3556#issuecomment-440638517
 
 ### Some resources might be missing, I started researching this topic long before this repository was created!

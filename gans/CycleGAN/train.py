@@ -216,26 +216,20 @@ def main():
           fake_A = gen_A(imgB)
           fake_B = gen_B(imgA)
 
-          cycle_A = gen_A(fake_B)
-          cycle_B = gen_B(fake_A)
-
           imgA_grid = torchvision.utils.make_grid(imgA[:settings.TESTING_SAMPLES], normalize=True)
           imgB_grid = torchvision.utils.make_grid(imgB[:settings.TESTING_SAMPLES], normalize=True)
           img_AtoB = torchvision.utils.make_grid(fake_B[:settings.TESTING_SAMPLES], normalize=True)
           img_BtoA = torchvision.utils.make_grid(fake_A[:settings.TESTING_SAMPLES], normalize=True)
-          img_AtoBtoA = torchvision.utils.make_grid(cycle_A[:settings.TESTING_SAMPLES], normalize=True)
-          img_BtoAtoB = torchvision.utils.make_grid(cycle_B[:settings.TESTING_SAMPLES], normalize=True)
 
           summary_writer.add_image("A", imgA_grid, global_step=epoch)
           summary_writer.add_image("B", imgB_grid, global_step=epoch)
           summary_writer.add_image("A to B", img_AtoB, global_step=epoch)
           summary_writer.add_image("B to A", img_BtoA, global_step=epoch)
-          summary_writer.add_image("A to B to A", img_AtoBtoA, global_step=epoch)
-          summary_writer.add_image("B to A to B", img_BtoAtoB, global_step=epoch)
 
         gen_A.train()
         gen_B.train()
   except KeyboardInterrupt:
+    print("Exiting")
     pass
 
   save_model(gen_A, opt_gen, f"models/{settings.MODEL_NAME}/genA.mod")

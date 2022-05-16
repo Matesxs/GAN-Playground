@@ -10,7 +10,7 @@ import pathlib
 
 from critic_model import Critic
 from generator_model import Generator
-from helpers import gradient_penalty
+from gans.utils.global_modules import gradient_penalty
 from settings import *
 
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
@@ -72,9 +72,7 @@ def train():
 
   test_noise = torch.randn((32, NOISE_DIM, 1, 1), device=device)
 
-  summary_writer_real = SummaryWriter(f"logs/{MODEL_NAME}/real")
-  summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}/fake")
-  summary_writer_values = SummaryWriter(f"logs/{MODEL_NAME}/scalars")
+  summary_writer = SummaryWriter(f"logs/{MODEL_NAME}")
   step = start_stepval
 
   gen.train()
@@ -128,13 +126,11 @@ def train():
           with torch.no_grad():
             fake = gen(test_noise)
 
-            img_grid_real = torchvision.utils.make_grid(real[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
             img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
 
-            summary_writer_real.add_image("Real", img_grid_real, global_step=step)
-            summary_writer_fake.add_image("Fake", img_grid_fake, global_step=step)
-            summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=step)
-            summary_writer_values.add_scalar("Critic Loss", loss_crit, global_step=step)
+            summary_writer.add_image("Fake", img_grid_fake, global_step=step)
+            summary_writer.add_scalar("Gen Loss", loss_gen, global_step=step)
+            summary_writer.add_scalar("Critic Loss", loss_crit, global_step=step)
 
           save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{step}.mod")
           save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit_{step}.mod")
