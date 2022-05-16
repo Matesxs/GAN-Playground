@@ -118,7 +118,7 @@ def main():
   start_image_size = settings.START_IMAGE_SIZE
   start_epoch = 0
   tensorboard_step = 0
-  start_alpha = settings.START_ALPHA
+  alpha = settings.START_ALPHA
   if metadata is not None:
     if "img_size" in metadata.keys():
       start_image_size = metadata["img_size"]
@@ -130,7 +130,7 @@ def main():
       tensorboard_step = metadata["tbstep"]
 
     if "alpha" in metadata.keys():
-      start_alpha = metadata["alpha"]
+      alpha = metadata["alpha"]
 
   if settings.GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
@@ -166,8 +166,6 @@ def main():
   step = int(log2(start_image_size / 4))
   try:
     for epochs_idx, num_epochs in enumerate(settings.PROGRESSIVE_EPOCHS[step:]):
-      alpha = start_alpha
-
       img_size = 4*2**step
       loader, dataset = get_loader(img_size)
       print(f"Starting image size: {img_size}")
@@ -207,7 +205,7 @@ def main():
 
       start_epoch = 0
       step += 1
-      start_alpha = settings.START_ALPHA
+      alpha = settings.START_ALPHA
   except KeyboardInterrupt:
     print("Exiting")
     pass
