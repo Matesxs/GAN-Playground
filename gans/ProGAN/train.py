@@ -168,7 +168,7 @@ def main():
     for epochs_idx, num_epochs in enumerate(settings.PROGRESSIVE_EPOCHS[step:]):
       img_size = 4*2**step
       loader, dataset = get_loader(img_size)
-      print(f"Starting image size: {img_size}")
+      print(f"Starting image size: {img_size} with batch size: {settings.BATCH_SIZES[step]}")
 
       for epoch in range(start_epoch, num_epochs):
         crit_loss, gen_loss, alpha, last_real = train(crit, gen, loader, dataset, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler)
@@ -179,7 +179,7 @@ def main():
         if crit_loss is not None and gen_loss is not None:
           print(f"PH: {step}/{settings.NUM_OF_STEPES}  Epoch: {epoch}/{num_epochs} Loss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}")
           summary_writer.add_scalar("Gen Loss", gen_loss, global_step=tensorboard_step)
-          summary_writer.add_scalar("Crit Loss", crit_loss, global_step=tensorboard_step)
+          summary_writer.add_scalar("Critic Loss", crit_loss, global_step=tensorboard_step)
           summary_writer.add_scalar("Alpha", alpha, global_step=tensorboard_step)
 
         if settings.SAVE_CHECKPOINTS and epoch % settings.CHECKPOINT_EVERY == 0:

@@ -7,10 +7,10 @@ from settings import IMG_SIZE
 from gans.utils.global_modules import PixelNorm
 
 class WeightedScaleConv2(nn.Module):
-  def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, gain=2):
+  def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, gain=2, use_conv=True):
     super(WeightedScaleConv2, self).__init__()
 
-    self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+    self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding) if use_conv else nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding)
     self.scale = (gain / (in_channels * (kernel_size ** 2))) ** 0.5
     self.bias = self.conv.bias
     self.conv.bias = None
@@ -44,6 +44,7 @@ class Generator(nn.Module):
     self.initial = nn.Sequential(
       PixelNorm(),
       nn.ConvTranspose2d(z_dim, channels[0], 4, 1, 0),
+      # WeightedScaleConv2(z_dim, channels[0], 4, 1, 0, use_conv=False),
       nn.LeakyReLU(0.2),
       WeightedScaleConv2(channels[0], channels[0], kernel_size=3, stride=1, padding=1),
       nn.LeakyReLU(0.2),
@@ -152,3 +153,8 @@ if __name__ == '__main__':
     assert z.shape == (1, 3, img_size, img_size)
     out = critic(z, alpha=0.5, steps=num_steps)
     assert out.shape == (1, 1)
+
+  # input_names = ['Sentence']
+  # output_names = ['yhat']
+  # torch.onnx.export(gen, (x, 1.0, len(CHANNELS) - 1), 'gen.onnx', input_names=input_names, output_names=output_names)
+  # torch.onnx.export(critic, (z, 1.0, len(CHANNELS) - 1), 'crit.onnx', input_names=input_names, output_names=output_names)
