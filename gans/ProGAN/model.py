@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import log2
 
+from settings import IMG_SIZE
 from gans.utils.global_modules import PixelNorm
 
 class WeightedScaleConv2(nn.Module):
@@ -63,7 +64,10 @@ class Generator(nn.Module):
   def fade_in(self, alpha, upscaled, generated):
     return torch.tanh(alpha * generated + (1 - alpha) * upscaled)
 
-  def forward(self, x, alpha, steps):
+  def forward(self, x, alpha=1.0, steps=None):
+    if steps is None:
+      steps = int(log2(IMG_SIZE / 4))
+
     out = self.initial(x)
 
     if steps == 0:

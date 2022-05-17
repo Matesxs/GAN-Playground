@@ -54,7 +54,7 @@ def get_loader(image_size):
 def train(crit, gen, loader, dataset, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler):
   loop = tqdm(loader, leave=True, unit="batch")
 
-  loss_crit = loss_gen = None
+  loss_crit = loss_gen = real = None
   for batch_idx, (real, _) in enumerate(loop):
     real = real.to(settings.device)
     cur_batch_size = real.shape[0]
@@ -88,7 +88,7 @@ def train(crit, gen, loader, dataset, step, alpha, opt_critic, opt_generator, c_
     alpha += cur_batch_size / (len(dataset) * settings.PROGRESSIVE_EPOCHS[step] * 0.5)
     alpha = min(alpha, 1)
 
-  return loss_crit, loss_gen, alpha
+  return loss_crit, loss_gen, alpha, real
 
 def main():
   crit = Critic(settings.FEATURES, settings.IMG_CH).to(settings.device)
@@ -163,7 +163,7 @@ def main():
   if not os.path.exists(f"models/{settings.MODEL_NAME}"):
     pathlib.Path(f"models/{settings.MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
-  step = int(log2(start_image_size / 4))
+  step = (int(log2(start_image_size / 4))) if settings.STEP_OVERRIDE is None else settings.STEP_OVERRIDE
   try:
     for epochs_idx, num_epochs in enumerate(settings.PROGRESSIVE_EPOCHS[step:]):
       img_size = 4*2**step
@@ -171,13 +171,13 @@ def main():
       print(f"Starting image size: {img_size}")
 
       for epoch in range(start_epoch, num_epochs):
-        crit_loss, gen_loss, alpha = train(crit, gen, loader, dataset, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler)
+        crit_loss, gen_loss, alpha, last_real = train(crit, gen, loader, dataset, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler)
         if settings.LR_DECAY:
           lr_scheduler_gen.step()
           lr_scheduler_crit.step()
 
         if crit_loss is not None and gen_loss is not None:
-          print(f"PH: {epochs_idx + 1}/{len(settings.PROGRESSIVE_EPOCHS[step:])}  Epoch: {epoch}/{num_epochs} Loss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}")
+          print(f"PH: {step}/{settings.NUM_OF_STEPES}  Epoch: {epoch}/{num_epochs} Loss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}")
           summary_writer.add_scalar("Gen Loss", gen_loss, global_step=tensorboard_step)
           summary_writer.add_scalar("Crit Loss", crit_loss, global_step=tensorboard_step)
           summary_writer.add_scalar("Alpha", alpha, global_step=tensorboard_step)
@@ -193,10 +193,13 @@ def main():
           gen.eval()
 
           with torch.no_grad():
-            fake = gen(test_noise, 0, step)
+            fake = gen(test_noise, alpha, step)
+
             img_grid_fake = torchvision.utils.make_grid(fake[:settings.TESTING_SAMPLES], normalize=True)
+            img_grid_real = torchvision.utils.make_grid(last_real[:settings.TESTING_SAMPLES], normalize=True)
 
             summary_writer.add_image("Fake", img_grid_fake, global_step=tensorboard_step)
+            summary_writer.add_image("Real", img_grid_real, global_step=tensorboard_step)
 
           gen.train()
 
