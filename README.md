@@ -13,8 +13,6 @@
 * [Project Folder Structure](#project-folder-structure)
 * [Setup](#setup)
 * [Results](#results)
-* [TODO](#todo)
-* [Notes](#notes)
 * [Testing setup](#testing-setup)
 * [Resources](#resources)
 
@@ -118,9 +116,9 @@ In order: Input, Real, Generated
 - [x] Implement basic Conditional GAN
 - [x] Implement Pix2Pix based on GAN
 - [x] Implement basic CycleGAN
-- [ ] Implement basic ESRGAN
 - [x] Implement basic ProGAN
 - [ ] Implement basic SRGAN
+- [ ] Implement enhanced SRGAN (ESRGAN)
 - [ ] Implement basic StyleGAN
 
 ## Testing setup

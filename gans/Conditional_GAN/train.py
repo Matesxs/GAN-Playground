@@ -1,4 +1,5 @@
 import os
+import torch
 import torch.optim as optim
 import torchvision
 import torchvision.datasets as datasets
@@ -47,12 +48,18 @@ def train():
 
   start_epoch = 0
   start_stepval = 0
+  test_noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
   if metadata is not None:
     if "epoch" in metadata.keys():
       start_epoch = int(metadata["epoch"])
 
     if "stepval" in metadata.keys():
       start_stepval = int(metadata["stepval"])
+
+    if "noise" in metadata.keys():
+      tmp_noise = torch.Tensor(metadata["noise"])
+      if tmp_noise.shape == (BATCH_SIZE, NOISE_DIM, 1, 1):
+        test_noise = tmp_noise.to(device)
 
   if GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
@@ -67,8 +74,6 @@ def train():
     except:
       print("Critic model weights are incompatible with found model parameters")
       exit(2)
-
-  test_noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
 
   summary_writer_real = SummaryWriter(f"logs/{MODEL_NAME}/real")
   summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}/fake")
@@ -137,13 +142,13 @@ def train():
           save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
 
           step += 1
-          save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
+          save_metadata({"epoch": last_epoch, "stepval": step, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
 
   save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
   save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
-  save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
+  save_metadata({"epoch": last_epoch, "stepval": step, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
     train()

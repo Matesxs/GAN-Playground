@@ -46,7 +46,7 @@ def get_loader(image_size):
     ]
   )
 
-  batch_size = settings.BATCH_SIZES[int(log2(image_size / 4))]
+  batch_size = settings.IMG_SIZE_TO_BATCH_SIZE[image_size]
   dataset = datasets.ImageFolder(root=settings.DATASET_PATH, transform=transform)
   loader = DataLoader(dataset, batch_size, shuffle=True, num_workers=settings.NUM_OF_WORKERS, pin_memory=True, persistent_workers=True)
   return loader, dataset
@@ -119,6 +119,7 @@ def main():
   start_epoch = 0
   tensorboard_step = 0
   alpha = settings.START_ALPHA
+  test_noise = torch.randn((settings.TESTING_SAMPLES, settings.Z_DIM, 1, 1), device=settings.device)
   if metadata is not None:
     if "img_size" in metadata.keys():
       start_image_size = metadata["img_size"]
@@ -131,6 +132,11 @@ def main():
 
     if "alpha" in metadata.keys():
       alpha = metadata["alpha"]
+
+    if "noise" in metadata.keys():
+      tmp_noise = torch.Tensor(metadata["noise"])
+      if tmp_noise.shape == (settings.TESTING_SAMPLES, settings.Z_DIM, 1, 1):
+        test_noise = tmp_noise.to(settings.device)
 
   if settings.GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
@@ -155,8 +161,6 @@ def main():
   g_scaler = torch.cuda.amp.GradScaler()
   c_scaler = torch.cuda.amp.GradScaler()
 
-  test_noise = torch.randn((settings.TESTING_SAMPLES, settings.Z_DIM, 1, 1), device=settings.device)
-
   img_size = settings.START_IMAGE_SIZE
   epoch = start_epoch
 
@@ -168,7 +172,7 @@ def main():
     for epochs_idx, num_epochs in enumerate(settings.PROGRESSIVE_EPOCHS[step:]):
       img_size = 4*2**step
       loader, dataset = get_loader(img_size)
-      print(f"Starting image size: {img_size} with batch size: {settings.BATCH_SIZES[step]}")
+      print(f"Starting image size: {img_size} with batch size: {settings.IMG_SIZE_TO_BATCH_SIZE[img_size]}")
 
       for epoch in range(start_epoch, num_epochs):
         crit_loss, gen_loss, alpha, last_real = train(crit, gen, loader, dataset, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler)
@@ -204,7 +208,7 @@ def main():
           gen.train()
 
         tensorboard_step += 1
-        save_metadata({"epoch": epoch, "img_size": img_size, "tbstep": tensorboard_step, "alpha": alpha}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+        save_metadata({"epoch": epoch, "img_size": img_size, "tbstep": tensorboard_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
       start_epoch = 0
       step += 1
@@ -215,7 +219,7 @@ def main():
 
   save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
   save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit.mod")
-  save_metadata({"epoch": epoch, "img_size": img_size, "tbstep": tensorboard_step, "alpha": alpha}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+  save_metadata({"epoch": epoch, "img_size": img_size, "tbstep": tensorboard_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
   main()

@@ -1,4 +1,5 @@
 import os
+import torch
 import torch.optim as optim
 import torchvision
 import torchvision.datasets as datasets
@@ -48,12 +49,18 @@ def train():
 
   start_epoch = 0
   start_stepval = 0
+  test_noise = torch.randn((NUMBER_OF_SAMPLE_IMAGES, NOISE_DIM, 1, 1), device=device)
   if metadata is not None:
     if "epoch" in metadata.keys():
       start_epoch = int(metadata["epoch"])
 
     if "stepval" in metadata.keys():
       start_stepval = int(metadata["stepval"])
+
+    if "noise" in metadata.keys():
+      tmp_noise = torch.Tensor(metadata["noise"])
+      if tmp_noise.shape == (NUMBER_OF_SAMPLE_IMAGES, NOISE_DIM, 1, 1):
+        test_noise = tmp_noise.to(device)
 
   if GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
@@ -68,8 +75,6 @@ def train():
     except:
       print("Critic model weights are incompatible with found model parameters")
       exit(2)
-
-  test_noise = torch.randn((32, NOISE_DIM, 1, 1), device=device)
 
   summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}")
   summary_writer_values = SummaryWriter(f"logs/{MODEL_NAME}/scalars")
@@ -128,7 +133,7 @@ def train():
           with torch.no_grad():
             fake = gen(test_noise)
 
-            img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
+            img_grid_fake = torchvision.utils.make_grid(fake, normalize=True)
 
             summary_writer_fake.add_image("Fake", img_grid_fake, global_step=step)
             summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=step)
@@ -141,13 +146,13 @@ def train():
           save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
 
           step += 1
-          save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
+          save_metadata({"epoch": last_epoch, "stepval": step, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
 
   save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
   save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
-  save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
+  save_metadata({"epoch": last_epoch, "stepval": step, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
     train()

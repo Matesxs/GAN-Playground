@@ -7,8 +7,7 @@ class ConvBlock(nn.Module):
     super(ConvBlock, self).__init__()
 
     self.conv = nn.Sequential(
-      nn.Conv2d(in_channels, out_channels, padding_mode="reflect", bias=False, **kwargs)
-      if downsample
+      nn.Conv2d(in_channels, out_channels, padding_mode="reflect", bias=False, **kwargs) if downsample
       else nn.ConvTranspose2d(in_channels, out_channels, **kwargs),
       nn.InstanceNorm2d(out_channels) if use_norm else nn.Identity(),
       nn.ReLU(inplace=True) if use_activation else nn.Identity()
