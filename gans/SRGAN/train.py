@@ -40,11 +40,12 @@ def train(opt_disc, opt_gen, disc, gen, train_dataset_loader, mse, bce, vgg_loss
         disc_real = disc(high_res)
         disc_fake = disc(fake.detach())
 
-        gp = gradient_penalty(disc, high_res, fake, settings.device)
-        disc_loss_real = bce(disc_real, torch.ones_like(disc_real) - 0.1 * torch.rand_like(disc_real))
-        #disc_loss_fake = bce(disc_fake, torch.zeros_like(disc_fake) + 0.1 * torch.rand_like(disc_fake))
-        disc_loss_fake = bce(disc_fake, torch.zeros_like(disc_fake))
-        D_loss = disc_loss_fake + disc_loss_real + settings.GP_LAMBDA * gp
+        disc_loss_real = bce(disc_real, (torch.ones_like(disc_real) - 0.1 * torch.rand_like(disc_real)) if settings.TRUE_LABEL_SMOOTHING else torch.ones_like(disc_real))
+        disc_loss_fake = bce(disc_fake, (torch.zeros_like(disc_fake) + 0.1 * torch.rand_like(disc_fake)) if settings.FAKE_LABEL_SMOOTHING else torch.zeros_like(disc_fake))
+        D_loss = disc_loss_fake + disc_loss_real
+
+        if settings.GP_LAMBDA != 0:
+          D_loss += settings.GP_LAMBDA * gradient_penalty(disc, high_res, fake, settings.device)
 
       opt_disc.zero_grad()
       d_scaler.scale(D_loss).backward()
