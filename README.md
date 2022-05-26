@@ -55,6 +55,7 @@ pip install -r requirements.txt
 ## Utility
 ```
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
+clean_dataset.py - Clean low resolution images from dataset
 ```
 
 ## Results

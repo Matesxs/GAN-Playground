@@ -11,7 +11,6 @@ import pathlib
 
 from critic_model import Critic
 from generator_model import Generator
-from gans.utils.global_modules import gradient_penalty
 from settings import *
 
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
@@ -23,6 +22,22 @@ transform = transforms.Compose(
     transforms.Normalize([0.5 for _ in range(IMG_CH)], [0.5 for _ in range(IMG_CH)])
   ]
 )
+
+def gradient_penalty(critic, real, fake, device):
+  batch, channels, height, width = real.shape
+  epsilon = torch.randn((batch, 1, 1, 1)).repeat(1, channels, height, width).to(device)
+  interpolated_imgs = real * epsilon + fake * (1 - epsilon)
+
+  interpolated_scores = critic(interpolated_imgs)
+  gradient = torch.autograd.grad(inputs=interpolated_imgs, outputs=interpolated_scores,
+                                 grad_outputs=torch.ones_like(interpolated_scores),
+                                 create_graph=True, retain_graph=True)[0]
+
+  # Flattening of gradient
+  gradient = gradient.view(gradient.shape[0], -1)
+  gradient_norm = gradient.norm(2, dim=1) # L2 norm
+
+  return torch.mean((gradient_norm - 1) ** 2)
 
 def train():
   # dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)

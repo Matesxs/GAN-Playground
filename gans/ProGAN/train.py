@@ -152,12 +152,6 @@ def main():
       print(f"Critic model weights are incompatible with found model parameters\n{e}")
       exit(2)
 
-  lr_scheduler_gen = None
-  lr_scheduler_crit = None
-  if settings.LR_DECAY:
-    lr_scheduler_gen = optim.lr_scheduler.StepLR(opt_generator, settings.LR_DECAY_EVERY, settings.LR_DECAY_COEF)
-    lr_scheduler_crit = optim.lr_scheduler.StepLR(opt_critic, settings.LR_DECAY_EVERY, settings.LR_DECAY_COEF)
-
   g_scaler = torch.cuda.amp.GradScaler()
   c_scaler = torch.cuda.amp.GradScaler()
 
@@ -176,9 +170,6 @@ def main():
 
       for epoch in range(start_epoch, num_epochs):
         crit_loss, gen_loss, alpha, last_real = train(crit, gen, loader, dataset, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler)
-        if settings.LR_DECAY:
-          lr_scheduler_gen.step()
-          lr_scheduler_crit.step()
 
         if crit_loss is not None and gen_loss is not None:
           print(f"PH: {step}/{settings.NUM_OF_STEPES}  Epoch: {epoch}/{num_epochs} Loss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}")

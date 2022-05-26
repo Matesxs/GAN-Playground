@@ -24,11 +24,7 @@ def load_model(model_path:str, model:nn.Module, optimizer:optim.Optimizer, leari
     checkpoint = torch.load(f, map_location=device)
   model.load_state_dict(checkpoint["state"])
 
-
-  if "lr" in checkpoint.keys():
-    for param_group in optimizer.param_groups:
-      param_group["lr"] = float(checkpoint["lr"])
-  elif optimizer is not None and "optim" in checkpoint.keys():
+  if optimizer is not None:
     for param_group in optimizer.param_groups:
       param_group["lr"] = learing_rate
 

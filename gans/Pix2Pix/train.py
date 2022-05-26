@@ -104,12 +104,6 @@ def main():
   test_dataset = PairDataset(root_dir=settings.TESTING_DATASET_PATH, switch_sides=settings.SWITCH_INPUT_IMAGE_POSITIONS, transform=settings.test_transform)
   test_dataloader = DataLoader(test_dataset, settings.TESTING_SAMPLES, False)
 
-  lr_scheduler_gen = None
-  lr_scheduler_disc = None
-  if settings.LR_DECAY:
-    lr_scheduler_gen = optim.lr_scheduler.StepLR(opt_generator, settings.LR_DECAY_EVERY, settings.LR_DECAY_COEF)
-    lr_scheduler_disc = optim.lr_scheduler.StepLR(opt_discriminator, settings.LR_DECAY_EVERY, settings.LR_DECAY_COEF)
-
   g_scaler = torch.cuda.amp.GradScaler()
   d_scaler = torch.cuda.amp.GradScaler()
 
@@ -122,9 +116,6 @@ def main():
       last_epoch = epoch
 
       d_loss, g_loss = train(disc, gen, train_dataloader, opt_discriminator, opt_generator, l1_loss, bce_loss, g_scaler, d_scaler)
-      if settings.LR_DECAY:
-        lr_scheduler_gen.step()
-        lr_scheduler_disc.step()
 
       if d_loss is not None and g_loss is not None:
         print(f"Epoch: {epoch}/{settings.EPOCHS} Loss disc: {d_loss:.4f}, Loss gen: {g_loss:.4f}")
