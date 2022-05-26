@@ -118,7 +118,7 @@ In order: Input, Real, Generated
 - [x] Implement Pix2Pix based on GAN
 - [x] Implement basic CycleGAN
 - [x] Implement basic ProGAN
-- [ ] Implement basic SRGAN
+- [x] Implement basic SRGAN
 - [ ] Implement enhanced SRGAN (ESRGAN)
 - [ ] Implement basic StyleGAN
 
