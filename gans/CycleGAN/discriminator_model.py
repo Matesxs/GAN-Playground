@@ -8,7 +8,7 @@ class Block(nn.Module):
 
     layers = [nn.Conv2d(in_channels, out_channels, kernel_size=(4, 4), stride=stride, padding=(1, 1), bias=True, padding_mode="reflect")]
     if use_norm:
-      nn.InstanceNorm2d(out_channels)
+      layers.append(nn.InstanceNorm2d(out_channels))
     layers.append(nn.LeakyReLU(0.2))
 
     self.conv = nn.Sequential(*layers)
