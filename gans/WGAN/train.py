@@ -1,5 +1,4 @@
 import os
-import torch
 import torch.optim as optim
 import torchvision
 import torchvision.datasets as datasets
@@ -8,6 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
 import pathlib
+from tqdm import tqdm
 
 from critic_model import Critic
 from generator_model import Generator
@@ -23,6 +23,41 @@ transform = transforms.Compose(
   ]
 )
 
+def train_step(loader, crit, gen, optimizer_crit, optimizer_gen):
+  loop = tqdm(loader, leave=True, unit="batch")
+
+  loss_crit = loss_gen = None
+  for batch_idx, (real, _) in enumerate(loop):
+    real = real.to(device)
+    noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
+    fake = gen(noise)
+
+    # Train critic
+    for _ in range(CRITIC_ITERATIONS):
+      crit_real = crit(real).reshape(-1)  # Flatten
+      crit_fake = crit(fake).reshape(-1)
+
+      loss_crit = -(torch.mean(crit_real) - torch.mean(crit_fake))
+
+      crit.zero_grad()
+      loss_crit.backward(retain_graph=True)
+      optimizer_crit.step()
+
+      for p in crit.parameters():
+        p.data.clamp_(-WEIGHT_CLIP, WEIGHT_CLIP)
+
+      noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
+      fake = gen(noise)
+
+    # Train generator
+    output = crit(fake).reshape(-1)
+    loss_gen = -torch.mean(output)
+    gen.zero_grad()
+    loss_gen.backward()
+    optimizer_gen.step()
+
+  return loss_crit, loss_gen
+
 def train():
   # dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)
   dataset = datasets.ImageFolder(root=DATASET_PATH, transform=transform)
@@ -35,27 +70,26 @@ def train():
   optimizer_crit = optim.RMSprop(crit.parameters(), lr=LR)
 
   try:
-    if os.path.exists(f"models/{MODEL_NAME}/gen.mod") and os.path.isfile(f"models/{MODEL_NAME}/gen.mod"):
-      load_model(f"models/{MODEL_NAME}/gen.mod", gen, optimizer_gen, LR, device)
-
     if os.path.exists(f"models/{MODEL_NAME}/crit.mod") and os.path.isfile(f"models/{MODEL_NAME}/crit.mod"):
       load_model(f"models/{MODEL_NAME}/crit.mod", crit, optimizer_crit, LR, device)
   except:
-    print("Models are incompatible with found model parameters")
+    print("Critic model is incompatible with found model parameters")
+
+  try:
+    if os.path.exists(f"models/{MODEL_NAME}/gen.mod") and os.path.isfile(f"models/{MODEL_NAME}/gen.mod"):
+      load_model(f"models/{MODEL_NAME}/gen.mod", gen, optimizer_gen, LR, device)
+  except:
+    print("Generator model is incompatible with found model parameters")
 
   metadata = None
   if os.path.exists(f"models/{MODEL_NAME}/metadata.pkl") and os.path.isfile(f"models/{MODEL_NAME}/metadata.pkl"):
     metadata = load_metadata(f"models/{MODEL_NAME}/metadata.pkl")
 
   start_epoch = 0
-  start_stepval = 0
   test_noise = torch.randn((NUMBER_OF_SAMPLE_IMAGES, NOISE_DIM, 1, 1), device=device)
   if metadata is not None:
     if "epoch" in metadata.keys():
       start_epoch = int(metadata["epoch"])
-
-    if "stepval" in metadata.keys():
-      start_stepval = int(metadata["stepval"])
 
     if "noise" in metadata.keys():
       tmp_noise = torch.Tensor(metadata["noise"])
@@ -78,7 +112,6 @@ def train():
 
   summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}")
   summary_writer_values = SummaryWriter(f"logs/{MODEL_NAME}/scalars")
-  step = start_stepval
 
   gen.train()
   crit.train()
@@ -97,62 +130,32 @@ def train():
     for epoch in range(start_epoch, EPOCHS):
       last_epoch = epoch
 
-      for batch_idx, (real, _) in enumerate(loader):
-        real = real.to(device)
-        noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
-        fake = gen(noise)
+      loss_crit, loss_gen = train_step(loader, crit, gen, optimizer_crit, optimizer_gen)
+      if loss_crit is not None and loss_gen is not None:
+        print(f"Epoch: {epoch}/{EPOCHS} Loss crit: {loss_crit:.4f}, Loss gen: {loss_gen:.4f}")
+        summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=epoch)
+        summary_writer_values.add_scalar("Critic Loss", loss_crit, global_step=epoch)
 
-        # Train critic
-        loss_crit = None
-        for _ in range(CRITIC_ITERATIONS):
-          crit_real = crit(real).reshape(-1)  # Flatten
-          crit_fake = crit(fake).reshape(-1)
+      if epoch % SAMPLE_EVERY == 0:
+        with torch.no_grad():
+          fake = gen(test_noise)
 
-          loss_crit = -(torch.mean(crit_real) - torch.mean(crit_fake))
+          img_grid_fake = torchvision.utils.make_grid(fake, normalize=True)
 
-          crit.zero_grad()
-          loss_crit.backward(retain_graph=True)
-          optimizer_crit.step()
+          summary_writer_fake.add_image("Fake", img_grid_fake, global_step=epoch)
 
-          for p in crit.parameters():
-            p.data.clamp_(-WEIGHT_CLIP, WEIGHT_CLIP)
+        save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{epoch}.mod")
+        save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit_{epoch}.mod")
 
-          noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
-          fake = gen(noise)
-
-        # Train generator
-        output = crit(fake).reshape(-1)
-        loss_gen = -torch.mean(output)
-        gen.zero_grad()
-        loss_gen.backward()
-        optimizer_gen.step()
-
-        if batch_idx % SAMPLE_PER_STEPS == 0:
-          print(f"Epoch: {epoch}/{EPOCHS} Batch: {batch_idx}/{len(loader)} Loss crit: {loss_crit:.4f}, Loss gen: {loss_gen:.4f}")
-
-          with torch.no_grad():
-            fake = gen(test_noise)
-
-            img_grid_fake = torchvision.utils.make_grid(fake, normalize=True)
-
-            summary_writer_fake.add_image("Fake", img_grid_fake, global_step=step)
-            summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=step)
-            summary_writer_values.add_scalar("Critic Loss", loss_crit, global_step=step)
-
-          save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{step}.mod")
-          save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit_{step}.mod")
-
-          save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
-          save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
-
-          step += 1
-          save_metadata({"epoch": last_epoch, "stepval": step, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
+      save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
+      save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
+      save_metadata({"epoch": last_epoch, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
 
   save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
   save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
-  save_metadata({"epoch": last_epoch, "stepval": step, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
+  save_metadata({"epoch": last_epoch, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
     train()
