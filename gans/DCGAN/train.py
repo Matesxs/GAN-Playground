@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
 import pathlib
+from tqdm import tqdm
 
 from generator_model import Generator
 from discriminator_model import Discriminator
@@ -22,6 +23,37 @@ transform = transforms.Compose(
     transforms.Normalize([0.5 for _ in range(IMG_CH)], [0.5 for _ in range(IMG_CH)])
   ]
 )
+
+def train_step(loader, disc, gen, optimizer_disc, optimizer_gen, loss):
+  loop = tqdm(loader, leave=True, unit="batch")
+
+  loss_disc = loss_gen = None
+  for batch_idx, (real, _) in enumerate(loop):
+    real = real.to(device)
+    noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
+    fake = gen(noise)
+
+    # Train discriminator
+    disc_real = disc(real).reshape(-1)  # Flatten
+    loss_disc_real = loss(disc_real, torch.ones_like(disc_real))
+
+    disc_fake = disc(fake).reshape(-1)
+    loss_disc_fake = loss(disc_fake, torch.zeros_like(disc_fake))
+
+    loss_disc = (loss_disc_real + loss_disc_fake) / 2
+    disc.zero_grad()
+
+    loss_disc.backward(retain_graph=True)
+    optimizer_disc.step()
+
+    # Train generator
+    output = disc(fake).reshape(-1)
+    loss_gen = loss(output, torch.ones_like(output))
+    gen.zero_grad()
+    loss_gen.backward()
+    optimizer_gen.step()
+
+  return loss_disc, loss_gen
 
 def train():
   dataset = datasets.ImageFolder(root=DATASET_PATH, transform=transform)
@@ -47,13 +79,9 @@ def train():
     metadata = load_metadata(f"models/{MODEL_NAME}/metadata.pkl")
 
   start_epoch = 0
-  start_stepval = 0
   if metadata is not None:
     if "epoch" in metadata.keys():
       start_epoch = int(metadata["epoch"])
-
-    if "stepval" in metadata.keys():
-      start_stepval = int(metadata["stepval"])
 
   if GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
@@ -75,7 +103,6 @@ def train():
 
   summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}")
   summary_writer_values = SummaryWriter(f"logs/{MODEL_NAME}/scalars")
-  step = start_stepval
 
   gen.train()
   disc.train()
@@ -94,56 +121,31 @@ def train():
     for epoch in range(start_epoch, EPOCHS):
       last_epoch = epoch
 
-      for batch_idx, (real, _) in enumerate(loader):
-        real = real.to(device)
-        noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
-        fake = gen(noise)
+      loss_disc, loss_gen = train_step(loader, disc, gen, optimizer_disc, optimizer_gen, loss)
+      if loss_gen is not None and loss_disc is not None:
+        print(f"Epoch: {epoch}/{EPOCHS} Loss disc: {loss_disc:.4f}, Loss gen: {loss_gen:.4f}")
 
-        # Train discriminator
-        disc_real = disc(real).reshape(-1)  # Flatten
-        loss_disc_real = loss(disc_real, torch.ones_like(disc_real))
+        summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=epoch)
+        summary_writer_values.add_scalar("Disc Loss", loss_disc, global_step=epoch)
 
-        disc_fake = disc(fake).reshape(-1)
-        loss_disc_fake = loss(disc_fake, torch.zeros_like(disc_fake))
+      if epoch % SAVE_INTERVAL == 0:
+        with torch.no_grad():
+          fake = gen(test_noise)
+          img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
+          summary_writer_fake.add_image("Fake", img_grid_fake, global_step=epoch)
 
-        loss_disc = (loss_disc_real + loss_disc_fake) / 2
-        disc.zero_grad()
+        save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{epoch}.mod")
+        save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc_{epoch}.mod")
 
-        loss_disc.backward(retain_graph=True)
-        optimizer_disc.step()
-
-        # Train generator
-        output = disc(fake).reshape(-1)
-        loss_gen = loss(output, torch.ones_like(output))
-        gen.zero_grad()
-        loss_gen.backward()
-        optimizer_gen.step()
-
-        if batch_idx % 100 == 0:
-          print(f"Epoch: {epoch}/{EPOCHS} Batch: {batch_idx}/{len(loader)} Loss disc: {loss_disc:.4f}, Loss gen: {loss_gen:.4f}")
-
-          with torch.no_grad():
-            fake = gen(test_noise)
-            img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
-            summary_writer_fake.add_image("Fake", img_grid_fake, global_step=step)
-
-            summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=step)
-            summary_writer_values.add_scalar("Disc Loss", loss_disc, global_step=step)
-
-          save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{step}.mod")
-          save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc_{step}.mod")
-
-          save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
-          save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
-
-          step += 1
-          save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
+      save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
+      save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
+      save_metadata({"epoch": last_epoch}, f"models/{MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
 
   save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
   save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
-  save_metadata({"epoch": last_epoch, "stepval": step}, f"models/{MODEL_NAME}/metadata.pkl")
+  save_metadata({"epoch": last_epoch}, f"models/{MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
     train()

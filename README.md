@@ -111,7 +111,6 @@ In order: Input, Real, Generated
 
 ## TODO
 - [x] Implement basic DCGAN
-- [x] Larger DCGAN models for larger and more complex images
 - [x] Implement basic WGAN
 - [x] Implement WGAN-GP (WGAN with gradient penalty)
 - [x] Implement basic Conditional GAN

@@ -9,6 +9,8 @@ NOISE_DIM = 128
 EPOCHS = 100
 FEATURES_DISC = FEATURES_GEN = 64
 
+SAVE_INTERVAL = 5
+
 DATASET_PATH = "datasets/celeb_normalized__128x128"
 
 MODEL_NAME = "celeb_BIG_dcgan_model"
