@@ -62,52 +62,61 @@ clean_dataset.py - Clean low resolution images from dataset
 
 ### DCGAN
 1. Mnist dataset (64x64 grayscale) - 20 epochs, batch size 128 \
-   ![1](media/dcgan/mnist_dcgan_fake.png?raw=true)
+   ![1](media/mnist_dcgan_fake.png?raw=true)
 
 2. Celeb dataset (64x64 color, 200000 images) - batch size 128 \
    Unstable training and colapsed after few more epochs \
    No need for more training, because its by design prone to fails   
 
    1. Generated - 100 epochs \
-   ![2](media/dcgan/faces_dcgan_fake.png?raw=true)
+   ![2](media/faces_dcgan_fake.png?raw=true)
    2. Colapsed network (epoch 110) \
-   ![3](media/dcgan/faces_dcgan_fake_colapsed.png?raw=true)
+   ![3](media/faces_dcgan_fake_colapsed.png?raw=true)
 
 ### WGAN
+
+More stable training in comparison to DCGAN but slower to train
+
 1. Celeb dataset (64x64 color, 200000 images) - batch size 64
-   1. Generated - 30 epochs - TODO: More training \
-   ![4](media/dcgan/faces_wgan_fake1.png?raw=true)
+   1. Generated - 100 epochs \
+   ![4](media/faces_wgan_fake1.png?raw=true)
+   2. Generated - 200 epochs \
+   ![5](media/faces_wgan_fake2.png?raw=true)
+2. Celeb dataset (64x64 color, 200000 images) - batch size 64 \
+   Model with replaced batch norm lazers with instance norm layers
+   1. Generated - 20 epochs \
+   ![6](media/faces_wgan_fake3.png?raw=true)
 
 ### WGAN-GP
 1. Celeb dataset (64x64 color, 200000 images) - batch size 64
    1. Generated - 30 epochs - TODO: More training \
-   ![5](media/dcgan/faces_wgan-gp_fake1.png?raw=true)
+   ![6](media/faces_wgan-gp_fake1.png?raw=true)
 
 ### Conditional GAN - Based on WGAN-GP
 1. Mnist dataset (64x64 grayscale) - batch size 64 - TODO: Revisit
    1. Original model
       1. Generated - 20 epochs \
-      ![6](media/dcgan/mnist_cond-gan_fake.png?raw=true)
+      ![7](media/mnist_cond-gan_fake.png?raw=true)
       2. Real \
-      ![7](media/dcgan/mnist_cond-gan_real.png?raw=true)
+      ![8](media/mnist_cond-gan_real.png?raw=true)
    2. Larger model
       1. Generated - 20 epochs \
-      ![8](media/dcgan/mnist_cond-gan_fake2.png?raw=true)
+      ![9](media/mnist_cond-gan_fake2.png?raw=true)
       2. Real \
-      ![9](media/dcgan/mnist_cond-gan_real2.png?raw=true)
+      ![10](media/mnist_cond-gan_real2.png?raw=true)
 
 ### Pix2Pix using GAN
 1. Maps segmentation (256x256 color, 2000 images) - batch size 16, 200 epochs \
 In order: Input, Real, Generated
-![10](media/dcgan/maps_pix2pix_input.png?raw=true)
-![11](media/dcgan/maps_pix2pix_real.png?raw=true)
-![12](media/dcgan/maps_pix2pix_fake.png?raw=true)
+![11](media/maps_pix2pix_input.png?raw=true)
+![12](media/maps_pix2pix_real.png?raw=true)
+![13](media/maps_pix2pix_fake.png?raw=true)
 
 2. Anime coloring (256x256 color, 16000 images) - batch size 16, 400 epochs \
 In order: Input, Real, Generated
-![13](media/dcgan/anime_pix2pix_input.png?raw=true)
-![14](media/dcgan/anime_pix2pix_real.png?raw=true)
-![15](media/dcgan/anime_pix2pix_fake.png?raw=true)
+![13](media/anime_pix2pix_input.png?raw=true)
+![14](media/anime_pix2pix_real.png?raw=true)
+![15](media/anime_pix2pix_fake.png?raw=true)
 
 ## TODO
 - [x] Implement basic DCGAN
@@ -141,11 +150,11 @@ https://arxiv.org/pdf/1511.06434.pdf
 ##### WGAN (Wasserstein GAN)
 https://www.alexirpan.com/2017/02/22/wasserstein-gan.html \
 https://arxiv.org/pdf/1701.07875.pdf \
-https://arxiv.org/pdf/1704.00028.pdf \
 https://machinelearningmastery.com/how-to-code-a-wasserstein-generative-adversarial-network-wgan-from-scratch/
 <br/>
 <br/>
 ##### WGAN-GP
+https://arxiv.org/pdf/1704.00028.pdf \
 https://github.com/LuEE-C/WGAN-GP-with-keras-for-text/blob/master/Exploration/GenerativeAdverserialWGAN-GP.py \
 https://github.com/kongyanye/cwgan-gp \
 https://github.com/keras-team/keras-contrib/blob/master/examples/improved_wgan.py \

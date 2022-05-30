@@ -11,11 +11,11 @@ FEATURES_CRIT = FEATURES_GEN = 64
 CRITIC_ITERATIONS = 5
 WEIGHT_CLIP = 0.01
 
-SAMPLE_EVERY = 200
+SAMPLE_EVERY = 1
 
 DATASET_PATH = "datasets/celeb_normalized__64x64"
 
-MODEL_NAME = "celeb_wgan_model"
+MODEL_NAME = "celeb_wgan_model_upgraded"
 NUMBER_OF_SAMPLE_IMAGES = 32
 
 GEN_MODEL_WEIGHTS_TO_LOAD = None

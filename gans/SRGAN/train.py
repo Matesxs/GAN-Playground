@@ -88,7 +88,7 @@ if __name__ == '__main__':
     persistent_workers=True
   )
 
-  test_dataset = SrganDataset(root_dir=settings.TEST_DATASET_PATH, transform=settings.test_transform)
+  test_dataset = SrganDataset(root_dir=settings.TEST_DATASET_PATH, transforms=[settings.high_res_test_transform, settings.low_res_test_transform])
   test_dataset_loader = DataLoader(
     test_dataset,
     batch_size=settings.TESTING_SAMPLES,
@@ -165,7 +165,9 @@ if __name__ == '__main__':
       save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
       if epoch % settings.SAMPLE_EVERY == 0:
-        input_imgs = next(iter(test_dataset_loader))
+        test_images = next(iter(test_dataset_loader))
+        input_imgs = test_images[1]
+        true_imgs = test_images[0]
         input_imgs = input_imgs.to(settings.device)
 
         gen.eval()
@@ -173,10 +175,12 @@ if __name__ == '__main__':
         with torch.no_grad():
           upscaled_images = gen(input_imgs)
 
-          original_images_grid = torchvision.utils.make_grid(input_imgs[:settings.TESTING_SAMPLES], normalize=True)
+          input_images_grid = torchvision.utils.make_grid(input_imgs[:settings.TESTING_SAMPLES], normalize=True)
           upscaled_images_grid = torchvision.utils.make_grid(upscaled_images[:settings.TESTING_SAMPLES], normalize=True)
+          original_images_grid = torchvision.utils.make_grid(true_imgs[:settings.TESTING_SAMPLES], normalize=True)
 
           summary_writer.add_image("Original", original_images_grid, global_step=epoch)
+          summary_writer.add_image("Input", input_images_grid, global_step=epoch)
           summary_writer.add_image("Upscaled", upscaled_images_grid, global_step=epoch)
 
         gen.train()

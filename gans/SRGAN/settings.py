@@ -10,7 +10,8 @@ MODEL_NAME = "imagenet_srgan_model"
 DATASET_PATH = "datasets/imagenet/train"
 TEST_DATASET_PATH = "datasets/imagenet/test"
 
-TEST_IMG_SIZE = 64
+HIGH_RES_TEST_IMG_SIZE = 256
+LOW_RES_TEST_IMG_SIZE = HIGH_RES_TEST_IMG_SIZE // 4
 HIGH_RES_IMG_SIZE = 96
 LOW_RES_IMG_SIZE = HIGH_RES_IMG_SIZE // 4
 IMG_CH = 3
@@ -38,9 +39,17 @@ BATCH_SIZE = 16
 
 NUM_OF_WORKERS = 8
 
-test_transform = A.Compose(
+high_res_test_transform = A.Compose(
   [
-    A.Resize(width=TEST_IMG_SIZE, height=TEST_IMG_SIZE, interpolation=Image.BICUBIC),
+    A.Resize(width=HIGH_RES_TEST_IMG_SIZE, height=HIGH_RES_TEST_IMG_SIZE, interpolation=Image.BICUBIC),
+    A.Normalize(mean=[0, 0, 0], std=[1, 1, 1]),
+    ToTensorV2(),
+  ]
+)
+
+low_res_test_transform = A.Compose(
+  [
+    A.Resize(width=LOW_RES_TEST_IMG_SIZE, height=LOW_RES_TEST_IMG_SIZE, interpolation=Image.BICUBIC),
     A.Normalize(mean=[0, 0, 0], std=[1, 1, 1]),
     ToTensorV2(),
   ]

@@ -24,38 +24,40 @@ transform = transforms.Compose(
   ]
 )
 
-def train_step(loader, disc, gen, optimizer_disc, optimizer_gen, loss):
-  loop = tqdm(loader, leave=True, unit="batch")
+def train_step(data, disc, gen, optimizer_disc, optimizer_gen, loss, d_scaler, g_scaler):
+  real = data.to(device)
+  noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
 
-  loss_disc = loss_gen = None
-  for batch_idx, (real, _) in enumerate(loop):
-    real = real.to(device)
-    noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
+  # Train discriminator
+  with torch.cuda.amp.autocast():
     fake = gen(noise)
-
-    # Train discriminator
     disc_real = disc(real).reshape(-1)  # Flatten
     loss_disc_real = loss(disc_real, torch.ones_like(disc_real))
 
-    disc_fake = disc(fake).reshape(-1)
+    disc_fake = disc(fake.detach()).reshape(-1)
     loss_disc_fake = loss(disc_fake, torch.zeros_like(disc_fake))
 
     loss_disc = (loss_disc_real + loss_disc_fake) / 2
-    disc.zero_grad()
 
-    loss_disc.backward(retain_graph=True)
-    optimizer_disc.step()
+  optimizer_disc.zero_grad()
+  d_scaler.scale(loss_disc).backward()
+  d_scaler.step(optimizer_disc)
+  d_scaler.update()
 
-    # Train generator
+  # Train generator
+  with torch.cuda.amp.autocast():
     output = disc(fake).reshape(-1)
     loss_gen = loss(output, torch.ones_like(output))
-    gen.zero_grad()
-    loss_gen.backward()
-    optimizer_gen.step()
+
+  optimizer_gen.zero_grad()
+  g_scaler.scale(loss_gen).backward()
+  g_scaler.step(optimizer_gen)
+  g_scaler.update()
 
   return loss_disc, loss_gen
 
 def train():
+  # dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)
   dataset = datasets.ImageFolder(root=DATASET_PATH, transform=transform)
   loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
@@ -78,10 +80,10 @@ def train():
   if os.path.exists(f"models/{MODEL_NAME}/metadata.pkl") and os.path.isfile(f"models/{MODEL_NAME}/metadata.pkl"):
     metadata = load_metadata(f"models/{MODEL_NAME}/metadata.pkl")
 
-  start_epoch = 0
+  start_iteration = 0
   if metadata is not None:
-    if "epoch" in metadata.keys():
-      start_epoch = int(metadata["epoch"])
+    if "iteration" in metadata.keys():
+      start_iteration = int(metadata["iteration"])
 
   if GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
@@ -101,8 +103,10 @@ def train():
 
   test_noise = torch.randn((32, NOISE_DIM, 1, 1), device=device)
 
-  summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}")
-  summary_writer_values = SummaryWriter(f"logs/{MODEL_NAME}/scalars")
+  summary_writer = SummaryWriter(f"logs/{MODEL_NAME}")
+
+  g_scaler = torch.cuda.amp.GradScaler()
+  d_scaler = torch.cuda.amp.GradScaler()
 
   gen.train()
   disc.train()
@@ -116,36 +120,47 @@ def train():
   if not os.path.exists(f"models/{MODEL_NAME}"):
     pathlib.Path(f"models/{MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
-  last_epoch = 0
+  iteration = start_iteration
   try:
-    for epoch in range(start_epoch, EPOCHS):
-      last_epoch = epoch
+    with tqdm(total=ITERATIONS, initial=iteration, unit="it") as bar:
+      while True:
+        loss_disc = loss_gen = None
+        for data, _ in loader:
+          loss_disc, loss_gen = train_step(data, disc, gen, optimizer_disc, optimizer_gen, loss, d_scaler, g_scaler)
+          if loss_gen is not None and loss_disc is not None:
+            summary_writer.add_scalar("Gen Loss", loss_gen, global_step=iteration)
+            summary_writer.add_scalar("Disc Loss", loss_disc, global_step=iteration)
 
-      loss_disc, loss_gen = train_step(loader, disc, gen, optimizer_disc, optimizer_gen, loss)
-      if loss_gen is not None and loss_disc is not None:
-        print(f"Epoch: {epoch}/{EPOCHS} Loss disc: {loss_disc:.4f}, Loss gen: {loss_gen:.4f}")
+          if SAVE_CHECKPOINT and iteration % CHECKPOINT_EVERY == 0:
+            save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{iteration}.mod")
+            save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc_{iteration}.mod")
 
-        summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=epoch)
-        summary_writer_values.add_scalar("Disc Loss", loss_disc, global_step=epoch)
+          if iteration % SAMPLE_INTERVAL == 0:
+            with torch.no_grad():
+              fake = gen(test_noise)
+              img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
+              summary_writer.add_image("Generated", img_grid_fake, global_step=iteration)
 
-      if epoch % SAVE_INTERVAL == 0:
-        with torch.no_grad():
-          fake = gen(test_noise)
-          img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
-          summary_writer_fake.add_image("Fake", img_grid_fake, global_step=epoch)
+          iteration += 1
+          if iteration > ITERATIONS:
+            break
 
-        save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{epoch}.mod")
-        save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc_{epoch}.mod")
+          bar.update()
 
-      save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
-      save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
-      save_metadata({"epoch": last_epoch}, f"models/{MODEL_NAME}/metadata.pkl")
+        if iteration > ITERATIONS:
+          break
+
+        if loss_disc is not None and loss_gen is not None:
+          print(f"Iter: {iteration}/{ITERATIONS} Loss disc: {loss_disc:.4f}, Loss gen: {loss_gen:.4f}")
+        save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
+        save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
+        save_metadata({"iteration": iteration}, f"models/{MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
 
   save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
   save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc.mod")
-  save_metadata({"epoch": last_epoch}, f"models/{MODEL_NAME}/metadata.pkl")
+  save_metadata({"iteration": iteration}, f"models/{MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
     train()

@@ -23,45 +23,51 @@ transform = transforms.Compose(
   ]
 )
 
-def train_step(loader, crit, gen, optimizer_crit, optimizer_gen):
+def train_step(loader, crit, gen, optimizer_crit, optimizer_gen, c_scaler, g_scaler):
   loop = tqdm(loader, leave=True, unit="batch")
 
   loss_crit = loss_gen = None
   for batch_idx, (real, _) in enumerate(loop):
     real = real.to(device)
     noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
-    fake = gen(noise)
 
     # Train critic
     for _ in range(CRITIC_ITERATIONS):
-      crit_real = crit(real).reshape(-1)  # Flatten
-      crit_fake = crit(fake).reshape(-1)
+      with torch.cuda.amp.autocast():
+        fake = gen(noise)
 
-      loss_crit = -(torch.mean(crit_real) - torch.mean(crit_fake))
+        crit_real = crit(real).reshape(-1)  # Flatten
+        crit_fake = crit(fake).reshape(-1)
 
-      crit.zero_grad()
-      loss_crit.backward(retain_graph=True)
-      optimizer_crit.step()
+        loss_crit = -(torch.mean(crit_real) - torch.mean(crit_fake))
+
+      optimizer_crit.zero_grad()
+      c_scaler.scale(loss_crit).backward()
+      c_scaler.step(optimizer_crit)
+      c_scaler.update()
 
       for p in crit.parameters():
         p.data.clamp_(-WEIGHT_CLIP, WEIGHT_CLIP)
 
       noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
-      fake = gen(noise)
 
     # Train generator
-    output = crit(fake).reshape(-1)
-    loss_gen = -torch.mean(output)
-    gen.zero_grad()
-    loss_gen.backward()
-    optimizer_gen.step()
+    with torch.cuda.amp.autocast():
+      fake = gen(noise)
+      output = crit(fake).reshape(-1)
+      loss_gen = -torch.mean(output)
+
+    optimizer_gen.zero_grad()
+    g_scaler.scale(loss_gen).backward()
+    g_scaler.step(optimizer_gen)
+    g_scaler.update()
 
   return loss_crit, loss_gen
 
 def train():
   # dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)
   dataset = datasets.ImageFolder(root=DATASET_PATH, transform=transform)
-  loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+  loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, persistent_workers=True, pin_memory=True)
 
   gen = Generator(NOISE_DIM, IMG_CH, FEATURES_GEN).to(device)
   crit = Critic(IMG_CH, FEATURES_CRIT).to(device)
@@ -110,8 +116,10 @@ def train():
       print("Critic model weights are incompatible with found model parameters")
       exit(2)
 
-  summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}")
-  summary_writer_values = SummaryWriter(f"logs/{MODEL_NAME}/scalars")
+  summary_writer = SummaryWriter(f"logs/{MODEL_NAME}")
+
+  g_scaler = torch.cuda.amp.GradScaler()
+  c_scaler = torch.cuda.amp.GradScaler()
 
   gen.train()
   crit.train()
@@ -130,11 +138,11 @@ def train():
     for epoch in range(start_epoch, EPOCHS):
       last_epoch = epoch
 
-      loss_crit, loss_gen = train_step(loader, crit, gen, optimizer_crit, optimizer_gen)
+      loss_crit, loss_gen = train_step(loader, crit, gen, optimizer_crit, optimizer_gen, c_scaler, g_scaler)
       if loss_crit is not None and loss_gen is not None:
         print(f"Epoch: {epoch}/{EPOCHS} Loss crit: {loss_crit:.4f}, Loss gen: {loss_gen:.4f}")
-        summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=epoch)
-        summary_writer_values.add_scalar("Critic Loss", loss_crit, global_step=epoch)
+        summary_writer.add_scalar("Gen Loss", loss_gen, global_step=epoch)
+        summary_writer.add_scalar("Crit Loss", loss_crit, global_step=epoch)
 
       if epoch % SAMPLE_EVERY == 0:
         with torch.no_grad():
@@ -142,7 +150,7 @@ def train():
 
           img_grid_fake = torchvision.utils.make_grid(fake, normalize=True)
 
-          summary_writer_fake.add_image("Fake", img_grid_fake, global_step=epoch)
+          summary_writer.add_image("Generated", img_grid_fake, global_step=epoch)
 
         save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{epoch}.mod")
         save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit_{epoch}.mod")

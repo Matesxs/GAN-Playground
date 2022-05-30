@@ -7,10 +7,10 @@ import settings
 from gans.utils.helpers import walk_path
 
 class SrganDataset(Dataset):
-  def __init__(self, root_dir, transform=None):
+  def __init__(self, root_dir, transforms=None):
     assert os.path.exists(root_dir) and os.path.isdir(root_dir)
 
-    self.transform = transform
+    self.transforms = transforms
     self.image_paths = walk_path(root_dir)
 
   def __len__(self):
@@ -21,16 +21,17 @@ class SrganDataset(Dataset):
 
     image = np.array(Image.open(path).convert("RGB"))
 
-    if self.transform is None:
+    if self.transforms is None:
       image = settings.both_transform(image=image)["image"]
       high_res = settings.high_res_transform(image=image)["image"]
       low_res = settings.low_res_transform(image=image)["image"]
       return low_res, high_res
     else:
-      return self.transform(image=image)["image"]
+      transforms = [transform(image=image)["image"] for transform in self.transforms]
+      return transforms
 
 if __name__ == '__main__':
-  dataset = SrganDataset("datasets/imagenet/test", transform=settings.test_transform)
+  dataset = SrganDataset("datasets/imagenet/test", transforms=[settings.test_transform])
   loader = DataLoader(dataset, 16, pin_memory=True)
   data = next(iter(loader))
-  print(data.shape)
+  print(data[0].shape)

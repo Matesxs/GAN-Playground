@@ -140,13 +140,13 @@ class Critic(nn.Module):
     return self.final_block(out).view(out.shape[0], -1)
 
 if __name__ == '__main__':
-  Z_DIM = 100
-  CHANNELS = [512, 512, 512, 512, 256, 128, 64, 32, 16]
+  Z_DIM = 128
+  CHANNELS = [1024, 512, 256, 128, 64, 32]
 
   gen = Generator(Z_DIM, CHANNELS)
   critic = Critic(CHANNELS)
 
-  for img_size in [4, 8, 16, 32, 64, 128, 256, 512, 1024]:
+  for img_size in [4, 8, 16, 32, 64, 128]:
     num_steps = int(log2(img_size / 4))
     x = torch.randn((1, Z_DIM, 1, 1))
     z = gen(x, 0.5, steps=num_steps)
