@@ -25,3 +25,5 @@ GEN_MODEL_WEIGHTS_TO_LOAD = None
 CRITIC_MODEL_WEIGHTS_TO_LOAD = None
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+NUM_OF_WORKERS = 4

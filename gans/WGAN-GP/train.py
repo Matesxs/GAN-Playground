@@ -26,7 +26,8 @@ transform = transforms.Compose(
 def gradient_penalty(critic, real, fake, device):
   batch, channels, height, width = real.shape
   epsilon = torch.randn((batch, 1, 1, 1)).repeat(1, channels, height, width).to(device)
-  interpolated_imgs = real * epsilon + fake * (1 - epsilon)
+  interpolated_imgs = real * epsilon + fake.detach() * (1 - epsilon)
+  interpolated_imgs.requires_grad_(True)
 
   interpolated_scores = critic(interpolated_imgs)
   gradient = torch.autograd.grad(inputs=interpolated_imgs, outputs=interpolated_scores,
@@ -39,44 +40,40 @@ def gradient_penalty(critic, real, fake, device):
 
   return torch.mean((gradient_norm - 1) ** 2)
 
-def train_step(data, crit, gen, optimizer_crit, optimizer_gen, c_scaler, g_scaler):
+def train_step(data, crit, gen, optimizer_crit, optimizer_gen, step):
   real = data.to(device)
-  noise = torch.randn((real.shape[0], NOISE_DIM, 1, 1), device=device)
+  cur_batch_size = real.shape[0]
 
   # Train critic
-  for _ in range(CRITIC_ITERATIONS):
-    with torch.cuda.amp.autocast():
-      fake = gen(noise)
-      crit_real = crit(real).reshape(-1)  # Flatten
-      crit_fake = crit(fake).reshape(-1)
+  noise = torch.randn(cur_batch_size, NOISE_DIM, 1, 1).to(device)
+  fake = gen(noise)
+  critic_real = crit(real).reshape(-1)
+  critic_fake = crit(fake.detach()).reshape(-1)
 
-      gp = gradient_penalty(crit, real, fake, device)
-      loss_crit = -(torch.mean(crit_real) - torch.mean(crit_fake)) + LAMBDA_GRAD_PENALTY * gp
-
-    optimizer_crit.zero_grad()
-    c_scaler.scale(loss_crit).backward()
-    c_scaler.step(optimizer_crit)
-    c_scaler.update()
-
-    noise = torch.randn((real.shape[0], NOISE_DIM, 1, 1), device=device)
+  gp = gradient_penalty(crit, real, fake, device=device)
+  loss_crit = -(torch.mean(critic_real) - torch.mean(critic_fake)) + LAMBDA_GRAD_PENALTY * gp
+  crit.zero_grad()
+  loss_crit.backward()
+  optimizer_crit.step()
 
   # Train generator
-  with torch.cuda.amp.autocast():
+  loss_gen = None
+  if step % CRITIC_ITERATIONS == 0:
+    noise = torch.randn(cur_batch_size, NOISE_DIM, 1, 1).to(device)
     fake = gen(noise)
-    output = crit(fake).reshape(-1)
-    loss_gen = -torch.mean(output)
+    gen_fake = crit(fake).reshape(-1)
+    loss_gen = -torch.mean(gen_fake)
 
-  optimizer_gen.zero_grad()
-  g_scaler.scale(loss_gen).backward()
-  g_scaler.step(optimizer_gen)
-  g_scaler.update()
+    gen.zero_grad()
+    loss_gen.backward()
+    optimizer_gen.step()
 
   return loss_crit, loss_gen
 
 def train():
   # dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)
   dataset = datasets.ImageFolder(root=DATASET_PATH, transform=transform)
-  loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, persistent_workers=True, pin_memory=True)
+  loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_OF_WORKERS, persistent_workers=True, pin_memory=True)
 
   gen = Generator(NOISE_DIM, IMG_CH, FEATURES_GEN).to(device)
   crit = Critic(IMG_CH, FEATURES_CRIT).to(device)
@@ -127,9 +124,6 @@ def train():
 
   summary_writer = SummaryWriter(f"logs/{MODEL_NAME}")
 
-  g_scaler = torch.cuda.amp.GradScaler()
-  c_scaler = torch.cuda.amp.GradScaler()
-
   gen.train()
   crit.train()
 
@@ -146,10 +140,11 @@ def train():
     with tqdm(total=ITERATIONS, initial=iteration, unit="it") as bar:
       while True:
         for data, _ in loader:
-          loss_crit, loss_gen = train_step(data, crit, gen, optimizer_crit, optimizer_gen, c_scaler, g_scaler)
-          if loss_crit is not None and loss_gen is not None:
-            summary_writer.add_scalar("Gen Loss", loss_gen, global_step=iteration)
+          loss_crit, loss_gen = train_step(data, crit, gen, optimizer_crit, optimizer_gen, iteration)
+          if loss_crit is not None:
             summary_writer.add_scalar("Crit Loss", loss_crit, global_step=iteration)
+          if loss_gen is not None:
+            summary_writer.add_scalar("Gen Loss", loss_gen, global_step=iteration)
 
           if SAVE_CHECKPOINT and iteration % CHECKPOINT_EVERY == 0:
             save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{iteration}.mod")
