@@ -83,9 +83,12 @@ More stable training in comparison to DCGAN but slower to train
    2. Generated - 200 epochs \
    ![5](media/faces_wgan_fake2.png?raw=true)
 2. Celeb dataset (64x64 color, 200000 images) - batch size 64 \
-   Model with replaced batch norm lazers with instance norm layers
+   Model with replaced batch norm lazers with instance norm layers \
+   Stability of model is improved
    1. Generated - 20 epochs \
    ![6](media/faces_wgan_fake3.png?raw=true)
+   2. Generated - 200 epochs \
+   ![8](media/faces_wgan_fake4.png?raw=true)
 
 ### WGAN-GP
 1. Celeb dataset (64x64 color, 200000 images) - batch size 64

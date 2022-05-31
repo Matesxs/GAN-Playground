@@ -59,7 +59,7 @@ def train_step(data, disc, gen, optimizer_disc, optimizer_gen, loss, d_scaler, g
 def train():
   # dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)
   dataset = datasets.ImageFolder(root=DATASET_PATH, transform=transform)
-  loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+  loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_OF_WORKERS, pin_memory=True, persistent_workers=True)
 
   gen = Generator(NOISE_DIM, IMG_CH, FEATURES_GEN).to(device)
   disc = Discriminator(IMG_CH, FEATURES_DISC).to(device)
@@ -105,7 +105,7 @@ def train():
       print("Discriminator model weights are incompatible with found model parameters")
       exit(2)
 
-  loss = nn.BCELoss()
+  loss = nn.BCEWithLogitsLoss()
 
   summary_writer = SummaryWriter(f"logs/{MODEL_NAME}")
 
@@ -129,28 +129,28 @@ def train():
       while True:
         for data, _ in loader:
           loss_disc, loss_gen = train_step(data, disc, gen, optimizer_disc, optimizer_gen, loss, d_scaler, g_scaler)
+          if loss_gen is not None and loss_disc is not None:
+            summary_writer.add_scalar("Gen Loss", loss_gen, global_step=iteration)
+            summary_writer.add_scalar("Disc Loss", loss_disc, global_step=iteration)
 
           if SAVE_CHECKPOINT and iteration % CHECKPOINT_EVERY == 0:
             save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{iteration}.mod")
             save_model(disc, optimizer_disc, f"models/{MODEL_NAME}/disc_{iteration}.mod")
 
           if iteration % SAMPLE_INTERVAL == 0:
-            if loss_gen is not None and loss_disc is not None:
-              summary_writer.add_scalar("Gen Loss", loss_gen, global_step=iteration)
-              summary_writer.add_scalar("Disc Loss", loss_disc, global_step=iteration)
-
+            gen.eval()
             with torch.no_grad():
               fake = gen(test_noise)
               img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
               summary_writer.add_image("Generated", img_grid_fake, global_step=iteration)
+            gen.train()
 
           iteration += 1
-          if iteration > ITERATIONS:
+          bar.update()
+          if iteration >= ITERATIONS:
             break
 
-          bar.update()
-
-        if iteration > ITERATIONS:
+        if iteration >= ITERATIONS:
           break
 
         save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
