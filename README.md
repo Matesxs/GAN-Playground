@@ -61,16 +61,16 @@ clean_dataset.py - Clean low resolution images from dataset
 ## Results
 
 ### DCGAN
-1. Mnist dataset (64x64 grayscale) - 20 epochs, batch size 128 \
+1. Mnist dataset (64x64 grayscale) - 100k iters, batch size 128 \
    ![1](media/mnist_dcgan_fake.png?raw=true)
 
 2. Celeb dataset (64x64 color, 200000 images) - batch size 128 \
    Unstable training and colapsed after few more epochs \
    No need for more training, because its by design prone to fails   
 
-   1. Generated - 100 epochs \
+   1. Generated - 3M iters \
    ![2](media/faces_dcgan_fake.png?raw=true)
-   2. Colapsed network (epoch 110) \
+   2. Colapsed network (3.3M iters) \
    ![3](media/faces_dcgan_fake_colapsed.png?raw=true)
 
 ### WGAN
@@ -78,16 +78,16 @@ clean_dataset.py - Clean low resolution images from dataset
 More stable training in comparison to DCGAN but slower to train
 
 1. Celeb dataset (64x64 color, 200000 images) - batch size 64
-   1. Generated - 100 epochs \
+   1. Generated - 3M iters \
    ![4](media/faces_wgan_fake1.png?raw=true)
-   2. Generated - 200 epochs \
+   2. Generated - 6M iters \
    ![5](media/faces_wgan_fake2.png?raw=true)
 2. Celeb dataset (64x64 color, 200000 images) - batch size 64 \
    Model with replaced batch norm lazers with instance norm layers \
    Stability of model is improved
-   1. Generated - 20 epochs \
+   1. Generated - 600k iters \
    ![6](media/faces_wgan_fake3.png?raw=true)
-   2. Generated - 200 epochs \
+   2. Generated - 6M iters \
    ![8](media/faces_wgan_fake4.png?raw=true)
 
 ### WGAN-GP
