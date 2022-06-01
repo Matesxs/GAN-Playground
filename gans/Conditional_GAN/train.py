@@ -10,7 +10,6 @@ from tqdm import tqdm
 
 from critic_model import Critic
 from generator_model import Generator
-from helpers import gradient_penalty
 from settings import *
 
 from gans.utils.training_saver import load_model, save_model, load_metadata, save_metadata
@@ -23,40 +22,51 @@ transform = transforms.Compose(
   ]
 )
 
-def train_step(loader, crit, gen, optimizer_crit, optimizer_gen):
-  loop = tqdm(loader, leave=True, unit="batch")
+def gradient_penalty(critic, real, fake, labels, device):
+  batch, channels, height, width = real.shape
+  epsilon = torch.randn((batch, 1, 1, 1)).repeat(1, channels, height, width).to(device)
+  interpolated_imgs = real * epsilon + fake.detach() * (1 - epsilon)
+  interpolated_imgs.requires_grad_(True)
 
-  loss_crit = loss_gen = labels = real = None
-  for batch_idx, (real, labels) in enumerate(loop):
-    real = real.to(device)
-    labels = labels.to(device)
+  interpolated_scores = critic(interpolated_imgs, labels)
+  gradient = torch.autograd.grad(inputs=interpolated_imgs, outputs=interpolated_scores,
+                                 grad_outputs=torch.ones_like(interpolated_scores),
+                                 create_graph=True, retain_graph=True)[0]
 
-    noise = torch.randn((labels.shape[0], NOISE_DIM, 1, 1), device=device)
-    fake = gen(noise, labels)
+  # Flattening of gradient
+  gradient = gradient.view(gradient.shape[0], -1)
+  gradient_norm = gradient.norm(2, dim=1) # L2 norm
 
-    # Train critic
-    for _ in range(CRITIC_ITERATIONS):
-      crit_real = crit(real, labels).reshape(-1)  # Flatten
-      crit_fake = crit(fake, labels).reshape(-1)
+  return torch.mean((gradient_norm - 1) ** 2)
 
-      gp = gradient_penalty(crit, real, fake, labels, device)
-      loss_crit = -(torch.mean(crit_real) - torch.mean(crit_fake)) + LAMBDA_GRAD_PENALTY * gp
+def train_step(real, labels, crit, gen, optimizer_crit, optimizer_gen, step):
+  real = real.to(device)
+  labels = labels.to(device)
 
-      crit.zero_grad()
-      loss_crit.backward(retain_graph=True)
-      optimizer_crit.step()
+  # Train critic
+  noise = torch.randn((labels.shape[0], NOISE_DIM, 1, 1), device=device)
+  fake = gen(noise, labels)
+  crit_real = crit(real, labels).reshape(-1)  # Flatten
+  crit_fake = crit(fake.detach(), labels).reshape(-1)
 
-      noise = torch.randn((labels.shape[0], NOISE_DIM, 1, 1), device=device)
-      fake = gen(noise, labels)
+  gp = gradient_penalty(crit, real, fake, labels, device)
+  loss_crit = -(torch.mean(crit_real) - torch.mean(crit_fake)) + LAMBDA_GRAD_PENALTY * gp
 
-    # Train generator
+  crit.zero_grad()
+  loss_crit.backward()
+  optimizer_crit.step()
+
+  # Train generator
+  loss_gen = None
+  if step % CRITIC_ITERATIONS == 0:
     output = crit(fake, labels).reshape(-1)
     loss_gen = -torch.mean(output)
+
     gen.zero_grad()
     loss_gen.backward()
     optimizer_gen.step()
 
-  return loss_crit, loss_gen, labels, real
+  return loss_crit, loss_gen
 
 def train():
   dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)
@@ -81,11 +91,11 @@ def train():
   if os.path.exists(f"models/{MODEL_NAME}/metadata.pkl") and os.path.isfile(f"models/{MODEL_NAME}/metadata.pkl"):
     metadata = load_metadata(f"models/{MODEL_NAME}/metadata.pkl")
 
-  start_epoch = 0
+  iteration = 0
   test_noise = torch.randn((BATCH_SIZE, NOISE_DIM, 1, 1), device=device)
   if metadata is not None:
-    if "epoch" in metadata.keys():
-      start_epoch = int(metadata["epoch"])
+    if "iteration" in metadata.keys():
+      iteration = int(metadata["iteration"])
 
     if "noise" in metadata.keys():
       tmp_noise = torch.Tensor(metadata["noise"])
@@ -106,9 +116,7 @@ def train():
       print("Critic model weights are incompatible with found model parameters")
       exit(2)
 
-  summary_writer_real = SummaryWriter(f"logs/{MODEL_NAME}/real")
-  summary_writer_fake = SummaryWriter(f"logs/{MODEL_NAME}/fake")
-  summary_writer_values = SummaryWriter(f"logs/{MODEL_NAME}/scalars")
+  summary_writer = SummaryWriter(f"logs/{MODEL_NAME}")
 
   gen.train()
   crit.train()
@@ -116,39 +124,49 @@ def train():
   if not os.path.exists(f"models/{MODEL_NAME}"):
     pathlib.Path(f"models/{MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
-  last_epoch = 0
   try:
-    for epoch in range(start_epoch, EPOCHS):
-      last_epoch = epoch
+    with tqdm(total=ITERATIONS, initial=iteration, unit="it") as bar:
+      while True:
+        for real, labels in loader:
+          loss_crit, loss_gen = train_step(real, labels, crit, gen, optimizer_crit, optimizer_gen, iteration)
+          if loss_gen is not None:
+            summary_writer.add_scalar("Gen Loss", loss_gen, global_step=iteration)
+          if loss_crit is not None:
+            summary_writer.add_scalar("Crit Loss", loss_crit, global_step=iteration)
 
-      loss_crit, loss_gen, labels, real = train_step(loader, crit, gen, optimizer_crit, optimizer_gen)
-      if loss_crit is not None and loss_gen is not None:
-        print(f"Epoch: {epoch}/{EPOCHS} Loss crit: {loss_crit:.4f}, Loss gen: {loss_gen:.4f}")
-        summary_writer_values.add_scalar("Gen Loss", loss_gen, global_step=epoch)
-        summary_writer_values.add_scalar("Crit Loss", loss_crit, global_step=epoch)
+          if SAVE_CHECKPOINT and iteration % CHECKPOINT_EVERY == 0:
+            save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{iteration}.mod")
+            save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit_{iteration}.mod")
 
-      if epoch % SAMPLE_EVERY == 0:
-        with torch.no_grad():
-          fake = gen(test_noise, labels)
+          if iteration % SAMPLE_EVERY == 0:
+            gen.eval()
+            with torch.no_grad():
+              fake = gen(test_noise, labels.to(device))
 
-          img_grid_real = torchvision.utils.make_grid(real[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
-          img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
+              img_grid_real = torchvision.utils.make_grid(real[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
+              img_grid_fake = torchvision.utils.make_grid(fake[:NUMBER_OF_SAMPLE_IMAGES], normalize=True)
 
-          summary_writer_real.add_image("Real", img_grid_real, global_step=epoch)
-          summary_writer_fake.add_image("Fake", img_grid_fake, global_step=epoch)
+              summary_writer.add_image("Real", img_grid_real, global_step=iteration)
+              summary_writer.add_image("Fake", img_grid_fake, global_step=iteration)
+            gen.train()
 
-        save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen_{epoch}.mod")
-        save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit_{epoch}.mod")
+          bar.update()
+          iteration += 1
+          if iteration >= ITERATIONS:
+            break
 
-      save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
-      save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
-      save_metadata({"epoch": last_epoch, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
+        if iteration >= ITERATIONS:
+          break
+
+        save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
+        save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
+        save_metadata({"iteration": iteration, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
 
   save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
   save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")
-  save_metadata({"epoch": last_epoch, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
+  save_metadata({"iteration": iteration, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
     train()
