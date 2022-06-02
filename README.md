@@ -96,17 +96,11 @@ More stable training in comparison to DCGAN but slower to train
    ![6](media/faces_wgan-gp_fake1.png?raw=true)
 
 ### Conditional GAN - Based on WGAN-GP
-1. Mnist dataset (64x64 grayscale) - batch size 64 - TODO: Revisit
-   1. Original model
-      1. Generated - 20 epochs \
-      ![7](media/mnist_cond-gan_fake.png?raw=true)
-      2. Real \
-      ![8](media/mnist_cond-gan_real.png?raw=true)
-   2. Larger model
-      1. Generated - 20 epochs \
-      ![9](media/mnist_cond-gan_fake2.png?raw=true)
-      2. Real \
-      ![10](media/mnist_cond-gan_real2.png?raw=true)
+1. Mnist dataset (64x64 grayscale) - batch size 64
+   1. Generated - 200k iters \
+   ![7](media/mnist_cond-gan_fake.png?raw=true)
+   2. Real \
+   ![8](media/mnist_cond-gan_real.png?raw=true)
 
 ### Pix2Pix using GAN
 1. Maps segmentation (256x256 color, 2000 images) - batch size 16, 200 epochs \

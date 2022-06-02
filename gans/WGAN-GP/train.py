@@ -161,10 +161,10 @@ def train():
 
           bar.update()
           iteration += 1
-          if iteration >= ITERATIONS:
+          if iteration > ITERATIONS:
             break
 
-        if iteration >= ITERATIONS:
+        if iteration > ITERATIONS:
           break
 
         save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")

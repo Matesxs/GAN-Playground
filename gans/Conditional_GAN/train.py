@@ -70,7 +70,7 @@ def train_step(real, labels, crit, gen, optimizer_crit, optimizer_gen, step):
 
 def train():
   dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)
-  loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, persistent_workers=True, pin_memory=True)
+  loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_OF_WORKERS, persistent_workers=True, pin_memory=True)
 
   gen = Generator(NOISE_DIM, IMG_CH, FEATURES_GEN, NUM_OF_CLASSES, IMG_SIZE, EMBED_SIZE).to(device)
   crit = Critic(IMG_CH, FEATURES_CRIT, NUM_OF_CLASSES, IMG_SIZE).to(device)
@@ -152,10 +152,10 @@ def train():
 
           bar.update()
           iteration += 1
-          if iteration >= ITERATIONS:
+          if iteration > ITERATIONS:
             break
 
-        if iteration >= ITERATIONS:
+        if iteration > ITERATIONS:
           break
 
         save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")

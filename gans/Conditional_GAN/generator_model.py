@@ -11,16 +11,16 @@ class Generator(nn.Module):
     self.img_size = img_size
 
     self.generator = nn.Sequential(
-      upscale_block(noise_dim + embed_size, features_gen * 16, (4, 4), (2, 2), (0, 0)),
-      upscale_block(features_gen * 16, features_gen * 8,  (4, 4), (2, 2), (1, 1)),
-      upscale_block(features_gen * 8,  features_gen * 4,  (4, 4), (2, 2), (1, 1)),
+      upscale_block(noise_dim + embed_size, features_gen * 8, (4, 4), (2, 2), (0, 0)),
+      upscale_block(features_gen * 8, features_gen * 4,  (4, 4), (2, 2), (1, 1)),
       upscale_block(features_gen * 4,  features_gen * 2,  (4, 4), (2, 2), (1, 1)),
+      upscale_block(features_gen * 2,  features_gen * 1,  (4, 4), (2, 2), (1, 1)),
 
       # nn.Conv2d(features_gen * 2, features_gen * 2, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
       # nn.InstanceNorm2d(features_gen * 2, affine=True),
       # nn.ReLU(),
 
-      nn.ConvTranspose2d(features_gen * 2, image_channels, (4, 4), (2, 2), (1, 1)),
+      nn.ConvTranspose2d(features_gen * 1, image_channels, (4, 4), (2, 2), (1, 1)),
       nn.Tanh()
     )
 
