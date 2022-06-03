@@ -1,8 +1,6 @@
 import os
 import torch.optim as optim
 import torchvision
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
@@ -14,14 +12,7 @@ from generator_model import Generator
 from settings import *
 
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
-
-transform = transforms.Compose(
-  [
-    transforms.Resize(IMG_SIZE),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5 for _ in range(IMG_CH)], [0.5 for _ in range(IMG_CH)])
-  ]
-)
+from gans.utils.datasets import SingleInSingleOutDataset
 
 def gradient_penalty(critic, real, fake, device):
   batch, channels, height, width = real.shape
@@ -71,8 +62,7 @@ def train_step(data, crit, gen, optimizer_crit, optimizer_gen, step):
   return loss_crit, loss_gen
 
 def train():
-  # dataset = datasets.MNIST(root="datasets/mnist", train=True, transform=transform, download=True)
-  dataset = datasets.ImageFolder(root=DATASET_PATH, transform=transform)
+  dataset = SingleInSingleOutDataset(root_dir=DATASET_PATH, transform=transform, format="RGB" if IMG_CH == 3 else "GRAY")
   loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_OF_WORKERS, persistent_workers=True, pin_memory=True)
 
   gen = Generator(NOISE_DIM, IMG_CH, FEATURES_GEN).to(device)
@@ -139,7 +129,7 @@ def train():
   try:
     with tqdm(total=ITERATIONS, initial=iteration, unit="it") as bar:
       while True:
-        for data, _ in loader:
+        for data in loader:
           loss_crit, loss_gen = train_step(data, crit, gen, optimizer_crit, optimizer_gen, iteration)
           if loss_crit is not None:
             summary_writer.add_scalar("Crit Loss", loss_crit, global_step=iteration)
@@ -172,6 +162,10 @@ def train():
         save_metadata({"iteration": iteration, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
+  except Exception as e:
+    print(e)
+    save_metadata({"iteration": iteration, "noise": test_noise.tolist()}, f"models/{MODEL_NAME}/metadata.pkl")
+    exit(-1)
 
   save_model(gen, optimizer_gen, f"models/{MODEL_NAME}/gen.mod")
   save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit.mod")

@@ -9,11 +9,11 @@ import os
 import pathlib
 
 import settings
-from dataset import PairDataset
 from generator_model import Generator
 from discriminator_model import Discriminator
 
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
+from gans.utils.datasets import JoinedImagePairDataset
 
 def train(disc, gen, train_dataloader, opt_discriminator, opt_generator, l1_loss, bce_loss, g_scaler, d_scaler):
   loop = tqdm(train_dataloader, leave=True, unit="batch")
@@ -99,9 +99,10 @@ def main():
       print(f"Discriminator model weights are incompatible with found model parameters\n{e}")
       exit(2)
 
-  train_dataset = PairDataset(root_dir=settings.TRAINING_DATASET_PATH, switch_sides=settings.SWITCH_INPUT_IMAGE_POSITIONS, transform=settings.train_transform)
+  dataset_format = "RGB" if settings.IMG_CHAN == 3 else "GRAY"
+  train_dataset = JoinedImagePairDataset(root_dir=settings.TRAINING_DATASET_PATH, switch_sides=settings.SWITCH_INPUT_IMAGE_POSITIONS, transform=settings.train_transform, format=dataset_format)
   train_dataloader = DataLoader(train_dataset, settings.BATCH_SIZE, True, num_workers=4, persistent_workers=True)
-  test_dataset = PairDataset(root_dir=settings.TESTING_DATASET_PATH, switch_sides=settings.SWITCH_INPUT_IMAGE_POSITIONS, transform=settings.test_transform)
+  test_dataset = JoinedImagePairDataset(root_dir=settings.TESTING_DATASET_PATH, switch_sides=settings.SWITCH_INPUT_IMAGE_POSITIONS, transform=settings.test_transform, format=dataset_format)
   test_dataloader = DataLoader(test_dataset, settings.TESTING_SAMPLES, False)
 
   g_scaler = torch.cuda.amp.GradScaler()

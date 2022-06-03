@@ -97,8 +97,6 @@ worker_pool = ThreadPool(processes=16)
 
 if os.path.exists(output_folder): shutil.rmtree(output_folder)
 os.mkdir(output_folder)
-output_folder += r"\\1"
-os.mkdir(output_folder)
 
 print(f"Found {len(raw_file_paths)} files")
 
@@ -215,8 +213,6 @@ print(f"Deleted {resized_duplicates} already resized duplicates")
 if testing_split:
   testing_folder_path = os.path.join(DATASETS_FOLDER_PATH, f"{selected_dataset_name}_normalized__{selected_x_dimension}x{selected_y_dimension}__test")
   if os.path.exists(testing_folder_path): shutil.rmtree(testing_folder_path)
-  os.mkdir(testing_folder_path)
-  testing_folder_path += r"\\1"
   os.mkdir(testing_folder_path)
 
   train_folder_files = get_paths_of_files_from_path(output_folder)

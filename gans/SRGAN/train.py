@@ -10,9 +10,9 @@ from tqdm import tqdm
 
 import settings
 from model import Discriminator, Generator
-from dataset import SrganDataset
 from utils import VGGLoss, gradient_penalty
 from gans.utils.training_saver import save_model, load_model, load_metadata, save_metadata
+from gans.utils.datasets import SingleInTwoOutDataset
 
 torch.backends.cudnn.benchmark = True
 
@@ -20,7 +20,7 @@ def train(opt_disc, opt_gen, disc, gen, train_dataset_loader, mse, bce, vgg_loss
   loop = tqdm(train_dataset_loader, leave=True, unit="batch")
 
   D_loss, G_loss = None, None
-  for idx, (low_res, high_res) in enumerate(loop):
+  for idx, (high_res, low_res) in enumerate(loop):
     low_res = low_res.to(settings.device)
     high_res = high_res.to(settings.device)
 
@@ -78,7 +78,8 @@ if __name__ == '__main__':
   bce = nn.BCEWithLogitsLoss()
   vgg_loss = VGGLoss()
 
-  train_dataset = SrganDataset(root_dir=settings.DATASET_PATH)
+  dataset_format = "RGB" if settings.IMG_CH == 3 else "GRAY"
+  train_dataset = SingleInTwoOutDataset(root_dir=settings.DATASET_PATH, both_transform=settings.both_transform, first_transform=settings.high_res_transform, second_transform=settings.low_res_transform, format=dataset_format)
   train_dataset_loader = DataLoader(
     train_dataset,
     batch_size=settings.BATCH_SIZE,
@@ -88,7 +89,7 @@ if __name__ == '__main__':
     persistent_workers=True
   )
 
-  test_dataset = SrganDataset(root_dir=settings.TEST_DATASET_PATH, transforms=[settings.high_res_test_transform, settings.low_res_test_transform])
+  test_dataset = SingleInTwoOutDataset(root_dir=settings.TEST_DATASET_PATH, both_transform=settings.both_test_transform, first_transform=settings.high_res_test_transform, second_transform=settings.low_res_test_transform, format=dataset_format)
   test_dataset_loader = DataLoader(
     test_dataset,
     batch_size=settings.TESTING_SAMPLES,
@@ -165,9 +166,7 @@ if __name__ == '__main__':
       save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
       if epoch % settings.SAMPLE_EVERY == 0:
-        test_images = next(iter(test_dataset_loader))
-        input_imgs = test_images[1]
-        true_imgs = test_images[0]
+        true_imgs, input_imgs = next(iter(test_dataset_loader))
         input_imgs = input_imgs.to(settings.device)
 
         gen.eval()

@@ -44,3 +44,12 @@ transforms = A.Compose(
   ],
   additional_targets={"image0":"image"}
 )
+
+test_transform = A.Compose(
+  [
+    A.Resize(IMG_SIZE, IMG_SIZE),
+    A.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], max_pixel_value=255.0, ),
+    ToTensorV2()
+  ],
+  additional_targets={"image0":"image"}
+)

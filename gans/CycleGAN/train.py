@@ -10,7 +10,7 @@ import pathlib
 
 import settings
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
-from dataset import ImagePairDataset
+from gans.utils.datasets import SplitImagePairDataset
 from generator_model import Generator
 from discriminator_model import Discriminator
 
@@ -162,9 +162,10 @@ def main():
       print(f"Discriminator model B weights are incompatible with found model parameters\n{e}")
       exit(2)
 
-  train_dataset = ImagePairDataset(root=settings.TRAIN_DIR, transform=settings.transforms)
+  dataset_format = "RGB" if settings.IMG_CHAN == 3 else "GRAY"
+  train_dataset = SplitImagePairDataset(root=settings.TRAIN_DIR, transform=settings.transforms, format=dataset_format)
   train_dataloader = DataLoader(train_dataset, settings.BATCH_SIZE, True, num_workers=settings.WORKERS, persistent_workers=True, pin_memory=True)
-  test_dataset = ImagePairDataset(root=settings.VAL_DIR, transform=settings.transforms)
+  test_dataset = SplitImagePairDataset(root=settings.VAL_DIR, transform=settings.test_transform, format=dataset_format)
   test_dataloader = DataLoader(test_dataset, settings.TESTING_SAMPLES, False)
 
   g_scaler = torch.cuda.amp.GradScaler()

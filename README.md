@@ -75,7 +75,7 @@ clean_dataset.py - Clean low resolution images from dataset
 
 ### WGAN
 
-More stable training in comparison to DCGAN but slower to train
+More stable training in comparison to DCGAN but slower to train and capacity of model is smaller because of hard clamping weights
 
 1. Celeb dataset (64x64 color, 200000 images) - batch size 64
    1. Generated - 3M iters \
@@ -92,8 +92,8 @@ More stable training in comparison to DCGAN but slower to train
 
 ### WGAN-GP
 1. Celeb dataset (64x64 color, 200000 images) - batch size 64
-   1. Generated - 30 epochs - TODO: More training \
-   ![6](media/faces_wgan-gp_fake1.png?raw=true)
+   Generated - 500k iters \
+   ![9](media/faces_wgan-gp_fake1.png?raw=true)
 
 ### Conditional GAN - Based on WGAN-GP
 1. Mnist dataset (64x64 grayscale) - batch size 64

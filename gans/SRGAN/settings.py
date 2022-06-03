@@ -39,18 +39,22 @@ BATCH_SIZE = 16
 
 NUM_OF_WORKERS = 8
 
-high_res_test_transform = A.Compose(
+both_test_transform = A.Compose(
   [
     A.Resize(width=HIGH_RES_TEST_IMG_SIZE, height=HIGH_RES_TEST_IMG_SIZE, interpolation=Image.BICUBIC),
     A.Normalize(mean=[0, 0, 0], std=[1, 1, 1]),
-    ToTensorV2(),
+  ]
+)
+
+high_res_test_transform = A.Compose(
+  [
+    ToTensorV2()
   ]
 )
 
 low_res_test_transform = A.Compose(
   [
     A.Resize(width=LOW_RES_TEST_IMG_SIZE, height=LOW_RES_TEST_IMG_SIZE, interpolation=Image.BICUBIC),
-    A.Normalize(mean=[0, 0, 0], std=[1, 1, 1]),
     ToTensorV2(),
   ]
 )

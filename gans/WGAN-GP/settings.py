@@ -1,25 +1,28 @@
 import torch
+from PIL import Image
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 LR = 1e-4
 BATCH_SIZE = 64
 IMG_SIZE = 64
-IMG_CH = 3
+IMG_CH = 1
 NOISE_DIM = 128
 
-ITERATIONS = 3_000_000
+ITERATIONS = 300_000
 FEATURES_CRIT = 64
 FEATURES_GEN = 128
 CRITIC_ITERATIONS = 5
 LAMBDA_GRAD_PENALTY = 10
 
-SAVE_CHECKPOINT = False
-CHECKPOINT_EVERY = 10_000
+SAVE_CHECKPOINT = True
+CHECKPOINT_EVERY = 5_000
 
-SAMPLE_EVERY = 5_000
+SAMPLE_EVERY = 1_000
 
-DATASET_PATH = "datasets/celeb_normalized__64x64"
+DATASET_PATH = "datasets/SOCOFing/Real"
 
-MODEL_NAME = "celeb_wgan-gp_model"
+MODEL_NAME = "socofing_wgan-gp_model"
 NUMBER_OF_SAMPLE_IMAGES = 32
 
 GEN_MODEL_WEIGHTS_TO_LOAD = None
@@ -27,4 +30,14 @@ CRITIC_MODEL_WEIGHTS_TO_LOAD = None
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-NUM_OF_WORKERS = 4
+NUM_OF_WORKERS = 8
+
+transform = A.Compose(
+  [
+    A.Resize(width=IMG_SIZE, height=IMG_SIZE, interpolation=Image.BICUBIC),
+    A.InvertImg(always_apply=True),
+    A.Flip(p=0.5),
+    A.Normalize(mean=[0.5 for _ in range(IMG_CH)], std=[0.5 for _ in range(IMG_CH)]),
+    ToTensorV2()
+  ]
+)
