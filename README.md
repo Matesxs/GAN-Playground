@@ -91,9 +91,14 @@ More stable training in comparison to DCGAN but slower to train and capacity of 
    ![8](media/faces_wgan_fake4.png?raw=true)
 
 ### WGAN-GP
-1. Celeb dataset (64x64 color, 200000 images) - batch size 64
+1. Celeb dataset (64x64 color, 200000 images) - batch size 64 \
    Generated - 500k iters \
    ![9](media/faces_wgan-gp_fake1.png?raw=true)
+2. SOCOFing dataset (64x64 gray, 6000 images) - batch size 32 \
+   1. Generated 100k iters \
+   ![10](media/socofing_wgan-gp_fake1.png?raw=true)
+   2. Generated 100k iters - pixel suffle \
+   ![11](media/socofing_wgan-gp_fake2.png?raw=true)
 
 ### Conditional GAN - Based on WGAN-GP
 1. Mnist dataset (64x64 grayscale) - batch size 64

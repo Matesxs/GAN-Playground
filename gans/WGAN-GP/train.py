@@ -141,6 +141,8 @@ def train():
             save_model(crit, optimizer_crit, f"models/{MODEL_NAME}/crit_{iteration}.mod")
 
           if iteration % SAMPLE_EVERY == 0:
+            print(f"Crit loss: {loss_crit:.4f}, Gen loss: {loss_gen:.4f}")
+
             gen.eval()
             with torch.no_grad():
               fake = gen(test_noise)

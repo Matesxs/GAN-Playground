@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from helpers import initialize_model
+from gans.utils.helpers import initialize_model
 from building_blocks import downscale_block
 
 class Critic(nn.Module):
