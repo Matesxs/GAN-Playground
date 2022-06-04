@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torchsummary import summary
 
+from gans.utils.helpers import initialize_model
+
 class CNNBlock(nn.Module):
   def __init__(self, in_channels, out_channels, stride=(2,2)):
     super(CNNBlock, self).__init__()
@@ -39,6 +41,8 @@ class Discriminator(nn.Module):
     layers.append(nn.Conv2d(channels, 1, kernel_size=(4, 4), stride=(1, 1), padding=1, padding_mode="reflect"))
 
     self.model = nn.Sequential(*layers)
+
+    initialize_model(self)
 
   def forward(self, x, y):
     x = torch.cat([x, y], dim=1)

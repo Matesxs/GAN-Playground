@@ -4,26 +4,34 @@ from albumentations.pytorch import ToTensorV2
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-MODEL_NAME = "anime_pix2pix_model_upgr"
+MODEL_NAME = "anime_pix2pix_model"
+
+IMG_SIZE = 256
+IMG_CHAN = 3
 
 SWITCH_INPUT_IMAGE_POSITIONS = True
-TESTING_SAMPLES = 8
 TRAINING_DATASET_PATH = "datasets/anime/train"
 TESTING_DATASET_PATH = "datasets/anime/val"
 
 GEN_MODEL_WEIGHTS_TO_LOAD = None
 DISC_MODEL_WEIGHTS_TO_LOAD = None
 
-LR = 2e-4
+SAVE_CHECKPOINT = False
+CHECKPOINT_EVERY = 5_000
 
+TESTING_SAMPLES = 8
+SAMPLE_EVERY = 1_000
+
+ITERATIONS = 1_000_000
 BATCH_SIZE = 8
-IMG_SIZE = 256
-IMG_CHAN = 3
-FEATURES_DISC = [128, 256, 512, 1024] # [64 * 2, 128 * 2, 256 * 2, 512 * 2] [64, 128, 256, 512]
-FEATURES_GEN = [64, 128, 256, 512, 1024, 1024, 1024] # [64 * 2, 128 * 2, 256 * 2, 512 * 2, 512 * 2, 512 * 2, 512 * 2] [64, 128, 256, 512, 512, 512, 512]
-GEN_UPSCALE_DROPOUT = [True, True, True, False, False, False, False]
+LR = 2e-4
 L1_LAMBDA = 100
-EPOCHS = 200
+GP_LAMBDA = 0
+FEATURES_DISC = [64, 128, 256, 512] # [128, 256, 512, 1024] [64, 128, 256, 512]
+FEATURES_GEN = [64, 128, 256, 512, 512, 512, 512] # [64, 128, 256, 512, 1024, 1024, 1024] [64, 128, 256, 512, 512, 512, 512]
+GEN_UPSCALE_DROPOUT = [True, True, True, False, False, False, False]
+TRUE_LABEL_SMOOTHING = False
+FAKE_LABEL_SMOOTHING = True
 
 train_transform = A.Compose(
   [
@@ -44,3 +52,5 @@ test_transform = A.Compose(
   ],
   additional_targets={"image0": "image"},
 )
+
+NUM_OF_WORKERS = 4

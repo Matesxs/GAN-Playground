@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torchsummary import summary
 
+from gans.utils.helpers import initialize_model
+
 class Block(nn.Module):
   def __init__(self, in_channels, out_channels, downscale=True, activation="relu", dropout=False):
     super(Block, self).__init__()
@@ -62,6 +64,8 @@ class Generator(nn.Module):
       nn.ConvTranspose2d(channels * 2, in_channels, (4, 4), (2, 2), (1, 1)),
       nn.Tanh()
     )
+
+    initialize_model(self)
 
   def forward(self, x):
     out = initial_down = self.initial(x)
