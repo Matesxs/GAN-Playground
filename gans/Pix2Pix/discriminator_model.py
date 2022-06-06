@@ -44,8 +44,7 @@ class Discriminator(nn.Module):
 
     initialize_model(self)
 
-  def forward(self, x, y):
-    x = torch.cat([x, y], dim=1)
+  def forward(self, x):
     x = self.initial(x)
     return self.model(x)
 
@@ -54,10 +53,10 @@ if __name__ == '__main__':
   y = torch.randn((1, 3, 256, 256))
 
   disc = Discriminator()
-  preds = disc(x, y)
+  preds = disc(torch.cat([x, y], dim=1))
   print(preds.shape)
 
-  summary(disc, [(3, 256, 256), (3, 256, 256)], device="cpu")
+  summary(disc, [(6, 256, 256)], device="cpu")
 
   # input_names = ['Sentence']
   # output_names = ['yhat']

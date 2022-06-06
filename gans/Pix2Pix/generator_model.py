@@ -3,15 +3,22 @@ import torch.nn as nn
 from torchsummary import summary
 
 from gans.utils.helpers import initialize_model
+from gans.utils.global_modules import PixelShuffleConv
+
+PIXEL_SHUFFLE_UPSCALE = False
 
 class Block(nn.Module):
   def __init__(self, in_channels, out_channels, downscale=True, activation="relu", dropout=False):
     super(Block, self).__init__()
+    if downscale:
+      conv_layer = nn.Conv2d(in_channels, out_channels, (4, 4), (2, 2), (1, 1), bias=False, padding_mode="reflect")
+    elif PIXEL_SHUFFLE_UPSCALE:
+      conv_layer = PixelShuffleConv(in_channels, 2, 3, 1, out_channels, bias=False)
+    else:
+      conv_layer = nn.ConvTranspose2d(in_channels, out_channels, (4, 4), (2, 2), (1, 1), bias=False)
 
     self.conv = nn.Sequential(
-      nn.Conv2d(in_channels, out_channels, (4, 4), (2, 2), (1, 1), bias=False, padding_mode="reflect")
-      if downscale
-      else nn.ConvTranspose2d(in_channels, out_channels, (4, 4), (2, 2), (1, 1), bias=False),
+      conv_layer,
       nn.InstanceNorm2d(out_channels, affine=True),
       nn.ReLU() if activation == "relu" else nn.LeakyReLU(0.2)
     )

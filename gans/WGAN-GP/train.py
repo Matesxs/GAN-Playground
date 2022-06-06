@@ -68,8 +68,8 @@ def train():
   gen = Generator(NOISE_DIM, IMG_CH, FEATURES_GEN).to(device)
   crit = Critic(IMG_CH, FEATURES_CRIT).to(device)
 
-  optimizer_gen = optim.Adam(gen.parameters(), lr=LR, betas=(0.5, 0.9))
-  optimizer_crit = optim.Adam(crit.parameters(), lr=LR, betas=(0.5, 0.9))
+  optimizer_gen = optim.Adam(gen.parameters(), lr=LR, betas=(0, 0.9))
+  optimizer_crit = optim.Adam(crit.parameters(), lr=LR, betas=(0, 0.9))
 
   try:
     if os.path.exists(f"models/{MODEL_NAME}/crit.mod") and os.path.isfile(f"models/{MODEL_NAME}/crit.mod"):

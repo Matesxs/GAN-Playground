@@ -12,7 +12,6 @@ class JoinedImagePairDataset(Dataset):
     self.root_dir = root_dir
     self.transform = transform
     self.files_list = walk_path(self.root_dir)
-    print(f"Found {len(self.files_list)} input files")
 
   def __len__(self):
     return len(self.files_list)

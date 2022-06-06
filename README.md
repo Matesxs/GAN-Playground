@@ -38,7 +38,6 @@ ProGAN - GAN for generating new images from latent vector, using progressive gro
 - gans (scripts for each GAN)
 - datasets (place for all data that you will want feed to network)
 - media (folder with media files of repo)
-- utility_scripts (scripts for data processing and other useful stuff)
 ```
 
 ## Setup
@@ -103,22 +102,22 @@ More stable training in comparison to DCGAN but slower to train and capacity of 
 ### Conditional GAN - Based on WGAN-GP
 1. Mnist dataset (64x64 grayscale) - batch size 64
    1. Generated - 200k iters \
-   ![7](media/mnist_cond-gan_fake.png?raw=true)
+   ![12](media/mnist_cond-gan_fake.png?raw=true)
    2. Real \
-   ![8](media/mnist_cond-gan_real.png?raw=true)
+   ![13](media/mnist_cond-gan_real.png?raw=true)
 
 ### Pix2Pix using GAN
 1. Maps segmentation (256x256 color, 2000 images) - batch size 16, 200 epochs \
 In order: Input, Real, Generated
-![11](media/maps_pix2pix_input.png?raw=true)
-![12](media/maps_pix2pix_real.png?raw=true)
-![13](media/maps_pix2pix_fake.png?raw=true)
+![14](media/maps_pix2pix_input.png?raw=true)
+![15](media/maps_pix2pix_real.png?raw=true)
+![16](media/maps_pix2pix_fake.png?raw=true)
 
 2. Anime coloring (256x256 color, 16000 images) - batch size 16, 400 epochs \
 In order: Input, Real, Generated
-![13](media/anime_pix2pix_input.png?raw=true)
-![14](media/anime_pix2pix_real.png?raw=true)
-![15](media/anime_pix2pix_fake.png?raw=true)
+![17](media/anime_pix2pix_input.png?raw=true)
+![18](media/anime_pix2pix_real.png?raw=true)
+![19](media/anime_pix2pix_fake.png?raw=true)
 
 ## TODO
 - [x] Implement basic DCGAN
