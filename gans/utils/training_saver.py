@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -31,11 +32,24 @@ def load_model(model_path:str, model:nn.Module, optimizer:optim.Optimizer, leari
   print(f"Loaded {model_path}")
 
 def save_metadata(metadata:dict, filepath:str):
-  torch.save(metadata, filepath)
+  tmp_path = filepath + ".tmp"
+
+  torch.save(metadata, tmp_path)
+
+  if os.path.exists(filepath):
+    os.replace(tmp_path, filepath)
+  else:
+    os.rename(tmp_path, filepath)
 
 def load_metadata(filepath:str, device=None):
   if device is None:
     device = torch.device("cpu")
-  metadata = torch.load(filepath, map_location=device)
+
+  try:
+    metadata = torch.load(filepath, map_location=device)
+  except Exception:
+    print(f"Failed to load {filepath} metafile")
+    return None
+
   print("Metadata loaded")
   return metadata
