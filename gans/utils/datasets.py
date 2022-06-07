@@ -1,9 +1,9 @@
-import numpy as np
 import os
 from torch.utils.data import Dataset
-from PIL import Image, ImageOps
+from pathlib import Path
+import random
 
-from gans.utils.helpers import walk_path
+from gans.utils.helpers import walk_path, load_image
 
 class JoinedImagePairDataset(Dataset):
   def __init__(self, root_dir, transform=None, switch_sides:bool=False, format="RGB"):
@@ -18,12 +18,7 @@ class JoinedImagePairDataset(Dataset):
 
   def __getitem__(self, index):
     img_path = self.files_list[index]
-    image = Image.open(img_path)
-    if self.format == "RGB":
-      image = image.convert("RGB")
-    else:
-      image = ImageOps.grayscale(image)
-    image = np.array(image)
+    image = load_image(img_path, self.format)
 
     shape = image.shape
     width = shape[1]
@@ -74,19 +69,8 @@ class SplitImagePairDataset(Dataset):
     class_A_image_path = self.class_A_images[index % self.class_A_length]
     class_B_image_path = self.class_B_images[index % self.class_B_length]
 
-    class_A_image = Image.open(class_A_image_path)
-    if self.format == "RGB":
-      class_A_image = class_A_image.convert("RGB")
-    else:
-      class_A_image = ImageOps.grayscale(class_A_image)
-    class_A_image = np.array(class_A_image)
-
-    class_B_image = Image.open(class_B_image_path)
-    if self.format == "RGB":
-      class_B_image = class_B_image.convert("RGB")
-    else:
-      class_B_image = ImageOps.grayscale(class_B_image)
-    class_B_image = np.array(class_B_image)
+    class_A_image = load_image(class_A_image_path, self.format)
+    class_B_image = load_image(class_B_image_path, self.format)
 
     if self.transform is not None:
       augmentations = self.transform(image=class_A_image, image0=class_B_image)
@@ -110,12 +94,7 @@ class SingleInTwoOutDataset(Dataset):
   def __getitem__(self, index):
     path = self.image_paths[index]
 
-    image = Image.open(path)
-    if self.format == "RGB":
-      image = image.convert("RGB")
-    else:
-      image = ImageOps.grayscale(image)
-    image = np.array(image)
+    image = load_image(path, self.format)
 
     if self.both_transform is not None:
       image = self.both_transform(image=image)["image"]
@@ -129,6 +108,43 @@ class SingleInTwoOutDataset(Dataset):
       second_image = self.second_transform(image=image)["image"]
 
     return (first_image if first_image is not None else image.copy()), (second_image if second_image is not None else image.copy())
+
+class SOCOFingAugmentedDataset(Dataset):
+  def __init__(self, true_root, augmented_root, format="GRAY"):
+    assert os.path.exists(true_root) and os.path.isdir(true_root)
+    assert os.path.exists(augmented_root) and os.path.isdir(augmented_root)
+
+    self.format = format
+
+    self.true_filepaths = walk_path(true_root)
+    augmented_filepaths = walk_path(augmented_root)
+
+    self.true_to_augmented_mapping = {}
+
+    for true_file in self.true_filepaths:
+      true_filename = Path(true_file).name.split(".")[0]
+      tmp_files = []
+
+      for augmented_file in augmented_filepaths:
+        augmented_filename = Path(augmented_file).name.split(".")[0]
+        if true_filename in augmented_filename:
+          tmp_files.append(augmented_file)
+
+      if tmp_files:
+        self.true_to_augmented_mapping[true_file] = tmp_files
+
+  def __len__(self):
+    return len(self.true_filepaths)
+
+  def __getitem__(self, index):
+    true_filepath = self.true_filepaths[index]
+    augmented_filepath = random.choice(self.true_to_augmented_mapping[true_filepath])
+
+    true_image = load_image(true_filepath, self.format)
+    augmented_image = load_image(augmented_filepath, self.format)
+
+    return augmented_image, true_image
+
 
 class SingleInSingleOutDataset(Dataset):
   def __init__(self, root_dir, transform=None, format="RGB"):
@@ -144,12 +160,7 @@ class SingleInSingleOutDataset(Dataset):
   def __getitem__(self, index):
     path = self.image_paths[index]
 
-    image = Image.open(path)
-    if self.format == "RGB":
-      image = image.convert("RGB")
-    else:
-      image = ImageOps.grayscale(image)
-    image = np.array(image)
+    image = load_image(path, self.format)
 
     if self.transform is not None:
       image = self.transform(image=image)["image"]

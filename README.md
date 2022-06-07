@@ -113,7 +113,7 @@ In order: Input, Real, Generated
 ![15](media/maps_pix2pix_real.png?raw=true)
 ![16](media/maps_pix2pix_fake.png?raw=true)
 
-2. Anime coloring (256x256 color, 16000 images) - batch size 16, 400 epochs \
+2. Anime coloring (256x256 color, 16000 images) - batch size 16, 300k iters \
 In order: Input, Real, Generated
 ![17](media/anime_pix2pix_input.png?raw=true)
 ![18](media/anime_pix2pix_real.png?raw=true)

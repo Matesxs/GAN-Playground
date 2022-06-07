@@ -2,7 +2,7 @@ import torch
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-MODEL_NAME = "anime_pix2pix_model"
+MODEL_NAME = "color_imagenet_pix2pix_model"
 
 IMG_SIZE = 256
 IMG_CHAN = 3
@@ -18,8 +18,8 @@ SAMPLE_EVERY = 1_000
 
 GAN_LOSS = "BCE" # BCE/MSE
 
-ITERATIONS = 200_000
-BATCH_SIZE = 16
+ITERATIONS = 2_000_000
+BATCH_SIZE = 4
 LR = 2e-4
 L1_LAMBDA = 100
 FEATURES_DISC = [64, 128, 256, 512] # [128, 256, 512, 1024] [64, 128, 256, 512]

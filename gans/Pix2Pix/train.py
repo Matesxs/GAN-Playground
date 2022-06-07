@@ -7,6 +7,7 @@ import torchvision
 from tqdm import tqdm
 import os
 import pathlib
+import traceback
 
 import settings
 from generator_model import Generator
@@ -112,7 +113,8 @@ def main():
   number_of_epochs = settings.ITERATIONS // number_of_batches
   print(f"Found {dataset_length} training images in {number_of_batches} batches")
   print(f"Which corespondes to {number_of_epochs} epochs")
-  test_dataloader = DataLoader(dataset_settings.TEST_DATASET, settings.TESTING_SAMPLES, False, pin_memory=True) if dataset_settings.TEST_DATASET is not None else None
+  test_dataset = dataset_settings.TEST_DATASET
+  test_dataloader = DataLoader(test_dataset, settings.TESTING_SAMPLES, False, pin_memory=True) if test_dataset is not None else None
 
   g_scaler = torch.cuda.amp.GradScaler()
   d_scaler = torch.cuda.amp.GradScaler()
@@ -169,8 +171,8 @@ def main():
         save_metadata({"iteration": iteration}, f"models/{settings.MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
-  except Exception as e:
-    print(e)
+  except Exception:
+    print(traceback.print_exc())
     save_metadata({"iteration": iteration}, f"models/{settings.MODEL_NAME}/metadata.pkl")
     exit(-1)
 
