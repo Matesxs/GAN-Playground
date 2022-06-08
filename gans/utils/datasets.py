@@ -110,11 +110,12 @@ class SingleInTwoOutDataset(Dataset):
     return (first_image if first_image is not None else image.copy()), (second_image if second_image is not None else image.copy())
 
 class SOCOFingAugmentedDataset(Dataset):
-  def __init__(self, true_root, augmented_root, format="GRAY"):
+  def __init__(self, true_root, augmented_root, transform, format="GRAY"):
     assert os.path.exists(true_root) and os.path.isdir(true_root)
     assert os.path.exists(augmented_root) and os.path.isdir(augmented_root)
 
     self.format = format
+    self.transform = transform
 
     self.true_filepaths = walk_path(true_root)
     augmented_filepaths = walk_path(augmented_root)
@@ -143,7 +144,9 @@ class SOCOFingAugmentedDataset(Dataset):
     true_image = load_image(true_filepath, self.format)
     augmented_image = load_image(augmented_filepath, self.format)
 
-    return augmented_image, true_image
+    transformed_images = self.transform(image=true_image, image0=augmented_image)
+
+    return transformed_images["image0"], transformed_images["image"]
 
 
 class SingleInSingleOutDataset(Dataset):

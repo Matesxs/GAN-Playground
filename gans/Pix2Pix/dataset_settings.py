@@ -120,8 +120,28 @@ TEST_DATASET = SingleInTwoOutDataset(root_dir="datasets/imagenet/test", both_tra
 # TRAIN_DATASET = SingleInTwoOutDataset(root_dir="datasets/SOCOFing/Real", both_transform=train_both_transform, first_transform=train_input_image_transform, second_transform=train_truth_image_transform, format="RGB" if settings.IMG_CHAN == 3 else "GRAY")
 # TEST_DATASET = SingleInTwoOutDataset(root_dir="datasets/SOCOFing/Real", both_transform=test_both_transform, first_transform=test_input_image_transform, second_transform=test_truth_image_transform, format="RGB" if settings.IMG_CHAN == 3 else "GRAY")
 
-# TRAIN_DATASET = SOCOFingAugmentedDataset(true_root="datasets/SOCOFing/Real", augmented_root="datasets/SOCOFing/Altered", format="RGB" if settings.IMG_CHAN == 3 else "GRAY")
-# TEST_DATASET = SOCOFingAugmentedDataset(true_root="datasets/SOCOFing/Real", augmented_root="datasets/SOCOFing/Altered", format="RGB" if settings.IMG_CHAN == 3 else "GRAY")
+# train_both_transform = A.Compose(
+#   [
+#     A.Resize(width=settings.IMG_SIZE, height=settings.IMG_SIZE),
+#     A.HorizontalFlip(p=0.5),
+#     A.VerticalFlip(p=0.25),
+#     A.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], max_pixel_value=255.0,),
+#     ToTensorV2()
+#   ],
+#   additional_targets={"image0": "image"},
+# )
+#
+# test_both_transform = A.Compose(
+#   [
+#     A.Resize(width=settings.IMG_SIZE, height=settings.IMG_SIZE),
+#     A.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], max_pixel_value=255.0,),
+#     ToTensorV2()
+#   ],
+#   additional_targets={"image0": "image"},
+# )
+#
+# TRAIN_DATASET = SOCOFingAugmentedDataset(true_root="datasets/SOCOFing/Real", augmented_root="datasets/SOCOFing/Altered", transform=train_both_transform, format="RGB" if settings.IMG_CHAN == 3 else "GRAY")
+# TEST_DATASET = SOCOFingAugmentedDataset(true_root="datasets/SOCOFing/Real", augmented_root="datasets/SOCOFing/Altered", transform=test_both_transform, format="RGB" if settings.IMG_CHAN == 3 else "GRAY")
 
 if __name__ == '__main__':
   loader = DataLoader(TRAIN_DATASET)
