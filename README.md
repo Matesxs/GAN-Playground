@@ -119,6 +119,12 @@ In order: Input, Real, Generated
 ![18](media/anime_pix2pix_real.png?raw=true)
 ![19](media/anime_pix2pix_fake.png?raw=true)
 
+3. Fingerprint correction (256x256 color, 6000 images) - batch size 8, 400k iters \
+In order: Input, Real, Generated
+![20](media/fingerprint_pix2pix_input.png?raw=true)
+![21](media/fingerprint_pix2pix_original.png?raw=true)
+![22](media/fingerprint_pix2pix_generated.png?raw=true)
+
 ## TODO
 - [x] Implement basic DCGAN
 - [x] Implement basic WGAN

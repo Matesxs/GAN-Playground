@@ -155,6 +155,9 @@ def main():
                   img_grid_real = torchvision.utils.make_grid(y[:settings.TESTING_SAMPLES], normalize=True)
                   summary_writer.add_image("Real", img_grid_real, global_step=iteration)
                   summary_writer.add_image("Input", img_grid_input, global_step=iteration)
+                elif settings.ALWAYS_SAMPLE_INPUT:
+                  img_grid_input = torchvision.utils.make_grid(x[:settings.TESTING_SAMPLES], normalize=True)
+                  summary_writer.add_image("Input", img_grid_input, global_step=iteration)
 
               gen.train()
 

@@ -2,6 +2,7 @@ import os
 from torch.utils.data import Dataset
 from pathlib import Path
 import random
+from multiprocessing.pool import ThreadPool
 
 from gans.utils.helpers import walk_path, load_image
 
@@ -110,39 +111,48 @@ class SingleInTwoOutDataset(Dataset):
     return (first_image if first_image is not None else image.copy()), (second_image if second_image is not None else image.copy())
 
 class SOCOFingAugmentedDataset(Dataset):
-  def __init__(self, true_root, augmented_root, transform, format="GRAY"):
+  def __init__(self, true_root, augmented_root, transform, format="GRAY", only_first=False):
     assert os.path.exists(true_root) and os.path.isdir(true_root)
     assert os.path.exists(augmented_root) and os.path.isdir(augmented_root)
 
+    self.only_first = only_first
     self.format = format
     self.transform = transform
+    self.augmented_root = augmented_root
 
     self.true_filepaths = walk_path(true_root)
-    augmented_filepaths = walk_path(augmented_root)
+    self.true_filepaths = [Path(path) for path in self.true_filepaths]
 
     self.true_to_augmented_mapping = {}
 
-    for true_file in self.true_filepaths:
-      true_filename = Path(true_file).name.split(".")[0]
-      tmp_files = []
+    augmented_filepaths = walk_path(self.augmented_root)
+    augmented_filepaths = [Path(path) for path in augmented_filepaths]
+    true_files_to_delete = []
 
-      for augmented_file in augmented_filepaths:
-        augmented_filename = Path(augmented_file).name.split(".")[0]
-        if true_filename in augmented_filename:
-          tmp_files.append(augmented_file)
+    def process_true_file_augmentation(true_file_path):
+      true_filename = true_file_path.name.split(".")[0]
+      tmp_files = list(filter(lambda path: true_filename in path.name.split(".")[0], augmented_filepaths))
 
       if tmp_files:
-        self.true_to_augmented_mapping[true_file] = tmp_files
+        self.true_to_augmented_mapping[true_file_path] = tmp_files
+      else:
+        true_files_to_delete.append(true_file_path)
+
+    with ThreadPool(8) as pool:
+      pool.map(process_true_file_augmentation, self.true_filepaths)
+
+    for true_file in true_files_to_delete:
+      self.true_filepaths.remove(true_file)
 
   def __len__(self):
     return len(self.true_filepaths)
 
   def __getitem__(self, index):
     true_filepath = self.true_filepaths[index]
-    augmented_filepath = random.choice(self.true_to_augmented_mapping[true_filepath])
+    augmented_filepath = random.choice(self.true_to_augmented_mapping[true_filepath]) if not self.only_first else self.true_to_augmented_mapping[true_filepath][0]
 
-    true_image = load_image(true_filepath, self.format)
-    augmented_image = load_image(augmented_filepath, self.format)
+    true_image = load_image(str(true_filepath), self.format)
+    augmented_image = load_image(str(augmented_filepath), self.format)
 
     transformed_images = self.transform(image=true_image, image0=augmented_image)
 
