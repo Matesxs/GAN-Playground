@@ -24,22 +24,25 @@ FEATURES_DISC = [64, 128, 256, 512]
 FEATURES_GEN = 64
 GEN_RESIDUAL = 9
 
+TRUE_LABEL_SMOOTHING = True
+FAKE_LABEL_SMOOTHING = False
+
 LR = 2e-4
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 LAMBDA_IDENTITY = 5
 LAMBDA_CYCLE = 10
-ITERATIONS = 200_000
+ITERATIONS = 600_000
 
-SAMPLE_EVERY = 1_000
-TESTING_SAMPLES = 4
+SAMPLE_EVERY = 2_000
+TESTING_SAMPLES = 6
 
-WORKERS = 4
+WORKERS = 8
 
 transforms = A.Compose(
   [
     A.Resize(IMG_SIZE, IMG_SIZE),
     A.HorizontalFlip(p=0.5),
-    A.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], max_pixel_value=255.0, ),
+    A.Normalize(mean=[0.5 for _ in range(IMG_CHAN)], std=[0.5 for _ in range(IMG_CHAN)], max_pixel_value=255.0, ),
     ToTensorV2()
   ],
   additional_targets={"image0":"image"}
@@ -48,7 +51,7 @@ transforms = A.Compose(
 test_transform = A.Compose(
   [
     A.Resize(IMG_SIZE, IMG_SIZE),
-    A.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], max_pixel_value=255.0, ),
+    A.Normalize(mean=[0.5 for _ in range(IMG_CHAN)], std=[0.5 for _ in range(IMG_CHAN)], max_pixel_value=255.0, ),
     ToTensorV2()
   ],
   additional_targets={"image0":"image"}

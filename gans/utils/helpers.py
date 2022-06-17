@@ -21,4 +21,5 @@ def load_image(image_path, format="RGB"):
 def initialize_model(model:nn.Module):
   for m in model.modules():
     if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d, nn.InstanceNorm2d)):
-      nn.init.normal_(m.weight.data, 0.0, 0.02)
+      if m.weight is not None:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)

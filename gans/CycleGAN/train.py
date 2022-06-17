@@ -14,7 +14,7 @@ from gans.utils.datasets import SplitImagePairDataset
 from generator_model import Generator
 from discriminator_model import Discriminator
 
-def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_loss, MSE_loss, d_scaler, g_scaler):
+def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_loss, gan_loss, d_scaler, g_scaler):
   imageA = imageA.to(settings.device)
   imageB = imageB.to(settings.device)
 
@@ -25,8 +25,8 @@ def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_lo
     D_A_real = disc_A(imageA)
     D_A_fake = disc_A(fake_A.detach())
 
-    D_A_real_loss = MSE_loss(D_A_real, torch.ones_like(D_A_real))
-    D_A_fake_loss = MSE_loss(D_A_fake, torch.zeros_like(D_A_fake))
+    D_A_real_loss = gan_loss(D_A_real, (torch.ones_like(D_A_real) - 0.1 * torch.rand_like(D_A_real)) if settings.TRUE_LABEL_SMOOTHING else torch.ones_like(D_A_real))
+    D_A_fake_loss = gan_loss(D_A_fake, (torch.zeros_like(D_A_fake) + 0.1 * torch.rand_like(D_A_fake)) if settings.FAKE_LABEL_SMOOTHING else torch.zeros_like(D_A_fake))
     D_A_loss = D_A_real_loss + D_A_fake_loss
 
     # Discriminator B
@@ -34,8 +34,8 @@ def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_lo
     D_B_real = disc_B(imageB)
     D_B_fake = disc_B(fake_B.detach())
 
-    D_B_real_loss = MSE_loss(D_B_real, torch.ones_like(D_B_real))
-    D_B_fake_loss = MSE_loss(D_B_fake, torch.zeros_like(D_B_fake))
+    D_B_real_loss = gan_loss(D_B_real, (torch.ones_like(D_B_real) - 0.1 * torch.rand_like(D_B_real)) if settings.TRUE_LABEL_SMOOTHING else torch.ones_like(D_B_real))
+    D_B_fake_loss = gan_loss(D_B_fake, (torch.zeros_like(D_B_fake) + 0.1 * torch.rand_like(D_B_fake)) if settings.FAKE_LABEL_SMOOTHING else torch.zeros_like(D_B_fake))
     D_B_loss = D_B_real_loss + D_B_fake_loss
 
     # Together
@@ -52,8 +52,8 @@ def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_lo
     D_A_fake = disc_A(fake_A)
     D_B_fake = disc_B(fake_B)
 
-    G_A_loss = MSE_loss(D_A_fake, torch.ones_like(D_A_fake))
-    G_B_loss = MSE_loss(D_B_fake, torch.ones_like(D_B_fake))
+    G_A_loss = gan_loss(D_A_fake, torch.ones_like(D_A_fake))
+    G_B_loss = gan_loss(D_B_fake, torch.ones_like(D_B_fake))
 
     # Cycle loss
     cycle_A = gen_A(fake_B)
@@ -93,7 +93,7 @@ def main():
   opt_gen = optim.Adam(list(gen_A.parameters()) + list(gen_B.parameters()), lr=settings.LR, betas=(0.5, 0.999))
 
   L1_loss = nn.L1Loss()
-  MSE_loss = nn.MSELoss()
+  gan_loss = nn.MSELoss()
 
   summary_writer = SummaryWriter(f"logs/{settings.MODEL_NAME}")
 
@@ -161,6 +161,11 @@ def main():
   dataset_format = "RGB" if settings.IMG_CHAN == 3 else "GRAY"
   train_dataset = SplitImagePairDataset(root=settings.TRAIN_DIR, transform=settings.transforms, format=dataset_format)
   train_dataloader = DataLoader(train_dataset, settings.BATCH_SIZE, True, num_workers=settings.WORKERS, persistent_workers=True, pin_memory=True)
+  dataset_length = len(train_dataset)
+  number_of_batches = dataset_length // settings.BATCH_SIZE
+  number_of_epochs = settings.ITERATIONS // number_of_batches
+  print(f"Found {dataset_length} training images in {number_of_batches} batches")
+  print(f"Which corespondes to {number_of_epochs} epochs")
   test_dataset = SplitImagePairDataset(root=settings.VAL_DIR, transform=settings.test_transform, format=dataset_format)
   test_dataloader = DataLoader(test_dataset, settings.TESTING_SAMPLES, False, pin_memory=True)
 
@@ -174,7 +179,7 @@ def main():
     with tqdm(total=settings.ITERATIONS, initial=iteration, unit="it") as bar:
       while True:
         for x, y in train_dataloader:
-          d_loss, g_loss = train(x, y, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_loss, MSE_loss, d_scaler, g_scaler)
+          d_loss, g_loss = train(x, y, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_loss, gan_loss, d_scaler, g_scaler)
 
           if d_loss is not None and g_loss is not None:
             summary_writer.add_scalar("Gen Loss", g_loss, global_step=iteration)

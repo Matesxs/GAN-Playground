@@ -2,13 +2,16 @@ import torch
 import torch.nn as nn
 from torchsummary import summary
 
+from gans.utils.helpers import initialize_model
+from gans.utils.global_modules import PixelShuffleConv
+
 class ConvBlock(nn.Module):
   def __init__(self, in_channels, out_channels, downsample=True, use_activation=True, use_norm=True, **kwargs):
     super(ConvBlock, self).__init__()
 
     self.conv = nn.Sequential(
-      nn.Conv2d(in_channels, out_channels, padding_mode="reflect", bias=False, **kwargs) if downsample
-      else nn.ConvTranspose2d(in_channels, out_channels, **kwargs),
+      nn.Conv2d(in_channels, out_channels, padding_mode="reflect", bias=not use_norm, **kwargs) if downsample
+      else PixelShuffleConv(in_channels, scale_factor=2, bias=not use_norm, out_channels=out_channels),
       nn.InstanceNorm2d(out_channels) if use_norm else nn.Identity(),
       nn.ReLU(inplace=True) if use_activation else nn.Identity()
     )
@@ -45,13 +48,15 @@ class Generator(nn.Module):
 
     self.up_layers = nn.ModuleList(
       [
-        ConvBlock(features * 4, features * 2, downsample=False, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), output_padding=(1, 1)),
-        ConvBlock(features * 2, features, downsample=False, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), output_padding=(1, 1)),
+        ConvBlock(features * 4, features * 2, downsample=False),
+        ConvBlock(features * 2, features, downsample=False),
 
         nn.Conv2d(features, in_channels, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), padding_mode="reflect"),
         nn.Tanh()
       ]
     )
+
+    initialize_model(self)
 
   def forward(self, x):
     for layer in self.down_layers:

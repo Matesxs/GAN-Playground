@@ -2,11 +2,13 @@ import torch
 import torch.nn as nn
 from torchsummary import summary
 
+from gans.utils.helpers import initialize_model
+
 class Block(nn.Module):
   def __init__(self, in_channels, out_channels, stride, use_norm=True):
     super(Block, self).__init__()
 
-    layers = [nn.Conv2d(in_channels, out_channels, kernel_size=(4, 4), stride=stride, padding=(1, 1), bias=True, padding_mode="reflect")]
+    layers = [nn.Conv2d(in_channels, out_channels, kernel_size=(4, 4), stride=stride, padding=(1, 1), bias=not use_norm, padding_mode="reflect")]
     if use_norm:
       layers.append(nn.InstanceNorm2d(out_channels))
     layers.append(nn.LeakyReLU(0.2))
@@ -35,6 +37,8 @@ class Discriminator(nn.Module):
     layers.append(nn.Sigmoid())
 
     self.model = nn.Sequential(*layers)
+
+    initialize_model(self)
 
   def forward(self, x):
     return self.model(x)

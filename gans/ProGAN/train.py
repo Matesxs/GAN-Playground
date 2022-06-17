@@ -1,9 +1,9 @@
 import torch
 import torch.optim as optim
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import torchvision
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 from torch.utils.tensorboard import SummaryWriter
 from math import log2
 from tqdm import tqdm
@@ -13,6 +13,8 @@ import pathlib
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
 from model import Critic, Generator
 import settings
+
+from gans.utils.datasets import SingleInSingleOutDataset
 
 def gradient_penalty(critic, real, fake, alpha, step, device):
   batch, channels, height, width = real.shape
@@ -37,58 +39,51 @@ def gradient_penalty(critic, real, fake, alpha, step, device):
   return gradient_penalty
 
 def get_loader(image_size):
-  transform = transforms.Compose(
+  transform = A.Compose(
     [
-      transforms.Resize((image_size, image_size)),
-      transforms.ToTensor(),
-      transforms.RandomHorizontalFlip(0.5),
-      transforms.Normalize([0.5 for _ in range(settings.IMG_CH)], [0.5 for _ in range(settings.IMG_CH)])
+      A.Resize(image_size, image_size),
+      A.HorizontalFlip(p=0.5),
+      A.Normalize([0.5 for _ in range(settings.IMG_CH)], [0.5 for _ in range(settings.IMG_CH)]),
+      ToTensorV2()
     ]
   )
 
   batch_size = settings.IMG_SIZE_TO_BATCH_SIZE[image_size]
-  dataset = datasets.ImageFolder(root=settings.DATASET_PATH, transform=transform)
+  dataset = SingleInSingleOutDataset(root_dir=settings.DATASET_PATH, transform=transform, format="RGB" if settings.IMG_CH == 3 else "GRAY")
   loader = DataLoader(dataset, batch_size, shuffle=True, num_workers=settings.NUM_OF_WORKERS, pin_memory=True, persistent_workers=True)
   return loader, dataset
 
-def train(crit, gen, loader, dataset, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler):
-  loop = tqdm(loader, leave=True, unit="batch")
+def train(data, crit, gen, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler):
+  real = data.to(settings.device)
+  cur_batch_size = real.shape[0]
 
-  loss_crit = loss_gen = real = None
-  for batch_idx, (real, _) in enumerate(loop):
-    real = real.to(settings.device)
-    cur_batch_size = real.shape[0]
+  # Train critic
+  noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
 
-    # Train critic
-    noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
+  with torch.cuda.amp.autocast():
+    fake = gen(noise, alpha, step)
+    critic_real = crit(real, alpha, step)
+    critic_fake = crit(fake.detach(), alpha, step)
 
-    with torch.cuda.amp.autocast():
-      fake = gen(noise, alpha, step)
-      critic_real = crit(real, alpha, step)
-      critic_fake = crit(fake.detach(), alpha, step)
+    gp = gradient_penalty(crit, real, fake, alpha, step, device=settings.device)
+    loss_crit = -(torch.mean(critic_real) - torch.mean(critic_fake)) + settings.LAMBDA_GP * gp + (0.001 * torch.mean(critic_real ** 2))
 
-      gp = gradient_penalty(crit, real, fake, alpha, step, device=settings.device)
-      loss_crit = -(torch.mean(critic_real) - torch.mean(critic_fake)) + settings.LAMBDA_GP * gp + (0.001 * torch.mean(critic_real ** 2))
+  opt_critic.zero_grad()
+  c_scaler.scale(loss_crit).backward()
+  c_scaler.step(opt_critic)
+  c_scaler.update()
 
-    opt_critic.zero_grad()
-    c_scaler.scale(loss_crit).backward()
-    c_scaler.step(opt_critic)
-    c_scaler.update()
+  # Train generator
+  with torch.cuda.amp.autocast():
+    gen_fake = crit(fake, alpha, step)
+    loss_gen = -torch.mean(gen_fake)
 
-    # Train generator
-    with torch.cuda.amp.autocast():
-      gen_fake = crit(fake, alpha, step)
-      loss_gen = -torch.mean(gen_fake)
+  opt_generator.zero_grad()
+  g_scaler.scale(loss_gen).backward()
+  g_scaler.step(opt_generator)
+  g_scaler.update()
 
-    opt_generator.zero_grad()
-    g_scaler.scale(loss_gen).backward()
-    g_scaler.step(opt_generator)
-    g_scaler.update()
-
-    alpha += cur_batch_size / (len(dataset) * settings.PROGRESSIVE_EPOCHS[step] * 0.5)
-    alpha = min(alpha, 1)
-
-  return loss_crit, loss_gen, alpha, real
+  return loss_crit, loss_gen
 
 def main():
   crit = Critic(settings.FEATURES, settings.IMG_CH).to(settings.device)
@@ -116,19 +111,19 @@ def main():
     metadata = load_metadata(f"models/{settings.MODEL_NAME}/metadata.pkl")
 
   start_image_size = settings.START_IMAGE_SIZE
-  start_epoch = 0
-  tensorboard_step = 0
+  iteration = 0
+  global_step = 0
   alpha = settings.START_ALPHA
   test_noise = torch.randn((settings.TESTING_SAMPLES, settings.Z_DIM, 1, 1), device=settings.device)
   if metadata is not None:
     if "img_size" in metadata.keys():
       start_image_size = metadata["img_size"]
 
-    if "epoch" in metadata.keys():
-      start_epoch = metadata["epoch"]
+    if "iteration" in metadata.keys():
+      iteration = metadata["iteration"]
 
-    if "tbstep" in metadata.keys():
-      tensorboard_step = metadata["tbstep"]
+    if "global_step" in metadata.keys():
+      global_step = metadata["global_step"]
 
     if "alpha" in metadata.keys():
       alpha = metadata["alpha"]
@@ -155,62 +150,75 @@ def main():
   g_scaler = torch.cuda.amp.GradScaler()
   c_scaler = torch.cuda.amp.GradScaler()
 
-  img_size = settings.START_IMAGE_SIZE
-  epoch = start_epoch
-
   if not os.path.exists(f"models/{settings.MODEL_NAME}"):
     pathlib.Path(f"models/{settings.MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
-  step = (int(log2(start_image_size / 4))) if settings.STEP_OVERRIDE is None else settings.STEP_OVERRIDE
+  step = (int(log2(start_image_size / 4)))
+  img_size = settings.START_IMAGE_SIZE * 2 ** step
   try:
-    for epochs_idx, num_epochs in enumerate(settings.PROGRESSIVE_EPOCHS[step:]):
-      img_size = 4*2**step
+    for number_of_iterations in settings.PROGRESSIVE_ITERATIONS[step:]:
+      img_size = settings.START_IMAGE_SIZE*2**step
       loader, dataset = get_loader(img_size)
-      print(f"Starting image size: {img_size} with batch size: {settings.IMG_SIZE_TO_BATCH_SIZE[img_size]}")
+      number_of_batches = len(loader)
+      number_of_epochs = number_of_iterations / number_of_batches
+      alpha_coef = settings.IMG_SIZE_TO_BATCH_SIZE[img_size] / ((number_of_epochs * 0.5) * len(dataset))
 
-      for epoch in range(start_epoch, num_epochs):
-        crit_loss, gen_loss, alpha, last_real = train(crit, gen, loader, dataset, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler)
+      print(f"Starting image size: {img_size} with batch size: {settings.IMG_SIZE_TO_BATCH_SIZE[img_size]} which coresponds to {number_of_batches} number of batches and training of {number_of_epochs} epochs")
+      with tqdm(total=number_of_iterations, initial=iteration, unit="it") as bar:
+        while True:
+          for data in loader:
+            crit_loss, gen_loss = train(data, crit, gen, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler)
+            alpha += alpha_coef
+            alpha = min(alpha, 1)
 
-        if crit_loss is not None and gen_loss is not None:
-          print(f"PH: {step}/{settings.NUM_OF_STEPES}  Epoch: {epoch}/{num_epochs} Loss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}")
-          summary_writer.add_scalar("Gen Loss", gen_loss, global_step=tensorboard_step)
-          summary_writer.add_scalar("Crit Loss", crit_loss, global_step=tensorboard_step)
-          summary_writer.add_scalar("Alpha", alpha, global_step=tensorboard_step)
+            if gen_loss is not None:
+              summary_writer.add_scalar("Gen Loss", gen_loss, global_step=global_step)
+            if crit_loss is not None:
+              summary_writer.add_scalar("Crit Loss", crit_loss, global_step=global_step)
+            summary_writer.add_scalar("Alpha", alpha, global_step=global_step)
 
-        if settings.SAVE_CHECKPOINTS and epoch % settings.CHECKPOINT_EVERY == 0:
-          save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen_{step}_{epoch}.mod")
-          save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit_{step}_{epoch}.mod")
+            if settings.SAVE_CHECKPOINTS and iteration % settings.CHECKPOINT_EVERY == 0:
+              save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen_{global_step}.mod")
+              save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit_{global_step}.mod")
 
-        save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
-        save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit.mod")
+            if iteration % settings.SAMPLE_EVERY == 0:
+              print(f"Loss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}")
 
-        if epoch % settings.SAMPLE_EVERY == 0:
-          gen.eval()
+              gen.eval()
 
-          with torch.no_grad():
-            fake = gen(test_noise, alpha, step)
+              with torch.no_grad():
+                fake = gen(test_noise, alpha, step)
+                img_grid_fake = torchvision.utils.make_grid(fake[:settings.TESTING_SAMPLES], normalize=True)
+                summary_writer.add_image("Generated", img_grid_fake, global_step=global_step)
 
-            img_grid_fake = torchvision.utils.make_grid(fake[:settings.TESTING_SAMPLES], normalize=True)
-            img_grid_real = torchvision.utils.make_grid(last_real[:settings.TESTING_SAMPLES], normalize=True)
+              gen.train()
 
-            summary_writer.add_image("Fake", img_grid_fake, global_step=tensorboard_step)
-            summary_writer.add_image("Real", img_grid_real, global_step=tensorboard_step)
+            iteration += 1
 
-          gen.train()
+            bar.update()
+            if iteration > number_of_iterations:
+              break
 
-        tensorboard_step += 1
-        save_metadata({"epoch": epoch, "img_size": img_size, "tbstep": tensorboard_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+            global_step += 1
+          if iteration > number_of_iterations:
+            break
 
-      start_epoch = 0
-      step += 1
+          save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
+          save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit.mod")
+          save_metadata({"iteration": iteration, "img_size": img_size, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+      iteration = 0
       alpha = settings.START_ALPHA
+      step += 1
   except KeyboardInterrupt:
     print("Exiting")
-    pass
+  except Exception as e:
+    print(e)
+    save_metadata({"iteration": iteration, "img_size": img_size, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+    exit(-1)
 
   save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
   save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit.mod")
-  save_metadata({"epoch": epoch, "img_size": img_size, "tbstep": tensorboard_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+  save_metadata({"iteration": iteration, "img_size": img_size, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
   main()
