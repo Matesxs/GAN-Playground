@@ -1,7 +1,7 @@
 import torch.nn as nn
 
-from helpers import initialize_model
-from building_blocks import upscale_block
+from gans.utils.helpers import initialize_model
+from .building_blocks import upscale_block
 
 class Generator(nn.Module):
   def __init__(self, noise_dim, image_channels, features_gen):

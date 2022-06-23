@@ -1,33 +1,44 @@
 import torch
-from math import log2
+import math
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 MODEL_NAME = "celeba_progan_model"
 
-DATASET_PATH = "datasets/celeba_hq"
+DATASET_PATH = "datasets/celeb_normalized__256x256"
 
-START_IMAGE_SIZE = 4
-IMG_SIZE = 1024
+TARGET_IMAGE_SIZE = 256
 IMG_CH = 3
 
 GEN_MODEL_WEIGHTS_TO_LOAD = None
 CRIT_MODEL_WEIGHTS_TO_LOAD = None
 
 SAVE_CHECKPOINTS = True
-CHECKPOINT_EVERY = 10_000
+CHECKPOINT_EVERY = 5_000
 
-SAMPLE_EVERY = 5_000
+SAMPLE_EVERY = 2_000
 TESTING_SAMPLES = 32
 
-FEATURES = [512, 512, 512, 512, 256, 128, 64, 32, 16] # For generator, its reversed in critic
-Z_DIM = 256
+BASE_FEATURES = 8192
+FEATURES_MAX = 512
+Z_DIM = 512
 
+CRITIC_ITERATIONS = 1
 LR = 1e-3
 START_ALPHA = 1e-5
-IMG_SIZE_TO_BATCH_SIZE = { 4:16, 8:16, 16:16, 32:16, 64:8, 128:8, 256:4, 512:2, 1024:2 }
-LAMBDA_GP = 10
-NUM_OF_STEPES = int(log2(IMG_SIZE / 4)) + 1
-PROGRESSIVE_ITERATIONS = [75_000, 75_000, 75_000, 75_000, 150_000, 150_000, 300_000, 600_000, 600_000]
+IMG_SIZE_TO_BATCH_SIZE = { 4:16, 8:16, 16:16, 32:16, 64:8, 128:4, 256:4 }
+LAMBDA_GP = 10 # 10
+EPSILON_DRIFT = 0.001 # 0.001
+
+# Fading steps, full training steps
+#                               4                   8                16               32                 64               128                 256
+PROGRESSIVE_ITERATIONS = [(0, 50_000), (25_000, 25_000), (25_000, 25_000), (25_000, 25_000), (50_000, 50_000), (100_000, 100_000), (100_000, 100_000)]
+ADDITIONAL_TRAINING = 100_000
+NUMBER_OF_STEPS = int(math.log2(TARGET_IMAGE_SIZE)) - 1
+assert NUMBER_OF_STEPS >= len(PROGRESSIVE_ITERATIONS), "Specified iterations for layers that are not defined in model"
 
 NUM_OF_WORKERS = 8
+
+INCEPTION_SCORE_BATCH_SIZE = 32
+INCEPTION_SCORE_NUMBER_OF_BATCHES = 20
+INCEPTION_SCORE_SPLIT = 32

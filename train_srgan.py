@@ -8,9 +8,9 @@ from torch.utils.tensorboard import SummaryWriter
 import torchvision
 from tqdm import tqdm
 
-import settings
-from model import Discriminator, Generator
-from utils import VGGLoss, gradient_penalty
+import gans.SRGAN.settings as settings
+from gans.SRGAN.model import Discriminator, Generator
+from gans.SRGAN.utils import VGGLoss, gradient_penalty
 from gans.utils.training_saver import save_model, load_model, load_metadata, save_metadata
 from gans.utils.datasets import SingleInTwoOutDataset
 
@@ -43,6 +43,10 @@ def train(opt_disc, opt_gen, disc, gen, train_dataset_loader, mse, bce, vgg_loss
         disc_loss_real = bce(disc_real, (torch.ones_like(disc_real) - 0.1 * torch.rand_like(disc_real)) if settings.TRUE_LABEL_SMOOTHING else torch.ones_like(disc_real))
         disc_loss_fake = bce(disc_fake, (torch.zeros_like(disc_fake) + 0.1 * torch.rand_like(disc_fake)) if settings.FAKE_LABEL_SMOOTHING else torch.zeros_like(disc_fake))
         D_loss = disc_loss_fake + disc_loss_real
+
+        if settings.GP_LAMBDA != 0:
+          gp = gradient_penalty(disc, high_res, fake, device=settings.device)
+          D_loss += settings.GP_LAMBDA * gp
 
       opt_disc.zero_grad()
       d_scaler.scale(D_loss).backward()

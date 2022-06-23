@@ -1,8 +1,14 @@
 import torch
 import torch.nn as nn
 
-from helpers import initialize_model
-from building_blocks import downscale_block
+from gans.utils.helpers import initialize_model
+
+def downscale_block(in_ch, out_ch, kernel, stride, padding):
+  return nn.Sequential(
+    nn.Conv2d(in_ch, out_ch, kernel, stride, padding, bias=False),
+    nn.InstanceNorm2d(out_ch, affine=True),
+    nn.LeakyReLU(0.2)
+  )
 
 class Critic(nn.Module):
   def __init__(self, image_channels, features_disc, num_of_classes, img_size):

@@ -21,7 +21,8 @@ This project contains code for some of the most know types of GAN (Generative Ad
 I am using this repo to play with these types of networks to get better understanding how they work and how to properly train them.
 
 Previous version of this reposritory was moved to branch: old \
-Disclaimer: This repository is more like proof of concept than download and run!
+Disclaimer: This repository is more like proof of concept than download and run! \
+Some scripts might not work because I refactoring so fast and forgot to test it.
 
 ## Content
 ```
@@ -35,7 +36,7 @@ ProGAN - GAN for generating new images from latent vector, using progressive gro
 
 ## Project Folder Structure
 ```
-- gans (scripts for each GAN)
+- gans (scripts for each GAN except training scripts)
 - datasets (place for all data that you will want feed to network)
 - media (folder with media files of repo)
 ```
@@ -54,7 +55,7 @@ pip install -r requirements.txt
 ## Utility
 ```
 preprocess_dataset.py - Script for mass rescaling images to target size and optionaly splitting them to training and testing parts
-clean_dataset.py - Clean low resolution images from dataset
+clean_small_images.py - Clean low resolution images from dataset
 ```
 
 ## Results
@@ -132,7 +133,10 @@ In order: Input, Real, Generated
 - [x] Implement basic Conditional GAN
 - [x] Implement Pix2Pix based on GAN
 - [x] Implement basic CycleGAN
+- [ ] Revisit CycleGAN with different dataset
 - [x] Implement basic ProGAN
+- [ ] Fix ProGAN and revisit for better results
+- [ ] Try ProGAN with classic WGAN model layers
 - [x] Implement basic SRGAN
 - [ ] Implement enhanced SRGAN (ESRGAN)
 - [ ] Implement basic StyleGAN
@@ -179,7 +183,8 @@ https://arxiv.org/pdf/1703.10593.pdf
 <br/>
 <br/>
 ##### ProGAN
-https://arxiv.org/pdf/1710.10196.pdf
+https://arxiv.org/pdf/1710.10196.pdf \
+https://github.com/nvnbny/progressive_growing_of_gans
 <br/>
 <br/>
 ##### SRGAN (Super Resolution GAN)
@@ -209,5 +214,10 @@ https://machinelearningmastery.com/practical-guide-to-gan-failure-modes/ \
 https://github.com/soumith/ganhacks \
 https://medium.com/intel-student-ambassadors/tips-on-training-your-gans-faster-and-achieve-better-results-9200354acaa5 \
 https://distill.pub/2016/deconv-checkerboard/
+<br/>
+<br/>
+##### Inception score
+https://github.com/sbarratt/inception-score-pytorch \
+https://arxiv.org/pdf/1801.01973.pdf
 
 ### Some resources might be missing, I started researching this topic long before this repository was created!

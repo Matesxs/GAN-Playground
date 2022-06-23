@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision.models import vgg19
-import settings
+from . import settings
 
 class VGGLoss(nn.Module):
   def __init__(self):

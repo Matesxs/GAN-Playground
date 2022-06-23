@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from gans.utils.helpers import initialize_model
-from building_blocks import upscale_block, upscale_block_pix_shuffle
+from .building_blocks import upscale_block, upscale_block_pix_shuffle
 
 class Generator(nn.Module):
   def __init__(self, noise_dim, image_channels, features_gen):

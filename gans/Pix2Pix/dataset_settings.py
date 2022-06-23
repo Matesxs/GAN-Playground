@@ -3,7 +3,7 @@ from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 
 from gans.utils.datasets import JoinedImagePairDataset, SingleInTwoOutDataset, SOCOFingAugmentedDataset
-import settings
+from . import settings
 
 # Color anime
 train_transform = A.Compose(
@@ -122,9 +122,3 @@ TEST_DATASET = JoinedImagePairDataset(root_dir="datasets/anime/val", switch_side
 #
 # TRAIN_DATASET = SingleInTwoOutDataset(root_dir="datasets/SOCOFing/Real", both_transform=train_both_transform, first_transform=train_input_image_transform, second_transform=train_truth_image_transform, format="RGB" if settings.IMG_CHAN == 3 else "GRAY")
 # TEST_DATASET = SingleInTwoOutDataset(root_dir="datasets/SOCOFing/Real", both_transform=test_both_transform, first_transform=test_input_image_transform, second_transform=test_truth_image_transform, format="RGB" if settings.IMG_CHAN == 3 else "GRAY")
-
-if __name__ == '__main__':
-  loader = DataLoader(TRAIN_DATASET)
-  data = next(iter(loader))
-  print(len(TRAIN_DATASET))
-  print(data)

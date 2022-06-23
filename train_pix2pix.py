@@ -9,10 +9,10 @@ import os
 import pathlib
 import traceback
 
-import settings
-from generator_model import Generator
-from discriminator_model import Discriminator
-import dataset_settings
+import gans.Pix2Pix.settings as settings
+from gans.Pix2Pix.generator_model import Generator
+from gans.Pix2Pix.discriminator_model import Discriminator
+import gans.Pix2Pix.dataset_settings as dataset_settings
 
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
 

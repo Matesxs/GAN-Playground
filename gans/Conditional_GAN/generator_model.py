@@ -1,8 +1,14 @@
 import torch
 import torch.nn as nn
 
-from helpers import initialize_model
-from building_blocks import upscale_block
+from gans.utils.helpers import initialize_model
+
+def upscale_block(in_ch, out_ch, kernel, stride, padding):
+  return nn.Sequential(
+    nn.ConvTranspose2d(in_ch, out_ch, kernel, stride, padding, bias=False),
+    nn.InstanceNorm2d(out_ch, affine=True),
+    nn.ReLU()
+  )
 
 class Generator(nn.Module):
   def __init__(self, noise_dim, image_channels, features_gen, num_of_classes, img_size, embed_size):

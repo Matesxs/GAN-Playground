@@ -4,7 +4,7 @@ from pathlib import Path
 import random
 from multiprocessing.pool import ThreadPool
 
-from gans.utils.helpers import walk_path, load_image
+from .helpers import walk_path, load_image
 
 class JoinedImagePairDataset(Dataset):
   def __init__(self, root_dir, transform=None, switch_sides:bool=False, format="RGB"):
@@ -179,3 +179,40 @@ class SingleInSingleOutDataset(Dataset):
       image = self.transform(image=image)["image"]
 
     return image
+
+class SingleInSingleOutWithClassDataset(Dataset):
+  def __init__(self, root_dir, transform=None, format="RGB"):
+    assert os.path.exists(root_dir) and os.path.isdir(root_dir)
+
+    class_folders = []
+
+    print("Classes:")
+    for class_idx, class_name in enumerate(os.listdir(root_dir)):
+      full_path = os.path.join(root_dir, class_name)
+      if os.path.isdir(full_path):
+        class_folders.append(full_path)
+        print(f"{class_name}: {class_idx}")
+
+    self.format = format
+    self.transform = transform
+    self.image_paths_to_class = {}
+
+    for class_i, class_path in enumerate(class_folders):
+      class_files = walk_path(class_path)
+      for class_file in class_files:
+        self.image_paths_to_class[class_file] = class_i
+
+    self.image_paths = list(self.image_paths_to_class.keys())
+
+  def __len__(self):
+    return len(self.image_paths)
+
+  def __getitem__(self, index):
+    path = self.image_paths[index]
+
+    image = load_image(path, self.format)
+
+    if self.transform is not None:
+      image = self.transform(image=image)["image"]
+
+    return image, self.image_paths_to_class[path]

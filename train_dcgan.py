@@ -10,9 +10,9 @@ from torchsummary import summary
 import pathlib
 from tqdm import tqdm
 
-from generator_model import Generator
-from discriminator_model import Discriminator
-from settings import *
+from gans.DCGAN.generator_model import Generator
+from gans.DCGAN.discriminator_model import Discriminator
+from gans.DCGAN.settings import *
 
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
 

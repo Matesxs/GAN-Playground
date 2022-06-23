@@ -1,7 +1,7 @@
 import torch.nn as nn
 
-from helpers import initialize_model
-from building_blocks import downscale_block
+from gans.utils.helpers import initialize_model
+from .building_blocks import downscale_block
 
 class Discriminator(nn.Module):
   def __init__(self, image_channels, features_disc):

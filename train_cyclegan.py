@@ -8,11 +8,13 @@ from tqdm import tqdm
 import os
 import pathlib
 
-import settings
+import gans.CycleGAN.settings as settings
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
 from gans.utils.datasets import SplitImagePairDataset
-from generator_model import Generator
-from discriminator_model import Discriminator
+from gans.CycleGAN.generator_model import Generator
+from gans.CycleGAN.discriminator_model import Discriminator
+
+torch.backends.cudnn.benchmark = True
 
 def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_loss, gan_loss, d_scaler, g_scaler):
   imageA = imageA.to(settings.device)
@@ -192,7 +194,7 @@ def main():
             save_model(disc_B, opt_disc, f"models/{settings.MODEL_NAME}/{iteration}_discB.mod")
 
           if iteration % settings.SAMPLE_EVERY == 0:
-            print(f"Loss disc: {d_loss:.4f}, Loss gen: {g_loss:.4f}")
+            print(f"\nLoss disc: {d_loss:.4f}, Loss gen: {g_loss:.4f}")
 
             imgA, imgB = next(iter(test_dataloader))
             imgA, imgB = imgA.to(settings.device), imgB.to(settings.device)
