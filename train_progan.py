@@ -20,7 +20,7 @@ torch.backends.cudnn.benchmark = True
 
 def gradient_penalty(critic, real, fake, alpha, step, device):
   batch, channels, height, width = real.shape
-  epsilon = torch.randn((batch, 1, 1, 1)).repeat(1, channels, height, width).to(device)
+  epsilon = torch.rand((batch, 1, 1, 1)).repeat(1, channels, height, width).to(device)
   interpolated_images = real * epsilon + fake.detach() * (1 - epsilon)
   interpolated_images.requires_grad_(True)
 
@@ -117,10 +117,8 @@ def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, 
         alpha = min(alpha, 1.0)
 
         if gen_loss is not None:
-          assert not torch.isnan(gen_loss), "Gen loss is nan"
           summary_writer.add_scalar("Gen Loss", gen_loss, global_step=global_step)
         if crit_loss is not None:
-          assert not torch.isnan(crit_loss), "Crit loss is nan"
           summary_writer.add_scalar("Crit Loss", crit_loss, global_step=global_step)
         summary_writer.add_scalar("Alpha", alpha, global_step=global_step)
 
@@ -213,6 +211,10 @@ def main():
       if tmp_noise.shape == (settings.TESTING_SAMPLES, settings.Z_DIM, 1, 1):
         test_noise = tmp_noise.to(settings.device)
 
+  if settings.OVERRIDE_ITERATION is not None:
+    print(f"[WARNING] Setting iteration to: {settings.OVERRIDE_ITERATION}")
+    iteration = settings.OVERRIDE_ITERATION
+
   if settings.GEN_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
       load_model(settings.GEN_MODEL_WEIGHTS_TO_LOAD, gen, opt_generator, settings.LR, settings.device)
@@ -247,7 +249,10 @@ def main():
     print("Exiting")
   except Exception as e:
     print(e)
-    save_metadata({"iteration": iteration, "train_step": train_step, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+    try:
+      save_metadata({"iteration": iteration, "train_step": train_step, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+    except:
+      pass
     exit(-1)
 
   save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")

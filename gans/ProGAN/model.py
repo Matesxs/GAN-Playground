@@ -40,23 +40,6 @@ class FromRGBBlock(nn.Module):
   def forward(self, x):
     return self.block(x)
 
-class BatchStdConcat(nn.Module):
-  def __init__(self, groupSize=4):
-    super().__init__()
-    self.groupSize = groupSize
-
-  def forward(self, x):
-    shape = list(x.size())  # NCHW - Initial size
-    actual_group_size = self.groupSize if self.groupSize < shape[0] else shape[0] # Attempt to get expected group size or maximum available
-    xStd = x.view(actual_group_size, -1, shape[1], shape[2], shape[3])
-    xStd -= torch.mean(xStd, dim=0, keepdim=True)  # GMCHW - Subract mean of shape 1MCHW
-    xStd = torch.mean(xStd ** 2, dim=0, keepdim=False)  # MCHW - Take mean of squares
-    xStd = (xStd + 1e-08) ** 0.5  # MCHW - Take std
-    xStd = torch.mean(xStd.view(int(shape[0] / actual_group_size), -1), dim=1, keepdim=True).view(-1, 1, 1, 1)
-    # M111 - Take mean across CHW
-    xStd = xStd.repeat(actual_group_size, 1, shape[2], shape[3])  # N1HW - Expand to same shape as x with one channel
-    return torch.cat([x, xStd], 1)
-
 class Generator(nn.Module):
   def __init__(self, img_channels=3, target_resolution=256, feature_base=8192, feature_max=512, z_dim=512):
     super(Generator, self).__init__()
@@ -145,7 +128,6 @@ class Critic(nn.Module):
     first_block = nn.ModuleList()
 
     in_channels, out_channels = self.get_number_of_filters(1), self.get_number_of_filters(1)
-    first_block.append(BatchStdConcat())
     in_channels += 1
 
     first_block.append(ConvBlock(in_channels, out_channels, kernel=3, padding=1, use_pixelnorm=False))
@@ -160,6 +142,10 @@ class Critic(nn.Module):
 
   def get_number_of_filters(self, stage):
     return min(int(self.feature_base / (2.0 ** stage)), self.feature_max)
+
+  @staticmethod
+  def minibatch_std(x):
+    return torch.cat([x, torch.std(x, dim=0).mean().repeat(x.shape[0], 1, x.shape[2], x.shape[3])], dim=1)
 
   def forward(self, x, alpha=1.0, stage=None):
     levels = len(self.blocks)
@@ -185,7 +171,7 @@ class Critic(nn.Module):
     for lev in range(prev_stage + 1, levels):
       x = self.blocks[lev](x)
 
-    return x
+    return self.minibatch_std(x)
 
 if __name__ == '__main__':
   NOISE_DIM = 512

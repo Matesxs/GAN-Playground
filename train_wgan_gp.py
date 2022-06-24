@@ -16,7 +16,7 @@ from gans.utils.datasets import SingleInSingleOutDataset
 
 def gradient_penalty(critic, real, fake, device):
   batch, channels, height, width = real.shape
-  epsilon = torch.randn((batch, 1, 1, 1)).repeat(1, channels, height, width).to(device)
+  epsilon = torch.rand((batch, 1, 1, 1)).repeat(1, channels, height, width).to(device)
   interpolated_imgs = real * epsilon + fake.detach() * (1 - epsilon)
   interpolated_imgs.requires_grad_(True)
 
