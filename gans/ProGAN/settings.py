@@ -20,20 +20,24 @@ CHECKPOINT_EVERY = 5_000
 SAMPLE_EVERY = 2_000
 TESTING_SAMPLES = 32
 
-BASE_FEATURES = 8192
-FEATURES_MAX = 512
-Z_DIM = 512
+# Originals
+# BASE_FEATURES = 8192
+# FEATURES_MAX = 512
+# Z_DIM = 512
+BASE_FEATURES = 4096
+FEATURES_MAX = 256
+Z_DIM = 256
 
 CRITIC_ITERATIONS = 1
-LR = 1e-3
+LR = 1e-4
 START_ALPHA = 1e-5
-IMG_SIZE_TO_BATCH_SIZE = { 4:32, 8:16, 16:16, 32:16, 64:8, 128:4, 256:4 }
+IMG_SIZE_TO_BATCH_SIZE = { 4:32, 8:32, 16:16, 32:16, 64:8, 128:4, 256:4 }
 LAMBDA_GP = 10 # 10
-EPSILON_DRIFT = 0.001 # 0.001
+EPSILON_DRIFT = 0.0005 # 0.001
 
 # Fading steps, full training steps
 #                               4                   8                16               32                 64               128                 256
-PROGRESSIVE_ITERATIONS = [(0, 25_000), (25_000, 25_000), (25_000, 25_000), (25_000, 25_000), (50_000, 50_000), (100_000, 100_000), (100_000, 100_000)]
+PROGRESSIVE_ITERATIONS = [(0, 25_000), (12_500, 12_500), (25_000, 25_000), (25_000, 25_000), (50_000, 50_000), (100_000, 100_000), (100_000, 100_000)]
 ADDITIONAL_TRAINING = 100_000
 NUMBER_OF_STEPS = int(math.log2(TARGET_IMAGE_SIZE)) - 1
 assert NUMBER_OF_STEPS >= len(PROGRESSIVE_ITERATIONS), "Specified iterations for layers that are not defined in model"

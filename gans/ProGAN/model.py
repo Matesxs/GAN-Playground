@@ -40,6 +40,13 @@ class FromRGBBlock(nn.Module):
   def forward(self, x):
     return self.block(x)
 
+class BatchStdConcat(nn.Module):
+  def __init__(self):
+    super(BatchStdConcat, self).__init__()
+
+  def forward(self, x):
+    return torch.cat([x, torch.std(x, dim=0).mean().repeat(x.shape[0], 1, x.shape[2], x.shape[3])], dim=1)
+
 class Generator(nn.Module):
   def __init__(self, img_channels=3, target_resolution=256, feature_base=8192, feature_max=512, z_dim=512):
     super(Generator, self).__init__()
@@ -125,20 +132,21 @@ class Critic(nn.Module):
       self.blocks.append(block)
       self.from_rgb_blocks.append(fromRGB)
 
-    first_block = nn.ModuleList()
+    final_block = nn.ModuleList()
 
     in_channels, out_channels = self.get_number_of_filters(1), self.get_number_of_filters(1)
+    final_block.append(BatchStdConcat())
     in_channels += 1
 
-    first_block.append(ConvBlock(in_channels, out_channels, kernel=3, padding=1, use_pixelnorm=False))
+    final_block.append(ConvBlock(in_channels, out_channels, kernel=3, padding=1, use_pixelnorm=False))
     in_channels, out_channels = out_channels, self.get_number_of_filters(0)
 
-    first_block.append(ConvBlock(in_channels, out_channels, kernel=4, padding=0, use_pixelnorm=False))
+    final_block.append(ConvBlock(in_channels, out_channels, kernel=4, padding=0, use_pixelnorm=False))
     in_channels, out_channels = out_channels, 1
 
-    first_block.append(WeightedScaleConv2(in_channels, out_channels, kernel_size=1, stride=1, padding=0, gain=1))
+    final_block.append(WeightedScaleConv2(in_channels, out_channels, kernel_size=1, stride=1, padding=0, gain=1))
 
-    self.blocks.append(nn.Sequential(*first_block))
+    self.blocks.append(nn.Sequential(*final_block))
 
   def get_number_of_filters(self, stage):
     return min(int(self.feature_base / (2.0 ** stage)), self.feature_max)
@@ -171,21 +179,24 @@ class Critic(nn.Module):
     for lev in range(prev_stage + 1, levels):
       x = self.blocks[lev](x)
 
-    return self.minibatch_std(x)
+    return x
 
 if __name__ == '__main__':
-  NOISE_DIM = 512
+  BASE_FEATURES = 4096
+  FEATURES_MAX = 256
+  Z_DIM = 256
+  TARGET_SIZE = 256
   IMG_CHANNELS = 3
-  gen = Generator(z_dim=NOISE_DIM, img_channels=IMG_CHANNELS)
-  crit = Critic(img_channels=IMG_CHANNELS)
+  gen = Generator(z_dim=Z_DIM, img_channels=IMG_CHANNELS, feature_base=BASE_FEATURES, feature_max=FEATURES_MAX, target_resolution=TARGET_SIZE)
+  crit = Critic(img_channels=IMG_CHANNELS, feature_base=BASE_FEATURES, feature_max=FEATURES_MAX, target_resolution=TARGET_SIZE)
 
   for res in [4, 8, 16, 32, 64, 128, 256]:
     step = int(np.log2(res)) - 2
-    noise = torch.randn((8, NOISE_DIM, 1, 1))
+    noise = torch.randn((8, Z_DIM, 1, 1))
     z = gen(noise, alpha=0.5, stage=step)
     assert z.shape == (8, IMG_CHANNELS, res, res)
     z = crit(z, alpha=1.0, stage=step)
     assert z.shape == (8, 1, 1, 1)
 
-  summary(gen, (NOISE_DIM, 1, 1), 4, device="cpu")
+  summary(gen, (Z_DIM, 1, 1), 4, device="cpu")
   summary(crit, (IMG_CHANNELS, 256, 256), 4, device="cpu")
