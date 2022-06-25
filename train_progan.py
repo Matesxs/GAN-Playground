@@ -151,7 +151,7 @@ def train_loop(fade_iterations, train_iterations, train_stage, alpha, crit, gen,
             else:
               print(f"\nLoss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}, Alpha: {alpha:.4f}")
 
-          gen.train_step()
+          gen.train()
 
         iteration += 1
 
