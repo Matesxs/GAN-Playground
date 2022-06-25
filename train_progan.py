@@ -61,9 +61,9 @@ def train_step(data, crit, gen, stage, alpha, opt_critic, opt_generator, c_scale
   real = data.to(settings.device)
   cur_batch_size = real.shape[0]
 
+  # Train critic
   opt_critic.zero_grad()
   for _ in range(batch_repeats):
-    # Train critic
     noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
 
     with torch.cuda.amp.autocast():
@@ -83,9 +83,9 @@ def train_step(data, crit, gen, stage, alpha, opt_critic, opt_generator, c_scale
   c_scaler.step(opt_critic)
   c_scaler.update()
 
+  # Train generator
   opt_generator.zero_grad()
   for _ in range(batch_repeats):
-    # Train generator
     noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
 
     with torch.cuda.amp.autocast():
