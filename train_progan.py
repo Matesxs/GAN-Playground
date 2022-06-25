@@ -57,7 +57,7 @@ def get_loader(image_size):
   loader = DataLoader(dataset, batch_size, shuffle=True, num_workers=settings.NUM_OF_WORKERS, pin_memory=True, persistent_workers=True)
   return loader, dataset
 
-def train(data, crit, gen, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler, batch_repeats):
+def train_step(data, crit, gen, stage, alpha, opt_critic, opt_generator, c_scaler, g_scaler, batch_repeats):
   real = data.to(settings.device)
   cur_batch_size = real.shape[0]
 
@@ -67,13 +67,13 @@ def train(data, crit, gen, step, alpha, opt_critic, opt_generator, c_scaler, g_s
     noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
 
     with torch.cuda.amp.autocast():
-      fake = gen(noise, alpha, step)
-      critic_real = crit(real, alpha, step)
-      critic_fake = crit(fake.detach(), alpha, step)
+      fake = gen(noise, alpha, stage)
+      critic_real = crit(real, alpha, stage)
+      critic_fake = crit(fake.detach(), alpha, stage)
 
       loss_crit = -(torch.mean(critic_real) - torch.mean(critic_fake))
       if settings.LAMBDA_GP != 0:
-        gp = gradient_penalty(crit, real, fake, alpha, step, device=settings.device)
+        gp = gradient_penalty(crit, real, fake, alpha, stage, device=settings.device)
         loss_crit += settings.LAMBDA_GP * gp
       if settings.EPSILON_DRIFT != 0:
         loss_crit += settings.EPSILON_DRIFT * torch.mean(critic_real ** 2)
@@ -89,8 +89,8 @@ def train(data, crit, gen, step, alpha, opt_critic, opt_generator, c_scaler, g_s
     noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
 
     with torch.cuda.amp.autocast():
-      fake = gen(noise, alpha, step)
-      gen_fake = crit(fake, alpha, step)
+      fake = gen(noise, alpha, stage)
+      gen_fake = crit(fake, alpha, stage)
       loss_gen = -torch.mean(gen_fake)
 
     g_scaler.scale(loss_gen).backward()
@@ -102,12 +102,12 @@ def train(data, crit, gen, step, alpha, opt_critic, opt_generator, c_scaler, g_s
 
 global_step = 0
 iteration = 0
-def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise, batch_repeats):
+def train_loop(fade_iterations, train_iterations, train_stage, alpha, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise, batch_repeats):
   global global_step
   global iteration
 
   number_of_iterations = fade_iterations + train_iterations
-  img_size = 4 * 2 ** train_step
+  img_size = 4 * 2 ** train_stage
   loader, dataset = get_loader(img_size)
   number_of_batches = len(loader)
   number_of_epochs = number_of_iterations / number_of_batches
@@ -117,7 +117,7 @@ def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, 
   with tqdm(total=number_of_iterations, initial=iteration, unit="it") as bar:
     while True:
       for data in loader:
-        crit_loss, gen_loss = train(data, crit, gen, train_step, alpha, opt_critic, opt_generator, c_scaler, g_scaler, batch_repeats)
+        crit_loss, gen_loss = train_step(data, crit, gen, train_stage, alpha, opt_critic, opt_generator, c_scaler, g_scaler, batch_repeats)
         alpha = max(settings.START_ALPHA, (1.0 * (iteration / fade_iterations)) if fade_iterations != 0 else 1.0)
         alpha = min(alpha, 1.0)
 
@@ -135,7 +135,7 @@ def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, 
           gen.eval()
 
           with torch.no_grad():
-            fake = gen(test_noise, alpha, train_step)
+            fake = gen(test_noise, alpha, train_stage)
             img_grid_fake = torchvision.utils.make_grid(fake[:settings.TESTING_SAMPLES], normalize=True)
             summary_writer.add_image("Generated", img_grid_fake, global_step=global_step)
 
@@ -143,7 +143,7 @@ def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, 
               inception_image_batches = []
               for _ in range(settings.INCEPTION_SCORE_NUMBER_OF_BATCHES):
                 inception_noise = torch.randn((settings.INCEPTION_SCORE_BATCH_SIZE, settings.Z_DIM, 1, 1), device=settings.device)
-                inception_image_batches.append(gen(inception_noise, alpha, train_step))
+                inception_image_batches.append(gen(inception_noise, alpha, train_stage))
 
               mean_inception_score, inception_score_stddev = inception_score(inception_image_batches, settings.INCEPTION_SCORE_BATCH_SIZE, True, splits=settings.INCEPTION_SCORE_SPLIT)
               print(f"\nLoss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}, Inception Score: {mean_inception_score:.2f}±{inception_score_stddev:.2f}")
@@ -151,7 +151,7 @@ def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, 
             else:
               print(f"\nLoss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}, Alpha: {alpha:.4f}")
 
-          gen.train()
+          gen.train_step()
 
         iteration += 1
 
@@ -165,7 +165,7 @@ def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, 
 
       save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
       save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit.mod")
-      save_metadata({"iteration": iteration, "train_step": train_step, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+      save_metadata({"iteration": iteration, "train_step": train_stage, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
 def main():
   global global_step
@@ -196,7 +196,7 @@ def main():
   if os.path.exists(f"models/{settings.MODEL_NAME}/metadata.pkl") and os.path.isfile(f"models/{settings.MODEL_NAME}/metadata.pkl"):
     metadata = load_metadata(f"models/{settings.MODEL_NAME}/metadata.pkl")
 
-  train_step = 0
+  train_stage = 0
   alpha = settings.START_ALPHA
   test_noise = torch.randn((settings.TESTING_SAMPLES, settings.Z_DIM, 1, 1), device=settings.device)
   if metadata is not None:
@@ -207,7 +207,7 @@ def main():
       global_step = metadata["global_step"]
 
     if "train_step" in metadata.keys():
-      train_step = metadata["train_step"]
+      train_stage = metadata["train_step"]
 
     if "alpha" in metadata.keys():
       alpha = metadata["alpha"]
@@ -242,28 +242,28 @@ def main():
     pathlib.Path(f"models/{settings.MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
   try:
-    for iteraions_tuple in settings.PROGRESSIVE_ITERATIONS[train_step:]:
-      train_loop(iteraions_tuple[0], iteraions_tuple[1], train_step, alpha, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise, batch_repeats)
+    for iteraions_tuple in settings.PROGRESSIVE_ITERATIONS[train_stage:]:
+      train_loop(iteraions_tuple[0], iteraions_tuple[1], train_stage, alpha, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise, batch_repeats)
 
       iteration = 0
       alpha = settings.START_ALPHA
-      train_step += 1
+      train_stage += 1
 
     print("Starting additional training")
-    train_loop(0, settings.ADDITIONAL_TRAINING, len(settings.PROGRESSIVE_ITERATIONS) - 1, 1.0, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise)
+    train_loop(0, settings.ADDITIONAL_TRAINING, len(settings.PROGRESSIVE_ITERATIONS) - 1, 1.0, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise, batch_repeats)
   except KeyboardInterrupt:
     print("Exiting")
   except Exception as e:
     print(e)
     try:
-      save_metadata({"iteration": iteration, "train_step": train_step, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+      save_metadata({"iteration": iteration, "train_step": train_stage, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
     except:
       pass
     exit(-1)
 
   save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
   save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit.mod")
-  save_metadata({"iteration": iteration, "train_step": train_step, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+  save_metadata({"iteration": iteration, "train_step": train_stage, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
 if __name__ == '__main__':
   main()

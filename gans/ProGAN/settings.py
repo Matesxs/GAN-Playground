@@ -37,7 +37,7 @@ EPSILON_DRIFT = 0.001 # 0.001
 
 # Fading steps, full training steps
 #                               4                   8                16               32                 64               128                 256
-PROGRESSIVE_ITERATIONS = [(0, 25_000), (12_500, 12_500), (25_000, 25_000), (25_000, 25_000), (50_000, 50_000), (100_000, 100_000), (200_000, 200_000)]
+PROGRESSIVE_ITERATIONS = [(0, 30_000), (15_000, 15_000), (30_000, 30_000), (40_000, 40_000), (50_000, 50_000), (100_000, 100_000), (200_000, 200_000)]
 ADDITIONAL_TRAINING = 100_000
 NUMBER_OF_STEPS = int(math.log2(TARGET_IMAGE_SIZE)) - 1
 assert NUMBER_OF_STEPS >= len(PROGRESSIVE_ITERATIONS), "Specified iterations for layers that are not defined in model"
