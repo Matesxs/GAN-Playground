@@ -57,47 +57,52 @@ def get_loader(image_size):
   loader = DataLoader(dataset, batch_size, shuffle=True, num_workers=settings.NUM_OF_WORKERS, pin_memory=True, persistent_workers=True)
   return loader, dataset
 
-def train(data, crit, gen, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler, train_step):
+def train(data, crit, gen, step, alpha, opt_critic, opt_generator, c_scaler, g_scaler, batch_repeats):
   real = data.to(settings.device)
   cur_batch_size = real.shape[0]
 
-  # Train critic
-  noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
-
-  with torch.cuda.amp.autocast():
-    fake = gen(noise, alpha, step)
-    critic_real = crit(real, alpha, step)
-    critic_fake = crit(fake.detach(), alpha, step)
-
-    loss_crit = -(torch.mean(critic_real) - torch.mean(critic_fake))
-    if settings.LAMBDA_GP != 0:
-      gp = gradient_penalty(crit, real, fake, alpha, step, device=settings.device)
-      loss_crit += settings.LAMBDA_GP * gp
-    if settings.EPSILON_DRIFT != 0:
-      loss_crit += settings.EPSILON_DRIFT * torch.mean(critic_real ** 2)
-
   opt_critic.zero_grad()
-  c_scaler.scale(loss_crit).backward()
+  for _ in range(batch_repeats):
+    # Train critic
+    noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
+
+    with torch.cuda.amp.autocast():
+      fake = gen(noise, alpha, step)
+      critic_real = crit(real, alpha, step)
+      critic_fake = crit(fake.detach(), alpha, step)
+
+      loss_crit = -(torch.mean(critic_real) - torch.mean(critic_fake))
+      if settings.LAMBDA_GP != 0:
+        gp = gradient_penalty(crit, real, fake, alpha, step, device=settings.device)
+        loss_crit += settings.LAMBDA_GP * gp
+      if settings.EPSILON_DRIFT != 0:
+        loss_crit += settings.EPSILON_DRIFT * torch.mean(critic_real ** 2)
+
+    c_scaler.scale(loss_crit).backward()
+
   c_scaler.step(opt_critic)
   c_scaler.update()
 
-  # Train generator
-  loss_gen = None
-  if train_step % settings.CRITIC_ITERATIONS == 0:
+  opt_generator.zero_grad()
+  for _ in range(batch_repeats):
+    # Train generator
+    noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
+
     with torch.cuda.amp.autocast():
+      fake = gen(noise, alpha, step)
       gen_fake = crit(fake, alpha, step)
       loss_gen = -torch.mean(gen_fake)
 
-    opt_generator.zero_grad()
     g_scaler.scale(loss_gen).backward()
-    g_scaler.step(opt_generator)
-    g_scaler.update()
+
+  g_scaler.step(opt_generator)
+  g_scaler.update()
 
   return loss_crit, loss_gen
 
 global_step = 0
 iteration = 0
-def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise):
+def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise, batch_repeats):
   global global_step
   global iteration
 
@@ -112,7 +117,7 @@ def train_loop(fade_iterations, train_iterations, train_step, alpha, crit, gen, 
   with tqdm(total=number_of_iterations, initial=iteration, unit="it") as bar:
     while True:
       for data in loader:
-        crit_loss, gen_loss = train(data, crit, gen, train_step, alpha, opt_critic, opt_generator, c_scaler, g_scaler, iteration)
+        crit_loss, gen_loss = train(data, crit, gen, train_step, alpha, opt_critic, opt_generator, c_scaler, g_scaler, batch_repeats)
         alpha = max(settings.START_ALPHA, (1.0 * (iteration / fade_iterations)) if fade_iterations != 0 else 1.0)
         alpha = min(alpha, 1.0)
 
@@ -173,6 +178,7 @@ def main():
   opt_critic = optim.Adam(crit.parameters(), lr=settings.LR, betas=(0.0, 0.99))
 
   summary_writer = SummaryWriter(f"logs/{settings.MODEL_NAME}", max_queue=50)
+  batch_repeats = max(settings.BATCH_REPEATS if settings.BATCH_REPEATS is not None else 1, 1)
 
   try:
     if os.path.exists(f"models/{settings.MODEL_NAME}/crit.mod") and os.path.isfile(f"models/{settings.MODEL_NAME}/crit.mod"):
@@ -237,7 +243,7 @@ def main():
 
   try:
     for iteraions_tuple in settings.PROGRESSIVE_ITERATIONS[train_step:]:
-      train_loop(iteraions_tuple[0], iteraions_tuple[1], train_step, alpha, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise)
+      train_loop(iteraions_tuple[0], iteraions_tuple[1], train_step, alpha, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise, batch_repeats)
 
       iteration = 0
       alpha = settings.START_ALPHA
