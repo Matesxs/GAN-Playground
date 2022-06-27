@@ -24,6 +24,9 @@ def load_image(image_path, format="RGB"):
     image = ImageOps.grayscale(image)
   return np.array(image)
 
+def switchTrainable(nNet, status):
+  for p in nNet.parameters(): p.requires_grad = status
+
 def initialize_model(model:nn.Module):
   for m in model.modules():
     if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d, nn.InstanceNorm2d)):

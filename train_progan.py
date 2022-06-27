@@ -8,9 +8,10 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import os
 import pathlib
+import numpy as np
 
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
-from gans.utils.helpers import inception_score
+from gans.utils.helpers import inception_score, switchTrainable
 from gans.ProGAN.model import Critic, Generator
 import gans.ProGAN.settings as settings
 
@@ -57,13 +58,18 @@ def get_loader(image_size):
   loader = DataLoader(dataset, batch_size, shuffle=True, num_workers=settings.NUM_OF_WORKERS, pin_memory=True, persistent_workers=True)
   return loader, dataset
 
-def train_step(data, crit, gen, stage, alpha, opt_critic, opt_generator, c_scaler, g_scaler, batch_repeats):
+last_saved_checkpoint = None
+def train_step(data, crit, gen, stage, alpha, opt_critic, opt_generator, c_scaler, g_scaler):
   real = data.to(settings.device)
   cur_batch_size = real.shape[0]
 
+  crit_losses, gen_losses = [], []
+
   # Train critic
   opt_critic.zero_grad()
-  for _ in range(batch_repeats):
+  switchTrainable(crit, True)
+  switchTrainable(gen, False)
+  for _ in range(settings.CRITIC_ACCUMULATION_STEPS):
     noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
 
     with torch.cuda.amp.autocast():
@@ -79,13 +85,16 @@ def train_step(data, crit, gen, stage, alpha, opt_critic, opt_generator, c_scale
         loss_crit += settings.EPSILON_DRIFT * torch.mean(critic_real ** 2)
 
     c_scaler.scale(loss_crit).backward()
+    crit_losses.append(loss_crit.item())
 
   c_scaler.step(opt_critic)
   c_scaler.update()
 
   # Train generator
   opt_generator.zero_grad()
-  for _ in range(batch_repeats):
+  switchTrainable(crit, False)
+  switchTrainable(gen, True)
+  for _ in range(settings.GENERATOR_ACCUMULATION_STEPS):
     noise = torch.randn((cur_batch_size, settings.Z_DIM, 1, 1), device=settings.device)
 
     with torch.cuda.amp.autocast():
@@ -94,17 +103,19 @@ def train_step(data, crit, gen, stage, alpha, opt_critic, opt_generator, c_scale
       loss_gen = -torch.mean(gen_fake)
 
     g_scaler.scale(loss_gen).backward()
+    gen_losses.append(loss_gen.item())
 
   g_scaler.step(opt_generator)
   g_scaler.update()
 
-  return loss_crit, loss_gen
+  return crit_losses, gen_losses
 
 global_step = 0
 iteration = 0
 def train_loop(fade_iterations, train_iterations, train_stage, alpha, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise, batch_repeats):
   global global_step
   global iteration
+  global last_saved_checkpoint
 
   number_of_iterations = fade_iterations + train_iterations
   img_size = 4 * 2 ** train_stage
@@ -116,27 +127,38 @@ def train_loop(fade_iterations, train_iterations, train_stage, alpha, crit, gen,
   print(f"Fading iterations: {fade_iterations} ({fade_iterations * settings.IMG_SIZE_TO_BATCH_SIZE[img_size]} images), Full train iterations: {train_iterations} ({train_iterations * settings.IMG_SIZE_TO_BATCH_SIZE[img_size]} images)")
   with tqdm(total=number_of_iterations, initial=iteration, unit="it") as bar:
     while True:
+      crit_losses, gen_losses = [], []
       for data in loader:
-        crit_loss, gen_loss = train_step(data, crit, gen, train_stage, alpha, opt_critic, opt_generator, c_scaler, g_scaler, batch_repeats)
+        for _ in range(batch_repeats):
+          cl, gl = train_step(data, crit, gen, train_stage, alpha, opt_critic, opt_generator, c_scaler, g_scaler)
+          crit_losses.extend(cl)
+          gen_losses.extend(gl)
+
         alpha = max(settings.START_ALPHA, (1.0 * (iteration / fade_iterations)) if fade_iterations != 0 else 1.0)
         alpha = min(alpha, 1.0)
 
-        if gen_loss is not None:
+        if global_step % settings.STATS_SAMPLE_EVERY == 0:
+          crit_loss = np.mean(crit_losses)
+          gen_loss = np.mean(gen_losses)
+
+          crit_losses.clear()
+          gen_losses.clear()
+
           summary_writer.add_scalar("Gen Loss", gen_loss, global_step=global_step)
-        if crit_loss is not None:
           summary_writer.add_scalar("Crit Loss", crit_loss, global_step=global_step)
-        summary_writer.add_scalar("Alpha", alpha, global_step=global_step)
+          summary_writer.add_scalar("Alpha", alpha, global_step=global_step)
 
         if settings.SAVE_CHECKPOINTS and iteration % settings.CHECKPOINT_EVERY == 0:
+          last_saved_checkpoint = global_step
           save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen_{global_step}.mod")
           save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit_{global_step}.mod")
 
-        if iteration % settings.SAMPLE_EVERY == 0:
+        if iteration % settings.IMAGE_SAMPLE_EVERY == 0:
           gen.eval()
 
           with torch.no_grad():
             fake = gen(test_noise, alpha, train_stage)
-            img_grid_fake = torchvision.utils.make_grid(fake[:settings.TESTING_SAMPLES], normalize=True)
+            img_grid_fake = torchvision.utils.make_grid(fake[:settings.IMAGE_TESTING_SAMPLES], normalize=True)
             summary_writer.add_image("Generated", img_grid_fake, global_step=global_step)
 
             if alpha >= 1.0:
@@ -146,8 +168,9 @@ def train_loop(fade_iterations, train_iterations, train_stage, alpha, crit, gen,
                 inception_image_batches.append(gen(inception_noise, alpha, train_stage))
 
               mean_inception_score, inception_score_stddev = inception_score(inception_image_batches, settings.INCEPTION_SCORE_BATCH_SIZE, True, splits=settings.INCEPTION_SCORE_SPLIT)
-              print(f"\nLoss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}, Inception Score: {mean_inception_score:.2f}±{inception_score_stddev:.2f}")
               summary_writer.add_scalar("Inception Score", mean_inception_score, global_step=global_step)
+
+              print(f"\nLoss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}, Inception Score: {mean_inception_score:.2f}±{inception_score_stddev:.2f}")
             else:
               print(f"\nLoss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}, Alpha: {alpha:.4f}")
 
@@ -198,7 +221,7 @@ def main():
 
   train_stage = 0
   alpha = settings.START_ALPHA
-  test_noise = torch.randn((settings.TESTING_SAMPLES, settings.Z_DIM, 1, 1), device=settings.device)
+  test_noise = torch.randn((settings.IMAGE_TESTING_SAMPLES, settings.Z_DIM, 1, 1), device=settings.device)
   if metadata is not None:
     if "iteration" in metadata.keys():
       iteration = metadata["iteration"]
@@ -214,7 +237,7 @@ def main():
 
     if "noise" in metadata.keys():
       tmp_noise = torch.Tensor(metadata["noise"])
-      if tmp_noise.shape == (settings.TESTING_SAMPLES, settings.Z_DIM, 1, 1):
+      if tmp_noise.shape == (settings.IMAGE_TESTING_SAMPLES, settings.Z_DIM, 1, 1):
         test_noise = tmp_noise.to(settings.device)
 
   if settings.OVERRIDE_ITERATION is not None:

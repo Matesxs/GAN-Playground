@@ -126,6 +126,12 @@ In order: Input, Real, Generated
 ![21](media/fingerprint_pix2pix_original.png?raw=true)
 ![22](media/fingerprint_pix2pix_generated.png?raw=true)
 
+### ProGAN
+1. Generated 16x16 \
+![23](media/celeba_progan_fake1.png?raw=true)
+2. Generated 32x32 \
+![24](media/celeba_progan_fake2.png?raw=true)
+
 ## TODO
 - [x] Implement basic DCGAN
 - [x] Implement basic WGAN
@@ -135,7 +141,7 @@ In order: Input, Real, Generated
 - [x] Implement basic CycleGAN
 - [ ] Revisit CycleGAN with different dataset
 - [x] Implement basic ProGAN
-- [ ] Fix ProGAN and revisit for better results
+- [x] Fix ProGAN and revisit for better results
 - [ ] Try ProGAN with classic WGAN model layers
 - [x] Implement basic SRGAN
 - [ ] Implement enhanced SRGAN (ESRGAN)
