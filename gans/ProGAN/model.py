@@ -44,7 +44,8 @@ class BatchStdConcat(nn.Module):
   def __init__(self):
     super(BatchStdConcat, self).__init__()
 
-  def forward(self, x):
+  @staticmethod
+  def forward(x):
     return torch.cat([x, torch.std(x, dim=0).mean().repeat(x.shape[0], 1, x.shape[2], x.shape[3])], dim=1)
 
 class Generator(nn.Module):
@@ -88,6 +89,7 @@ class Generator(nn.Module):
     if stage is None:
       stage = self.number_of_blocks - 2
 
+    prevLevel_x = None
     prev_stage = stage - 1
     fade = alpha < 1.0
 
@@ -100,8 +102,8 @@ class Generator(nn.Module):
       if lev == stage:
         x = self.rgb_blocks[lev](x)
 
-        # Fade only when alpha is less than 1.0 and we are not in first stage
-        if fade and stage != 0:
+        # Fade only when alpha is less than 1.0, and we are not in first stage
+        if fade and stage != 0 and prevLevel_x is not None:
           x = alpha * x + (1 - alpha) * F.interpolate(prevLevel_x, scale_factor=2, mode='nearest')
     return torch.tanh(x)
 
@@ -192,11 +194,11 @@ if __name__ == '__main__':
 
   for res in [4, 8, 16, 32, 64, 128, 256]:
     step = int(np.log2(res)) - 2
-    noise = torch.randn((8, Z_DIM, 1, 1))
+    noise = torch.randn((4, Z_DIM, 1, 1))
     z = gen(noise, alpha=0.5, stage=step)
-    assert z.shape == (8, IMG_CHANNELS, res, res)
+    assert z.shape == (4, IMG_CHANNELS, res, res)
     z = crit(z, alpha=1.0, stage=step)
-    assert z.shape == (8, 1, 1, 1)
+    assert z.shape == (4, 1, 1, 1)
 
   summary(gen, (Z_DIM, 1, 1), 4, device="cpu")
-  summary(crit, (IMG_CHANNELS, 256, 256), 4, device="cpu")
+  summary(crit, (IMG_CHANNELS, TARGET_SIZE, TARGET_SIZE), batch_size=4, device="cpu")

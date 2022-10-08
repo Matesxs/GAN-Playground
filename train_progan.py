@@ -9,6 +9,7 @@ from tqdm import tqdm
 import os
 import pathlib
 import numpy as np
+import traceback
 
 from gans.utils.training_saver import load_model, save_model, save_metadata, load_metadata
 from gans.utils.helpers import inception_score, switchTrainable
@@ -123,12 +124,13 @@ def train_loop(fade_iterations, train_iterations, train_stage, alpha, crit, gen,
   number_of_batches = len(loader)
   number_of_epochs = number_of_iterations / number_of_batches
 
-  print(f"Starting image size: {img_size} with batch size: {settings.IMG_SIZE_TO_BATCH_SIZE[img_size]} which coresponds to {number_of_batches} number of batches\nTraining for {number_of_epochs:.2f} epochs ({int(number_of_iterations * settings.IMG_SIZE_TO_BATCH_SIZE[img_size])} images)")
+  print(f"Starting image size: {img_size} with batch size: {settings.IMG_SIZE_TO_BATCH_SIZE[img_size]} which coresponds to {number_of_batches} unique number of batches (with batch repeat of {settings.BATCH_REPEATS}: {number_of_batches * settings.BATCH_REPEATS} batches)\nTraining for {number_of_epochs:.2f} epochs ({int(number_of_iterations * settings.IMG_SIZE_TO_BATCH_SIZE[img_size])} images)")
   print(f"Fading iterations: {fade_iterations} ({fade_iterations * settings.IMG_SIZE_TO_BATCH_SIZE[img_size]} images), Full train iterations: {train_iterations} ({train_iterations * settings.IMG_SIZE_TO_BATCH_SIZE[img_size]} images)")
   with tqdm(total=number_of_iterations, initial=iteration, unit="it") as bar:
     while True:
-      crit_losses, gen_losses = [], []
       for data in loader:
+        crit_losses, gen_losses = [], []
+
         for _ in range(batch_repeats):
           cl, gl = train_step(data, crit, gen, train_stage, alpha, opt_critic, opt_generator, c_scaler, g_scaler)
           crit_losses.extend(cl)
@@ -137,21 +139,23 @@ def train_loop(fade_iterations, train_iterations, train_stage, alpha, crit, gen,
         alpha = max(settings.START_ALPHA, (1.0 * (iteration / fade_iterations)) if fade_iterations != 0 else 1.0)
         alpha = min(alpha, 1.0)
 
-        if global_step % settings.STATS_SAMPLE_EVERY == 0:
-          crit_loss = np.mean(crit_losses)
-          gen_loss = np.mean(gen_losses)
+        crit_loss = np.mean(crit_losses)
+        gen_loss = np.mean(gen_losses)
 
-          crit_losses.clear()
-          gen_losses.clear()
+        bar.set_description(f"Global step: {global_step}, Crit loss: {np.round(crit_loss, 4)}, Gen loss: {np.round(gen_loss, 4)}, Alpha: {round(alpha, 4)}", refresh=False)
 
-          summary_writer.add_scalar("Gen Loss", gen_loss, global_step=global_step)
-          summary_writer.add_scalar("Crit Loss", crit_loss, global_step=global_step)
-          summary_writer.add_scalar("Alpha", alpha, global_step=global_step)
+        summary_writer.add_scalar("Gen Loss", gen_loss, global_step=global_step)
+        summary_writer.add_scalar("Crit Loss", crit_loss, global_step=global_step)
+        summary_writer.add_scalar("Alpha", alpha, global_step=global_step)
 
         if settings.SAVE_CHECKPOINTS and iteration % settings.CHECKPOINT_EVERY == 0:
           last_saved_checkpoint = global_step
           save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen_{global_step}.mod")
           save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit_{global_step}.mod")
+
+          save_model(gen, opt_generator, f"models/{settings.MODEL_NAME}/gen.mod")
+          save_model(crit, opt_critic, f"models/{settings.MODEL_NAME}/crit.mod")
+          save_metadata({"iteration": iteration, "train_step": train_stage, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
 
         if iteration % settings.IMAGE_SAMPLE_EVERY == 0:
           gen.eval()
@@ -170,9 +174,7 @@ def train_loop(fade_iterations, train_iterations, train_stage, alpha, crit, gen,
               mean_inception_score, inception_score_stddev = inception_score(inception_image_batches, settings.INCEPTION_SCORE_BATCH_SIZE, True, splits=settings.INCEPTION_SCORE_SPLIT)
               summary_writer.add_scalar("Inception Score", mean_inception_score, global_step=global_step)
 
-              print(f"\nLoss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}, Inception Score: {mean_inception_score:.2f}±{inception_score_stddev:.2f}")
-            else:
-              print(f"\nLoss crit: {crit_loss:.4f}, Loss gen: {gen_loss:.4f}, Alpha: {alpha:.4f}")
+              print(f"Inception Score: {mean_inception_score:.2f}±{inception_score_stddev:.2f}")
 
           gen.train()
 
@@ -276,8 +278,8 @@ def main():
     train_loop(0, settings.ADDITIONAL_TRAINING, len(settings.PROGRESSIVE_ITERATIONS) - 1, 1.0, crit, gen, opt_critic, opt_generator, c_scaler, g_scaler, summary_writer, test_noise, batch_repeats)
   except KeyboardInterrupt:
     print("Exiting")
-  except Exception as e:
-    print(e)
+  except Exception:
+    print(traceback.format_exc())
     try:
       save_metadata({"iteration": iteration, "train_step": train_stage, "global_step": global_step, "alpha": alpha, "noise": test_noise.tolist()}, f"models/{settings.MODEL_NAME}/metadata.pkl")
     except:

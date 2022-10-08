@@ -131,6 +131,12 @@ In order: Input, Real, Generated
 ![23](media/celeba_progan_fake1.png?raw=true)
 2. Generated 32x32 \
 ![24](media/celeba_progan_fake2.png?raw=true)
+3. Generated 64x64 \
+![25](media/celeba_progan_fake3.png?raw=true)
+4. Generated 128x128 \
+![26](media/celeba_progan_fake4.png?raw=true)
+5. Generated 256x256 \
+![27](media/celeba_progan_fake5.png?raw=true)
 
 ## TODO
 - [x] Implement basic DCGAN
@@ -140,8 +146,9 @@ In order: Input, Real, Generated
 - [x] Implement Pix2Pix based on GAN
 - [x] Implement basic CycleGAN
 - [ ] Revisit CycleGAN with different dataset
+- [ ] Revisit CycleGAN using model with classic WGAN layers
 - [x] Implement basic ProGAN
-- [x] Fix ProGAN and revisit for better results
+- [ ] Revisit ProGAN for better results
 - [ ] Try ProGAN with classic WGAN model layers
 - [x] Implement basic SRGAN
 - [ ] Implement enhanced SRGAN (ESRGAN)
