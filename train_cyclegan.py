@@ -13,6 +13,7 @@ from gans.utils.training_saver import load_model, save_model, save_metadata, loa
 from gans.utils.datasets import SplitImagePairDataset
 from gans.CycleGAN.generator_model import Generator
 from gans.CycleGAN.discriminator_model import Discriminator
+from gans.utils.learning import get_linear_decay_scheduler
 
 torch.backends.cudnn.benchmark = True
 
@@ -67,6 +68,7 @@ def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_lo
     # Together
     G_loss = G_A_loss + G_B_loss + cycle_A_loss * settings.LAMBDA_CYCLE + cycle_B_loss * settings.LAMBDA_CYCLE
 
+    identity_loss = None
     if settings.LAMBDA_IDENTITY > 0:
       # Identity loss only when its lambda is larger than zero
       identity_A = gen_A(imageA)
@@ -75,14 +77,15 @@ def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_lo
       identity_A_loss = L1_loss(imageA, identity_A)
       identity_B_loss = L1_loss(imageB, identity_B)
 
-      G_loss += identity_A_loss * settings.LAMBDA_IDENTITY + identity_B_loss * settings.LAMBDA_IDENTITY
+      identity_loss = identity_A_loss * settings.LAMBDA_IDENTITY + identity_B_loss * settings.LAMBDA_IDENTITY
+      G_loss += identity_loss
 
   opt_gen.zero_grad()
   g_scaler.scale(G_loss).backward()
   g_scaler.step(opt_gen)
   g_scaler.update()
 
-  return D_loss, G_loss
+  return D_loss.item(), G_loss.item(), D_A_loss.item(), D_B_loss.item(), G_A_loss.item(), G_B_loss.item(), (identity_loss.item() if identity_loss is not None else 0)
 
 
 def main():
@@ -132,6 +135,11 @@ def main():
     if "iteration" in metadata.keys():
       iteration = int(metadata["iteration"])
 
+  schedulers = []
+  if settings.DECAY_LR:
+    schedulers.append(get_linear_decay_scheduler(opt_gen, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
+    schedulers.append(get_linear_decay_scheduler(opt_disc, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
+
   if settings.GEN_A_MODEL_WEIGHTS_TO_LOAD is not None:
     try:
       load_model(settings.GEN_A_MODEL_WEIGHTS_TO_LOAD, gen_A, opt_gen, settings.LR, settings.device)
@@ -161,15 +169,19 @@ def main():
       exit(2)
 
   dataset_format = "RGB" if settings.IMG_CHAN == 3 else "GRAY"
-  train_dataset = SplitImagePairDataset(root=settings.TRAIN_DIR, transform=settings.transforms, format=dataset_format)
+
+  train_dataset = SplitImagePairDataset(class_A_dir=settings.TRAIN_DIR_A, class_B_dir=settings.TRAIN_DIR_B, transform=settings.transforms, format=dataset_format)
   train_dataloader = DataLoader(train_dataset, settings.BATCH_SIZE, True, num_workers=settings.WORKERS, persistent_workers=True, pin_memory=True)
+
+  test_dataset = SplitImagePairDataset(class_A_dir=settings.VAL_DIR_A, class_B_dir=settings.VAL_DIR_B, transform=settings.test_transform, format=dataset_format)
+  test_dataloader = DataLoader(test_dataset, settings.TESTING_SAMPLES, False, pin_memory=True)
+
   dataset_length = len(train_dataset)
   number_of_batches = dataset_length // settings.BATCH_SIZE
   number_of_epochs = settings.ITERATIONS // number_of_batches
+
   print(f"Found {dataset_length} training images in {number_of_batches} batches")
   print(f"Which corespondes to {number_of_epochs} epochs")
-  test_dataset = SplitImagePairDataset(root=settings.VAL_DIR, transform=settings.test_transform, format=dataset_format)
-  test_dataloader = DataLoader(test_dataset, settings.TESTING_SAMPLES, False, pin_memory=True)
 
   g_scaler = torch.cuda.amp.GradScaler()
   d_scaler = torch.cuda.amp.GradScaler()
@@ -181,11 +193,7 @@ def main():
     with tqdm(total=settings.ITERATIONS, initial=iteration, unit="it") as bar:
       while True:
         for x, y in train_dataloader:
-          d_loss, g_loss = train(x, y, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_loss, gan_loss, d_scaler, g_scaler)
-
-          if d_loss is not None and g_loss is not None:
-            summary_writer.add_scalar("Gen Loss", g_loss, global_step=iteration)
-            summary_writer.add_scalar("Disc Loss", d_loss, global_step=iteration)
+          d_loss, g_loss, d_a_loss, d_b_loss, g_a_loss, g_b_loss, g_identity_loss = train(x, y, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_loss, gan_loss, d_scaler, g_scaler)
 
           if iteration % settings.CHECKPOINT_EVERY == 0 and settings.SAVE_CHECKPOINTS:
             save_model(gen_A, opt_gen, f"models/{settings.MODEL_NAME}/{iteration}_genA.mod")
@@ -194,26 +202,24 @@ def main():
             save_model(disc_B, opt_disc, f"models/{settings.MODEL_NAME}/{iteration}_discB.mod")
 
           if iteration % settings.SAMPLE_EVERY == 0:
-            print(f"\nLoss disc: {d_loss:.4f}, Loss gen: {g_loss:.4f}")
-
             imgA, imgB = next(iter(test_dataloader))
             imgA, imgB = imgA.to(settings.device), imgB.to(settings.device)
             gen_A.eval()
             gen_B.eval()
 
             with torch.no_grad():
-              fake_A = gen_A(imgB)
-              fake_B = gen_B(imgA)
+              fake_BToA = gen_A(imgB)
+              fake_AToB = gen_B(imgA)
 
-              fake_AToB = gen_B(fake_A)
-              fake_BToA = gen_A(fake_B)
+              fake_BToAToB = gen_B(fake_BToA)
+              fake_AToBToA = gen_A(fake_AToB)
 
-              img_AtoB = torchvision.utils.make_grid(fake_B[:settings.TESTING_SAMPLES], normalize=True)
-              img_BtoA = torchvision.utils.make_grid(fake_A[:settings.TESTING_SAMPLES], normalize=True)
-              img_AtoBtoA = torchvision.utils.make_grid(fake_BToA[:settings.TESTING_SAMPLES], normalize=True)
-              img_BtoAtoB = torchvision.utils.make_grid(fake_AToB[:settings.TESTING_SAMPLES], normalize=True)
+              img_AtoB = torchvision.utils.make_grid(fake_AToB[:settings.TESTING_SAMPLES], normalize=True)
+              img_BtoA = torchvision.utils.make_grid(fake_BToA[:settings.TESTING_SAMPLES], normalize=True)
+              img_AtoBtoA = torchvision.utils.make_grid(fake_AToBToA[:settings.TESTING_SAMPLES], normalize=True)
+              img_BtoAtoB = torchvision.utils.make_grid(fake_BToAToB[:settings.TESTING_SAMPLES], normalize=True)
 
-              if iteration == 0:
+              if iteration == 0 or settings.SAVE_ALWAYS_REFERENCE:
                 imgA_grid = torchvision.utils.make_grid(imgA[:settings.TESTING_SAMPLES], normalize=True)
                 imgB_grid = torchvision.utils.make_grid(imgB[:settings.TESTING_SAMPLES], normalize=True)
                 summary_writer.add_image("A", imgA_grid, global_step=iteration)
@@ -229,6 +235,20 @@ def main():
 
           bar.update()
           iteration += 1
+
+          for scheduler in schedulers:
+            scheduler.step()
+
+          bar.set_description(f"Loss disc: {d_loss:.4f}, Loss gen: {g_loss:.4f}, Lr: {opt_gen.param_groups[0]['lr']:.7f}", refresh=False)
+          summary_writer.add_scalar("Gen Loss", g_loss, global_step=iteration)
+          summary_writer.add_scalar("Disc Loss", d_loss, global_step=iteration)
+          summary_writer.add_scalar("Gen A Loss", g_a_loss, global_step=iteration)
+          summary_writer.add_scalar("Disc A Loss", d_a_loss, global_step=iteration)
+          summary_writer.add_scalar("Gen B Loss", g_b_loss, global_step=iteration)
+          summary_writer.add_scalar("Disc B Loss", d_b_loss, global_step=iteration)
+          summary_writer.add_scalar("Gen Identity Loss", g_identity_loss, global_step=iteration)
+          summary_writer.add_scalar("lr", opt_gen.param_groups[0]["lr"], global_step=iteration)
+
           if iteration > settings.ITERATIONS:
             break
 

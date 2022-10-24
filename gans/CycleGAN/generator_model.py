@@ -49,7 +49,9 @@ class Generator(nn.Module):
     self.up_layers = nn.ModuleList(
       [
         ConvBlock(features * 4, features * 2, downsample=False),
+        # ConvBlock(features * 2, features * 2, kernel_size=(3, 3), padding=(1, 1), stride=(1, 1)),
         ConvBlock(features * 2, features, downsample=False),
+        # ConvBlock(features, features, kernel_size=(3, 3), padding=(1, 1), stride=(1, 1)),
 
         nn.Conv2d(features, in_channels, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), padding_mode="reflect"),
         nn.Tanh()

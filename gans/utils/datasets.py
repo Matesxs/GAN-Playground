@@ -45,19 +45,16 @@ class JoinedImagePairDataset(Dataset):
     return input_image, target_image
 
 class SplitImagePairDataset(Dataset):
-  def __init__(self, root: str, class_A_dir: str = "A", class_B_dir: str = "B", transform=None, format="RGB"):
-    assert os.path.exists(root) and os.path.isdir(root)
-
+  def __init__(self, class_A_dir: str, class_B_dir: str, transform=None, format="RGB"):
     self.format = format
-    self.root_A = os.path.join(root, class_A_dir)
-    self.root_B = os.path.join(root, class_B_dir)
-    assert os.path.exists(self.root_A) and os.path.isdir(self.root_A)
-    assert os.path.exists(self.root_B) and os.path.isdir(self.root_B)
+    assert os.path.exists(class_A_dir) and os.path.isdir(class_A_dir)
+    assert os.path.exists(class_B_dir) and os.path.isdir(class_B_dir)
 
     self.transform = transform
+    self.single_transform = not isinstance(self.transform, list) and not isinstance(self.transform, tuple)
 
-    self.class_A_images = walk_path(self.root_A)
-    self.class_B_images = walk_path(self.root_B)
+    self.class_A_images = walk_path(class_A_dir)
+    self.class_B_images = walk_path(class_B_dir)
 
     self.class_A_length = len(self.class_A_images)
     self.class_B_length = len(self.class_B_images)
@@ -74,8 +71,12 @@ class SplitImagePairDataset(Dataset):
     class_B_image = load_image(class_B_image_path, self.format)
 
     if self.transform is not None:
-      augmentations = self.transform(image=class_A_image, image0=class_B_image)
-      class_A_image, class_B_image = augmentations["image"], augmentations["image0"]
+      if self.single_transform:
+        augmentations = self.transform(image=class_A_image, image0=class_B_image)
+        class_A_image, class_B_image = augmentations["image"], augmentations["image0"]
+      else:
+        class_A_image = self.transform[0](image=class_A_image)["image"]
+        class_B_image = self.transform[1](image=class_B_image)["image"]
 
     return class_A_image, class_B_image
 
