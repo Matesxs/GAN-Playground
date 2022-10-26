@@ -211,11 +211,16 @@ def main():
               fake_BToA = gen_A(imgB)
               fake_AToB = gen_B(imgA)
 
+              fake_AToA = gen_A(imgA)
+              fake_BToB = gen_B(imgB)
+
               fake_BToAToB = gen_B(fake_BToA)
               fake_AToBToA = gen_A(fake_AToB)
 
               img_AtoB = torchvision.utils.make_grid(fake_AToB[:settings.TESTING_SAMPLES], normalize=True)
               img_BtoA = torchvision.utils.make_grid(fake_BToA[:settings.TESTING_SAMPLES], normalize=True)
+              img_AtoA = torchvision.utils.make_grid(fake_AToA[:settings.TESTING_SAMPLES], normalize=True)
+              img_BtoB = torchvision.utils.make_grid(fake_BToB[:settings.TESTING_SAMPLES], normalize=True)
               img_AtoBtoA = torchvision.utils.make_grid(fake_AToBToA[:settings.TESTING_SAMPLES], normalize=True)
               img_BtoAtoB = torchvision.utils.make_grid(fake_BToAToB[:settings.TESTING_SAMPLES], normalize=True)
 
@@ -227,6 +232,8 @@ def main():
 
               summary_writer.add_image("A to B", img_AtoB, global_step=iteration)
               summary_writer.add_image("B to A", img_BtoA, global_step=iteration)
+              summary_writer.add_image("A to A", img_AtoA, global_step=iteration)
+              summary_writer.add_image("B to B", img_BtoB, global_step=iteration)
               summary_writer.add_image("A to B to A", img_AtoBtoA, global_step=iteration)
               summary_writer.add_image("B to A to B", img_BtoAtoB, global_step=iteration)
 
