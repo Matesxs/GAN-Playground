@@ -35,7 +35,7 @@ DECAY_LR = True
 DECAY_AFTER_ITERATIONS = 750_000 # Training iterations with full LR
 DECAY_ITERATION = 750_000 # Number of iterations for which will LR decay to zero
 BATCH_SIZE = 1
-LAMBDA_IDENTITY = 0.5
+LAMBDA_IDENTITY = 0.6
 LAMBDA_CYCLE = 10
 ITERATIONS = 1_500_000
 

@@ -139,20 +139,21 @@ In order: Input, Real, Generated
 ![27](media/celeba_progan_fake5.png?raw=true)
 
 ## TODO
-- [x] Implement basic DCGAN
-- [x] Implement basic WGAN
+- [x] Implement DCGAN
+- [x] Implement WGAN
 - [x] Implement WGAN-GP (WGAN with gradient penalty)
-- [x] Implement basic Conditional GAN
+- [x] Implement Conditional GAN
 - [x] Implement Pix2Pix based on GAN
-- [x] Implement basic CycleGAN
+- [x] Implement CycleGAN
 - [ ] Revisit CycleGAN with different dataset
 - [ ] Revisit CycleGAN using model with classic WGAN layers
-- [x] Implement basic ProGAN
+- [x] Implement ProGAN
 - [ ] Revisit ProGAN for better results
 - [ ] Try ProGAN with classic WGAN model layers
-- [x] Implement basic SRGAN
+- [x] Implement SRGAN
 - [ ] Implement enhanced SRGAN (ESRGAN)
-- [ ] Implement basic StyleGAN
+- [ ] Implement StyleGAN
+- [ ] Implement VQGAN
 
 ## Testing setup
 ```
@@ -206,6 +207,15 @@ https://github.com/deepak112/Keras-SRGAN/blob/master/Network.py \
 https://medium.com/@birla.deepak26/single-image-super-resolution-using-gans-keras-aca310f33112 \
 https://github.com/MathiasGruber/SRGAN-Keras \
 https://github.com/idealo/image-super-resolution
+<br/>
+<br/>
+##### VQGAN (Vector Quantized GAN)
+https://arxiv.org/pdf/2012.09841.pdf
+https://github.com/CompVis/taming-transformers
+<br/>
+<br/>
+##### VQ-VAE (Vector QuantisedVariational AutoEncoder)
+https://arxiv.org/pdf/1711.00937.pdf
 <br/>
 <br/>
 ##### SR Resnet
