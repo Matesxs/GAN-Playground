@@ -58,15 +58,19 @@ def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_lo
     G_A_loss = gan_loss(D_A_fake, torch.ones_like(D_A_fake))
     G_B_loss = gan_loss(D_B_fake, torch.ones_like(D_B_fake))
 
+    G_loss = G_A_loss + G_B_loss
+
     # Cycle loss
-    cycle_A = gen_A(fake_B)
-    cycle_B = gen_B(fake_A)
+    cycle_loss = None
+    if settings.LAMBDA_CYCLE > 0:
+      cycle_A = gen_A(fake_B)
+      cycle_B = gen_B(fake_A)
 
-    cycle_A_loss = L1_loss(imageA, cycle_A)
-    cycle_B_loss = L1_loss(imageB, cycle_B)
+      cycle_A_loss = L1_loss(imageA, cycle_A)
+      cycle_B_loss = L1_loss(imageB, cycle_B)
 
-    # Together
-    G_loss = G_A_loss + G_B_loss + cycle_A_loss * settings.LAMBDA_CYCLE + cycle_B_loss * settings.LAMBDA_CYCLE
+      cycle_loss = cycle_A_loss * settings.LAMBDA_CYCLE + cycle_B_loss * settings.LAMBDA_CYCLE
+      G_loss += cycle_loss
 
     identity_loss = None
     if settings.LAMBDA_IDENTITY > 0:
@@ -85,7 +89,7 @@ def train(imageA, imageB, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_lo
   g_scaler.step(opt_gen)
   g_scaler.update()
 
-  return D_loss.item(), G_loss.item(), D_A_loss.item(), D_B_loss.item(), G_A_loss.item(), G_B_loss.item(), (identity_loss.item() if identity_loss is not None else 0)
+  return D_loss.item(), G_loss.item(), D_A_loss.item(), D_B_loss.item(), G_A_loss.item(), G_B_loss.item(), (cycle_loss.item() if cycle_loss is not None else 0), (identity_loss.item() if identity_loss is not None else 0)
 
 
 def main():
@@ -193,7 +197,7 @@ def main():
     with tqdm(total=settings.ITERATIONS, initial=iteration, unit="it") as bar:
       while True:
         for x, y in train_dataloader:
-          d_loss, g_loss, d_a_loss, d_b_loss, g_a_loss, g_b_loss, g_identity_loss = train(x, y, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_loss, gan_loss, d_scaler, g_scaler)
+          d_loss, g_loss, d_a_loss, d_b_loss, g_a_loss, g_b_loss, g_cycle_loss, g_identity_loss = train(x, y, disc_A, disc_B, gen_A, gen_B, opt_disc, opt_gen, L1_loss, gan_loss, d_scaler, g_scaler)
 
           if iteration % settings.CHECKPOINT_EVERY == 0 and settings.SAVE_CHECKPOINTS:
             save_model(gen_A, opt_gen, f"models/{settings.MODEL_NAME}/{iteration}_genA.mod")
@@ -254,6 +258,7 @@ def main():
           summary_writer.add_scalar("Gen B Loss", g_b_loss, global_step=iteration)
           summary_writer.add_scalar("Disc B Loss", d_b_loss, global_step=iteration)
           summary_writer.add_scalar("Gen Identity Loss", g_identity_loss, global_step=iteration)
+          summary_writer.add_scalar("Gen Cycle Loss", g_cycle_loss, global_step=iteration)
           summary_writer.add_scalar("lr", opt_gen.param_groups[0]["lr"], global_step=iteration)
 
           if iteration > settings.ITERATIONS:
