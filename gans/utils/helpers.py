@@ -29,9 +29,15 @@ def switchTrainable(nNet, status):
 
 def initialize_model(model:nn.Module):
   for m in model.modules():
-    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d, nn.InstanceNorm2d)):
+    class_name = m.__class__.__name__
+    if class_name.find("Conv") != -1:
       if m.weight is not None:
         nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif class_name.find("BatchNorm") != -1 or class_name.find("InstanceNorm") != -1:
+      if m.weight is not None:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+      if m.bias is not None:
+        nn.init.constant_(m.bias.data, 0)
 
 def inception_score(img_batches, batch_size, resize=False, splits=1):
   """Computes the inception score of the generated images imgs

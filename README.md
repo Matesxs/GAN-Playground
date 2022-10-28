@@ -138,6 +138,13 @@ In order: Input, Real, Generated
 5. Generated 256x256 \
 ![27](media/celeba_progan_fake5.png?raw=true)
 
+### CycleGAN
+1. Photo to Monet (256x256 color, +-1500 images) - batch size 1, 1.5M iters \
+   1. Input
+   ![28](media/monet_to_photo_cyclegan_input.png?raw=true)
+   2. Converted
+   ![29](media/monet_to_photo_cyclegan_converted.png?raw=true)
+
 ## TODO
 - [x] Implement DCGAN
 - [x] Implement WGAN
@@ -212,6 +219,7 @@ https://github.com/idealo/image-super-resolution
 ##### VQGAN (Vector Quantized GAN)
 https://arxiv.org/pdf/2012.09841.pdf
 https://github.com/CompVis/taming-transformers
+https://github.com/karpathy/minGPT/
 <br/>
 <br/>
 ##### VQ-VAE (Vector QuantisedVariational AutoEncoder)
