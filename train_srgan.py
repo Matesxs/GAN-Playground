@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
 from tqdm import tqdm
+import traceback
 
 import gans.SRGAN.settings as settings
 from gans.SRGAN.model import Discriminator, Generator
@@ -16,57 +17,57 @@ from gans.utils.datasets import SingleInTwoOutDataset
 
 torch.backends.cudnn.benchmark = True
 
-def train(opt_disc, opt_gen, disc, gen, train_dataset_loader, mse, bce, vgg_loss, d_scaler, g_scaler, pretrain):
-  loop = tqdm(train_dataset_loader, leave=True, unit="batch")
+def train(high_res, low_res, opt_disc, opt_gen, disc, gen, bce, mse, vgg_loss, d_scaler, g_scaler, pretrain):
+  low_res = low_res.to(settings.device)
+  high_res = high_res.to(settings.device)
 
-  D_loss, G_loss = None, None
-  for idx, (high_res, low_res) in enumerate(loop):
-    low_res = low_res.to(settings.device)
-    high_res = high_res.to(settings.device)
+  # Train discriminator
+  D_loss = None
+  if not pretrain:
+    with torch.cuda.amp.autocast():
+      fake = gen(low_res)
+      disc_real = disc(high_res)
+      disc_fake = disc(fake.detach())
 
-    if pretrain:
-      with torch.cuda.amp.autocast():
+      disc_loss_real = bce(disc_real, (torch.ones_like(disc_real) - 0.1 * torch.rand_like(disc_real)) if settings.TRUE_LABEL_SMOOTHING else torch.ones_like(disc_real))
+      disc_loss_fake = bce(disc_fake, (torch.zeros_like(disc_fake) + 0.1 * torch.rand_like(disc_fake)) if settings.FAKE_LABEL_SMOOTHING else torch.zeros_like(disc_fake))
+      D_loss = disc_loss_fake + disc_loss_real
+
+      if settings.GP_LAMBDA > 0:
+        gp = gradient_penalty(disc, high_res, fake, device=settings.device)
+        D_loss += settings.GP_LAMBDA * gp
+
+    opt_disc.zero_grad()
+    d_scaler.scale(D_loss).backward()
+    d_scaler.step(opt_disc)
+    d_scaler.update()
+
+    # Train generator
+    with torch.cuda.amp.autocast():
+      if pretrain:
         fake = gen(low_res)
-        G_loss = mse(fake, high_res)
+      disc_fake = disc(fake)
 
-      opt_gen.zero_grad()
-      g_scaler.scale(G_loss).backward()
-      g_scaler.step(opt_gen)
-      g_scaler.update()
-    else:
-      # Train discriminator
-      with torch.cuda.amp.autocast():
-        fake = gen(low_res)
-        disc_real = disc(high_res)
-        disc_fake = disc(fake.detach())
+      adversarial_loss = 1e-3 * bce(disc_fake, torch.ones_like(disc_fake))
+      loss_for_vgg = 0.006 * vgg_loss(fake, high_res)
+      G_loss = loss_for_vgg + adversarial_loss
 
-        disc_loss_real = bce(disc_real, (torch.ones_like(disc_real) - 0.1 * torch.rand_like(disc_real)) if settings.TRUE_LABEL_SMOOTHING else torch.ones_like(disc_real))
-        disc_loss_fake = bce(disc_fake, (torch.zeros_like(disc_fake) + 0.1 * torch.rand_like(disc_fake)) if settings.FAKE_LABEL_SMOOTHING else torch.zeros_like(disc_fake))
-        D_loss = disc_loss_fake + disc_loss_real
+    opt_gen.zero_grad()
+    g_scaler.scale(G_loss).backward()
+    g_scaler.step(opt_gen)
+    g_scaler.update()
+  else:
+    # Pretrain generator
+    with torch.cuda.amp.autocast():
+      fake = gen(low_res)
+      G_loss = mse(fake, high_res)
 
-        if settings.GP_LAMBDA != 0:
-          gp = gradient_penalty(disc, high_res, fake, device=settings.device)
-          D_loss += settings.GP_LAMBDA * gp
+    opt_gen.zero_grad()
+    g_scaler.scale(G_loss).backward()
+    g_scaler.step(opt_gen)
+    g_scaler.update()
 
-      opt_disc.zero_grad()
-      d_scaler.scale(D_loss).backward()
-      d_scaler.step(opt_disc)
-      d_scaler.update()
-
-      # Train generator
-      with torch.cuda.amp.autocast():
-        disc_fake = disc(fake)
-
-        adversarial_loss = 1e-3 * bce(disc_fake, torch.ones_like(disc_fake))
-        loss_for_vgg = 0.006 * vgg_loss(fake, high_res)
-        G_loss = loss_for_vgg + adversarial_loss
-
-      opt_gen.zero_grad()
-      g_scaler.scale(G_loss).backward()
-      g_scaler.step(opt_gen)
-      g_scaler.update()
-
-  return D_loss, G_loss
+  return D_loss.item() if D_loss is not None else 0, G_loss
 
 if __name__ == '__main__':
   disc = Discriminator(settings.IMG_CH, settings.DISC_FEATURES).to(settings.device)
@@ -125,12 +126,12 @@ if __name__ == '__main__':
       print(f"Discriminator model weights are incompatible with found model parameters\n{e}")
       exit(2)
 
-  start_epoch = 0
+  iteration = 0
   if os.path.exists(f"models/{settings.MODEL_NAME}/metadata.pkl") and os.path.isfile(f"models/{settings.MODEL_NAME}/metadata.pkl"):
     metadata = load_metadata(f"models/{settings.MODEL_NAME}/metadata.pkl")
 
-    if "epoch" in metadata.keys():
-      start_epoch = int(metadata["epoch"])
+    if "iteration" in metadata.keys():
+      iteration = int(metadata["iteration"])
 
   g_scaler = torch.cuda.amp.GradScaler()
   d_scaler = torch.cuda.amp.GradScaler()
@@ -138,57 +139,64 @@ if __name__ == '__main__':
   if not os.path.exists(f"models/{settings.MODEL_NAME}"):
     pathlib.Path(f"models/{settings.MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
-  last_epoch = 0
+  total_iterations = settings.ITERATIONS + settings.PRETRAIN_ITERATIONS
+
   try:
-    for epoch in range(start_epoch, settings.EPOCHS + settings.PRETRAIN_EPOCHS):
-      last_epoch = epoch
+    with tqdm(total=total_iterations, initial=iteration, unit="it") as bar:
+      while True:
+        for high_res, low_res in train_dataset_loader:
+          pretrain = iteration < settings.PRETRAIN_ITERATIONS
+          disc_loss, gen_loss = train(high_res, low_res, opt_disc, opt_gen, disc, gen, bce, mse, vgg_loss, d_scaler, g_scaler, pretrain)
 
-      pretrain = epoch < settings.PRETRAIN_EPOCHS
-      disc_loss, gen_loss = train(opt_disc, opt_gen, disc, gen, train_dataset_loader, mse, bce, vgg_loss, d_scaler, g_scaler, pretrain)
+          summary_writer.add_scalar("Gen Loss", gen_loss, global_step=iteration)
+          summary_writer.add_scalar("Disc Loss", disc_loss, global_step=iteration)
+          bar.set_description(f"Loss disc: {disc_loss:.4f}, Loss gen: {gen_loss:.4f}", refresh=False)
 
-      stats = []
-      if gen_loss is not None:
-        stats.append(f"Loss gen: {gen_loss:.4f}")
-        summary_writer.add_scalar("Gen Loss", gen_loss, global_step=epoch)
-      if disc_loss is not None:
-        stats.append(f"Loss disc: {disc_loss:.4f}")
-        summary_writer.add_scalar("Disc Loss", disc_loss, global_step=epoch)
+          if settings.SAVE_CHECKPOINTS and iteration % settings.CHECKPOINT_EVERY == 0:
+            save_model(gen, opt_gen, f"models/{settings.MODEL_NAME}/{iteration}_gen.mod")
+            if not pretrain:
+              save_model(disc, opt_disc, f"models/{settings.MODEL_NAME}/{iteration}_disc.mod")
 
-      print(f"Epoch: {epoch}/{settings.EPOCHS + settings.PRETRAIN_EPOCHS} {', '.join(stats)}")
+          if iteration % settings.SAMPLE_EVERY == 0:
+            true_imgs, input_imgs = next(iter(test_dataset_loader))
+            input_imgs = input_imgs.to(settings.device)
 
-      if settings.SAVE_CHECKPOINTS and epoch % settings.CHECKPOINT_EVERY == 0:
-        save_model(gen, opt_gen, f"models/{settings.MODEL_NAME}/gen_{epoch}.mod")
+            gen.eval()
+
+            with torch.no_grad():
+              upscaled_images = gen(input_imgs)
+
+              input_images_grid = torchvision.utils.make_grid(input_imgs[:settings.TESTING_SAMPLES], normalize=True)
+              upscaled_images_grid = torchvision.utils.make_grid(upscaled_images[:settings.TESTING_SAMPLES], normalize=True)
+
+              if iteration == 0:
+                original_images_grid = torchvision.utils.make_grid(true_imgs[:settings.TESTING_SAMPLES], normalize=True)
+                summary_writer.add_image("Original", original_images_grid, global_step=iteration)
+              summary_writer.add_image("Input", input_images_grid, global_step=iteration)
+              summary_writer.add_image("Upscaled", upscaled_images_grid, global_step=iteration)
+
+            gen.train()
+
+          bar.update()
+          iteration += 1
+
+          if iteration > total_iterations:
+            break
+
+        if iteration > total_iterations:
+          break
+
+        save_model(gen, opt_gen, f"models/{settings.MODEL_NAME}/gen.mod")
         if not pretrain:
-          save_model(disc, opt_disc, f"models/{settings.MODEL_NAME}/disc_{epoch}.mod")
-
-      save_model(gen, opt_gen, f"models/{settings.MODEL_NAME}/gen.mod")
-      if not pretrain:
-        save_model(disc, opt_disc, f"models/{settings.MODEL_NAME}/disc.mod")
-      save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
-
-      if epoch % settings.SAMPLE_EVERY == 0:
-        true_imgs, input_imgs = next(iter(test_dataset_loader))
-        input_imgs = input_imgs.to(settings.device)
-
-        gen.eval()
-
-        with torch.no_grad():
-          upscaled_images = gen(input_imgs)
-
-          input_images_grid = torchvision.utils.make_grid(input_imgs[:settings.TESTING_SAMPLES], normalize=True)
-          upscaled_images_grid = torchvision.utils.make_grid(upscaled_images[:settings.TESTING_SAMPLES], normalize=True)
-          original_images_grid = torchvision.utils.make_grid(true_imgs[:settings.TESTING_SAMPLES], normalize=True)
-
-          summary_writer.add_image("Original", original_images_grid, global_step=epoch)
-          summary_writer.add_image("Input", input_images_grid, global_step=epoch)
-          summary_writer.add_image("Upscaled", upscaled_images_grid, global_step=epoch)
-
-        gen.train()
-
+          save_model(disc, opt_disc, f"models/{settings.MODEL_NAME}/disc.mod")
+        save_metadata({"iteration": iteration}, f"models/{settings.MODEL_NAME}/metadata.pkl")
   except KeyboardInterrupt:
     print("Exiting")
-    pass
+  except Exception as e:
+    print(traceback.format_exc())
+    save_metadata({"iteration": iteration}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+    exit(-1)
 
   save_model(gen, opt_gen, f"models/{settings.MODEL_NAME}/gen.mod")
   save_model(disc, opt_disc, f"models/{settings.MODEL_NAME}/disc.mod")
-  save_metadata({"epoch": last_epoch}, f"models/{settings.MODEL_NAME}/metadata.pkl")
+  save_metadata({"iteration": iteration}, f"models/{settings.MODEL_NAME}/metadata.pkl")
