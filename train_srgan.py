@@ -14,6 +14,7 @@ from gans.SRGAN.model import Discriminator, Generator
 from gans.SRGAN.utils import VGGLoss, gradient_penalty
 from gans.utils.training_saver import save_model, load_model, load_metadata, save_metadata
 from gans.utils.datasets import SingleInTwoOutDataset
+from gans.utils.learning import get_linear_decay_scheduler
 
 torch.backends.cudnn.benchmark = True
 
@@ -44,8 +45,6 @@ def train(high_res, low_res, opt_disc, opt_gen, disc, gen, bce, mse, vgg_loss, d
 
     # Train generator
     with torch.cuda.amp.autocast():
-      if pretrain:
-        fake = gen(low_res)
       disc_fake = disc(fake)
 
       adversarial_loss = 1e-3 * bce(disc_fake, torch.ones_like(disc_fake))
@@ -133,6 +132,11 @@ if __name__ == '__main__':
     if "iteration" in metadata.keys():
       iteration = int(metadata["iteration"])
 
+  schedulers = []
+  if settings.DECAY_LR:
+    schedulers.append(get_linear_decay_scheduler(opt_gen, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
+    schedulers.append(get_linear_decay_scheduler(opt_disc, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
+
   g_scaler = torch.cuda.amp.GradScaler()
   d_scaler = torch.cuda.amp.GradScaler()
 
@@ -140,6 +144,7 @@ if __name__ == '__main__':
     pathlib.Path(f"models/{settings.MODEL_NAME}").mkdir(parents=True, exist_ok=True)
 
   total_iterations = settings.ITERATIONS + settings.PRETRAIN_ITERATIONS
+  pretrain = iteration < settings.PRETRAIN_ITERATIONS
 
   try:
     with tqdm(total=total_iterations, initial=iteration, unit="it") as bar:
@@ -150,7 +155,7 @@ if __name__ == '__main__':
 
           summary_writer.add_scalar("Gen Loss", gen_loss, global_step=iteration)
           summary_writer.add_scalar("Disc Loss", disc_loss, global_step=iteration)
-          bar.set_description(f"Loss disc: {disc_loss:.4f}, Loss gen: {gen_loss:.4f}", refresh=False)
+          bar.set_description(f"Loss disc: {disc_loss:.4f}, Loss gen: {gen_loss:.4f}, Lr: {opt_gen.param_groups[0]['lr']:.7f}", refresh=False)
 
           if settings.SAVE_CHECKPOINTS and iteration % settings.CHECKPOINT_EVERY == 0:
             save_model(gen, opt_gen, f"models/{settings.MODEL_NAME}/{iteration}_gen.mod")
@@ -165,20 +170,24 @@ if __name__ == '__main__':
 
             with torch.no_grad():
               upscaled_images = gen(input_imgs)
-
-              input_images_grid = torchvision.utils.make_grid(input_imgs[:settings.TESTING_SAMPLES], normalize=True)
               upscaled_images_grid = torchvision.utils.make_grid(upscaled_images[:settings.TESTING_SAMPLES], normalize=True)
+
+              summary_writer.add_image("Upscaled", upscaled_images_grid, global_step=iteration)
 
               if iteration == 0:
                 original_images_grid = torchvision.utils.make_grid(true_imgs[:settings.TESTING_SAMPLES], normalize=True)
+                input_images_grid = torchvision.utils.make_grid(input_imgs[:settings.TESTING_SAMPLES], normalize=True)
+
                 summary_writer.add_image("Original", original_images_grid, global_step=iteration)
-              summary_writer.add_image("Input", input_images_grid, global_step=iteration)
-              summary_writer.add_image("Upscaled", upscaled_images_grid, global_step=iteration)
+                summary_writer.add_image("Input", input_images_grid, global_step=iteration)
 
             gen.train()
 
           bar.update()
           iteration += 1
+
+          for scheduler in schedulers:
+            scheduler.step()
 
           if iteration > total_iterations:
             break
@@ -198,5 +207,6 @@ if __name__ == '__main__':
     exit(-1)
 
   save_model(gen, opt_gen, f"models/{settings.MODEL_NAME}/gen.mod")
-  save_model(disc, opt_disc, f"models/{settings.MODEL_NAME}/disc.mod")
+  if not pretrain:
+    save_model(disc, opt_disc, f"models/{settings.MODEL_NAME}/disc.mod")
   save_metadata({"iteration": iteration}, f"models/{settings.MODEL_NAME}/metadata.pkl")
