@@ -22,7 +22,7 @@ I am using this repo to play with these types of networks to get better understa
 
 Previous version of this reposritory was moved to branch: old \
 Disclaimer: This repository is more like proof of concept than download and run! \
-Some scripts might not work because I refactoring so fast and forgot to test it.
+Some scripts might not work because I'm refactoring so fast and forgot to test it.
 
 ## Content
 ```
