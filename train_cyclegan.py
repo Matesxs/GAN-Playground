@@ -13,7 +13,7 @@ from gans.utils.training_saver import load_model, save_model, save_metadata, loa
 from gans.utils.datasets import SplitImagePairDataset
 from gans.CycleGAN.generator_model import Generator
 from gans.CycleGAN.discriminator_model import Discriminator
-from gans.utils.learning import get_linear_decay_scheduler
+from gans.utils.learning import get_linear_lr_decay_scheduler
 
 torch.backends.cudnn.benchmark = True
 
@@ -141,8 +141,8 @@ def main():
 
   schedulers = []
   if settings.DECAY_LR:
-    schedulers.append(get_linear_decay_scheduler(opt_gen, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
-    schedulers.append(get_linear_decay_scheduler(opt_disc, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
+    schedulers.append(get_linear_lr_decay_scheduler(opt_gen, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
+    schedulers.append(get_linear_lr_decay_scheduler(opt_disc, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
 
   if settings.GEN_A_MODEL_WEIGHTS_TO_LOAD is not None:
     try:

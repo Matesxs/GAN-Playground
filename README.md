@@ -37,8 +37,8 @@ ProGAN - GAN for generating new images from latent vector, using progressive gro
 ## Project Folder Structure
 ```
 - gans (scripts for each GAN except training scripts)
-- datasets (place for all data that you will want feed to network)
 - media (folder with media files of repo)
+- training scripts
 ```
 
 ## Setup

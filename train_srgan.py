@@ -14,7 +14,7 @@ from gans.SRGAN.model import Discriminator, Generator
 from gans.SRGAN.utils import VGGLoss, gradient_penalty
 from gans.utils.training_saver import save_model, load_model, load_metadata, save_metadata
 from gans.utils.datasets import SingleInTwoOutDataset
-from gans.utils.learning import get_linear_decay_scheduler
+from gans.utils.learning import get_linear_lr_decay_scheduler
 
 torch.backends.cudnn.benchmark = True
 
@@ -134,8 +134,8 @@ if __name__ == '__main__':
 
   schedulers = []
   if settings.DECAY_LR:
-    schedulers.append(get_linear_decay_scheduler(opt_gen, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
-    schedulers.append(get_linear_decay_scheduler(opt_disc, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
+    schedulers.append(get_linear_lr_decay_scheduler(opt_gen, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
+    schedulers.append(get_linear_lr_decay_scheduler(opt_disc, settings.DECAY_AFTER_ITERATIONS, settings.DECAY_ITERATION, iteration + 1))
 
   g_scaler = torch.cuda.amp.GradScaler()
   d_scaler = torch.cuda.amp.GradScaler()

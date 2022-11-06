@@ -31,12 +31,12 @@ def initialize_model(model:nn.Module):
   for m in model.modules():
     class_name = m.__class__.__name__
     if class_name.find("Conv") != -1:
-      if m.weight is not None:
+      if hasattr(m, "weight") and m.weight is not None:
         nn.init.normal_(m.weight.data, 0.0, 0.02)
     elif class_name.find("BatchNorm") != -1 or class_name.find("InstanceNorm") != -1:
-      if m.weight is not None:
+      if hasattr(m, "weight") and m.weight is not None:
         nn.init.normal_(m.weight.data, 1.0, 0.02)
-      if m.bias is not None:
+      if hasattr(m, "bias") and m.bias is not None:
         nn.init.constant_(m.bias.data, 0)
 
 def inception_score(img_batches, batch_size, resize=False, splits=1):
